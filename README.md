@@ -1,22 +1,20 @@
-# Tichor Connect v3 — Live messaging starter
+# Tichor Connect v4 — encrypted messaging prototype
 
-## What works
-- Existing local dashboard, contacts, communication records, follow-ups, exports.
-- **New Live Chat** page: Supabase email/password sign-up and sign-in, finding another confirmed user by email, sending/reading messages, and optional live updates (Realtime publication required). Manual refresh also works.
-- App shell PWA installation through GitHub Pages.
+## Setup
+1. Back up existing records before replacing the previous app.
+2. Upload these files to the root of your `srotic/Tichor` GitHub repository. Keep `index.html`, `chat.html`, `manifest.webmanifest`, `sw.js` and both icons together.
+3. In your Supabase Tichor project, open SQL Editor and run `supabase-setup.sql` after reviewing it. If already on v3, this script retains existing rows and updates the message length constraint.
+4. Visit `https://srotic.github.io/Tichor/chat.html`, enter your Supabase Project URL and **publishable** API key (never a secret/service-role key), and sign in.
+5. Both participants must register and verify their email. Open a conversation using the recipient's registered email.
+6. Agree on a unique, long conversation passphrase via a **separate trusted channel**. Both participants type the same passphrase into their own Tichor app. Send a test message and verify decryption on the second device.
 
-## Set up
-1. Create a Supabase project at https://supabase.com. In SQL Editor run `supabase-setup.sql`.
-2. In Authentication > URL Configuration, set Site URL to `https://srotic.github.io/Tichor/` and add `https://srotic.github.io/Tichor/**` as redirect URL. Enable email/password auth. Confirm email as prompted.
-3. In Database > Publications, enable `chat_messages` for `supabase_realtime` if you want push updates. Manual refresh works without it.
-4. Upload all web files to repository root `srotic/Tichor` (SQL and README may also be uploaded; SQL has no secrets). In GitHub Pages choose main/root.
-5. Open Tichor > Live Chat, enter Supabase Project URL and **publishable/anon** key from project API settings. Never use a service_role/secret key in browser.
-6. Create two separate user accounts (different emails), confirm them, sign in on separate browsers/devices, then message each other by registered email.
+## Encryption and important limitations
+- New chat messages are encrypted in the browser using Web Crypto AES-256-GCM with a random per-message IV, and PBKDF2-SHA256 (310,000 iterations) with a random per-message salt to derive keys from a shared passphrase. Only ciphertext is stored in `chat_messages.body`.
+- Passphrases are not stored or uploaded by the app. They must be reentered after reload; forgetting them loses access to encrypted messages. Choose a strong random passphrase, not a short password.
+- The server still sees metadata: participant account IDs, timestamps, message count, and approximate message lengths. Messages sent in v3 remain **plaintext in the database**; v4 does not retroactively encrypt them. v4 hides legacy plaintext in the encrypted chat display.
+- **Not production-grade E2EE**: no cryptographic identity verification, automatic key exchange, forward secrecy, device/key recovery, or independent security audit. The hosting site and third-party script delivery are trust dependencies. Compromised devices, malicious site updates, or weak/shared passphrases can expose content. Supabase administrators can read legacy plaintext messages.
+- The previous version's local records remain subject to its own local storage protections. This update encrypts only new messages sent via `chat.html`, not contacts, follow-ups, call logs, exports, or emails.
+- GitHub Pages and Supabase free plans have limits; do not use this prototype for sensitive communications.
 
-## Security and limitations
-- Prototype: messages are **not end-to-end encrypted**; Supabase database administrators can access them. Do not use for confidential communications.
-- Email lookup can reveal whether an address is registered; restrict this for public launch (invite codes, rate limits, abuse controls).
-- No phone/video calling, SMS delivery, email inbox integration, attachments, or cloud sync of local records.
-- The chat page loads the Supabase JS client from an external CDN and needs network access. Offline chat is not supported.
-- Never put service-role keys or user credentials in GitHub. Back up local v2 data before updating.
-- Test sign-up, policies, message delivery, and mobile install before real use.
+## Test
+Use two different registered accounts, two devices/browsers, and the same long shared passphrase. Verify the other person can decrypt a new message, and that entering a wrong passphrase displays a lock warning. Inspect a new `chat_messages.body` row in Supabase: it should begin `e2ee1.` and contain no readable message text.

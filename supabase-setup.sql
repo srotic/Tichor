@@ -3,7 +3,7 @@ create table if not exists public.chat_messages (
  id uuid primary key default gen_random_uuid(),
  sender_id uuid not null references auth.users(id) on delete cascade,
  recipient_id uuid not null references auth.users(id) on delete cascade,
- body text not null check (char_length(body) between 1 and 5000),
+ body text not null check (char_length(body) between 1 and 16000),
  created_at timestamptz not null default now(),
  constraint no_self_messages check (sender_id <> recipient_id)
 );
@@ -26,3 +26,7 @@ grant execute on function public.find_chat_user(text) to authenticated;
 -- Enable Realtime for chat_messages using Supabase Dashboard > Database > Publications,
 -- or execute the following once (skip if already a member):
 -- alter publication supabase_realtime add table public.chat_messages;
+
+-- For projects previously initialized with v3, expand message size for ciphertext:
+alter table public.chat_messages drop constraint if exists chat_messages_body_check;
+alter table public.chat_messages add constraint chat_messages_body_check check (char_length(body) between 1 and 16000);
