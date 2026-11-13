@@ -1,18 +1,22 @@
-# Tichor — installable communication records app
+# Tichor Connect v3 — Live messaging starter
 
-## Publish with GitHub Pages
+## What works
+- Existing local dashboard, contacts, communication records, follow-ups, exports.
+- **New Live Chat** page: Supabase email/password sign-up and sign-in, finding another confirmed user by email, sending/reading messages, and optional live updates (Realtime publication required). Manual refresh also works.
+- App shell PWA installation through GitHub Pages.
 
-1. Create a **public** repository named `Tichor` on GitHub.
-2. Upload **the files inside this folder**, not the ZIP or a nested folder. `index.html` must be in the repository root.
-3. Go to **Settings → Pages → Build and deployment**, choose **Deploy from a branch**, branch **main**, folder **/(root)**, then Save.
-4. Your app will be at `https://YOUR-USERNAME.github.io/Tichor/`. Wait a few minutes for publication.
-5. Android: open the URL in Chrome, menu → Install app / Add to Home screen. iPhone: open in Safari, Share → Add to Home Screen.
+## Set up
+1. Create a Supabase project at https://supabase.com. In SQL Editor run `supabase-setup.sql`.
+2. In Authentication > URL Configuration, set Site URL to `https://srotic.github.io/Tichor/` and add `https://srotic.github.io/Tichor/**` as redirect URL. Enable email/password auth. Confirm email as prompted.
+3. In Database > Publications, enable `chat_messages` for `supabase_realtime` if you want push updates. Manual refresh works without it.
+4. Upload all web files to repository root `srotic/Tichor` (SQL and README may also be uploaded; SQL has no secrets). In GitHub Pages choose main/root.
+5. Open Tichor > Live Chat, enter Supabase Project URL and **publishable/anon** key from project API settings. Never use a service_role/secret key in browser.
+6. Create two separate user accounts (different emails), confirm them, sign in on separate browsers/devices, then message each other by registered email.
 
-## Important
-
-- The app is a PWA, not an APK or IPA. HTTPS hosting is required for installation and offline caching.
-- Records are stored in local browser storage, **not GitHub**. There is no login, encryption at rest, or automatic synchronization between devices.
-- Back up frequently using **Export & Backup**. Browser data deletion can permanently erase records.
-- Do not commit exported records or other private information to the public GitHub repository.
-- Existing users on the same site/origin retain the original browser storage key for compatibility.
-- If replacing an existing deployment, old home-screen icons may take time to refresh; reinstall if necessary.
+## Security and limitations
+- Prototype: messages are **not end-to-end encrypted**; Supabase database administrators can access them. Do not use for confidential communications.
+- Email lookup can reveal whether an address is registered; restrict this for public launch (invite codes, rate limits, abuse controls).
+- No phone/video calling, SMS delivery, email inbox integration, attachments, or cloud sync of local records.
+- The chat page loads the Supabase JS client from an external CDN and needs network access. Offline chat is not supported.
+- Never put service-role keys or user credentials in GitHub. Back up local v2 data before updating.
+- Test sign-up, policies, message delivery, and mobile install before real use.
