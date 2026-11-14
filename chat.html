@@ -115,9 +115,24 @@ async function connect(){try{
  const url=SUPABASE_URL.trim(),key=SUPABASE_PUBLISHABLE_KEY.trim();
  if(!/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/i.test(url))throw Error('Tichor configuration has an invalid project URL');
  if(!key.startsWith('sb_publishable_')&&!key.startsWith('eyJ'))throw Error('Tichor configuration needs a valid publishable key');
- supa=createClient(url,key,{auth:{persistSession:true,autoRefreshToken:true}});
- show('setup',false);show('auth',true);
- const {data,error}=await supa.auth.getUser();if(!error&&data.user)await loggedIn(data.user);
+ supa=createClient(url,key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:window.localStorage,storageKey:'tichor-auth-session'}});
+ show('setup',false);
+ // Restore the stored refreshable session before displaying the sign-in screen.
+ const {data:restored,error:sessionError}=await supa.auth.getSession();
+ if(restored?.session?.user){
+   await loggedIn(restored.session.user);
+ }else{
+   show('auth',true);
+   if(sessionError)status('authStatus','Please sign in again: '+sessionError.message);
+ }
+ // Keep the UI in sync when Supabase refreshes or invalidates the session.
+ supa.auth.onAuthStateChange((event,session)=>{
+   if(event==='SIGNED_OUT'){
+     user=null;peer=null;stopMessageUpdates();show('chat',false);show('auth',true);
+   }else if(event==='SIGNED_IN'&&session?.user&&!user){
+     setTimeout(()=>{if(!user)loggedIn(session.user).catch(e=>status('authStatus',e.message))},0);
+   }
+ });
 }catch(e){show('setup',true);status('setupStatus','Unable to initialize Tichor: '+e.message)}}
 for(const mode of ['signin','signup'])$(mode).onclick=async()=>{try{const email=$('email').value.trim(),password=$('password').value;const {data,error}=mode==='signin'?await supa.auth.signInWithPassword({email,password}):await supa.auth.signUp({email,password});if(error)throw error;if(data.user&&data.session)await loggedIn(data.user);else status('authStatus','Account created. Check your email for a confirmation link, then sign in.')}catch(e){status('authStatus',e.message)}};
 // Phone login is Supabase Auth SMS OTP, not a simulated code or an unverified profile number.
