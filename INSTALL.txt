@@ -1,0 +1,1 @@
+Upload manifest.webmanifest, icon-192.png, icon-512.png to repository root. Do not delete chat.html, sw.js or other files. After GitHub Pages deploys, install from Safari Share > Add to Home Screen or Chrome Install app. Existing Tichor service worker must remain deployed.
