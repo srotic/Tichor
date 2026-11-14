@@ -12,6 +12,7 @@
  const profileNodes=[profileStart,profileStart?.nextElementSibling,el('myUsername')?.parentElement,el('phoneDiscoverable')?.closest('label'),el('saveProfile')?.parentElement,el('profileStatus')];
  details('👤 My profile',profileNodes);
  const notification=el('notificationSettings');details('🔔 Notifications',[notification]);
+ const savedContacts=el('savedContacts');if(savedContacts)side.append(savedContacts);
  const search=details('🔎 Find a contact',[searchLabel,el('recipient'),el('openConversation')]);search.open=true;
  const passNodes=[passLabel,el('secret')];const pass=details('🔐 Unlock older encrypted messages (optional)',passNodes);pass.open=false;
  const call=chat.querySelector('.callbar');const top=document.createElement('div');top.className='tichor-top';
@@ -36,7 +37,7 @@ async function encryptMessage(message,pass){const salt=crypto.getRandomValues(ne
 async function decryptMessage(payload,pass){if(!payload.startsWith('e2ee1.'))return '[Legacy unencrypted message — hidden in encrypted chat]';const parts=payload.split('.');if(parts.length!==4)throw Error('Malformed encrypted message');const key=await derive(pass,unb64(parts[1]));return dec.decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(parts[2])},key,unb64(parts[3])))}
 function passphrase(){const v=$('secret').value;if(v.length<16)throw Error('Enter the shared passphrase (at least 16 characters)');return v}
 const $=id=>document.getElementById(id);let supa=null,user=null,peer=null,subscription=null,refreshTimer=null,refreshBusy=false,deliveryBusy=false;
-function status(id,msg){$(id).textContent=msg}function show(id,on){$(id).classList.toggle('hide',!on)}
+function status(id,msg){const node=$(id);if(node)node.textContent=msg;else console.warn('Tichor status:',id,msg)}function show(id,on){$(id).classList.toggle('hide',!on)}
 async function connect(){try{
  const url=SUPABASE_URL.trim(),key=SUPABASE_PUBLISHABLE_KEY.trim();
  if(!/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/i.test(url))throw Error('Tichor configuration has an invalid project URL');
@@ -69,7 +70,7 @@ function startMessageUpdates(){stopMessageUpdates();refreshTimer=setInterval(()=
 function stopMessageUpdates(){if(refreshTimer)clearInterval(refreshTimer);refreshTimer=null;document.removeEventListener('visibilitychange',onVisibility)}
 function onVisibility(){if(document.visibilityState==='visible'){acknowledgeDelivery();loadContacts();load()}}
 async function saveContact(id,name){if(!user||!id)return;const {error}=await supa.from('tichor_contacts').upsert({owner_id:user.id,contact_id:id,label:(name||'Tichor contact').slice(0,120)},{onConflict:'owner_id,contact_id'});if(error)status('contactsStatus',error.message);else await loadContacts()}
-async function loadContacts(){if(!user)return;const {data,error}=await supa.from('tichor_contacts').select('contact_id,label,created_at').eq('owner_id',user.id).order('created_at',{ascending:false}).limit(100);if(error){status('contactsStatus',error.message);return}const box=$('contactsList');box.replaceChildren();if(!data?.length){box.textContent='No saved contacts yet. Find someone above and open a conversation.';return}for(const c of data){const b=document.createElement('button');b.type='button';b.className='contact-entry';b.textContent=c.label;b.onclick=async()=>{peer=c.contact_id;$('recipient').value=c.label;status('chatStatus','Conversation opened with '+c.label);await load();if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>load()).subscribe()};box.append(b)}}
+async function loadContacts(){if(!user)return;const {data,error}=await supa.from('tichor_contacts').select('contact_id,label,created_at').eq('owner_id',user.id).order('created_at',{ascending:false}).limit(100);if(error){status('contactsStatus',error.message);return}const box=$('contactsList');if(!box)return;box.replaceChildren();if(!data?.length){box.textContent='No saved contacts yet. Find someone above and open a conversation.';return}for(const c of data){const b=document.createElement('button');b.type='button';b.className='contact-entry';b.textContent=c.label;b.onclick=async()=>{peer=c.contact_id;$('recipient').value=c.label;status('chatStatus','Conversation opened with '+c.label);await load();if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>load()).subscribe()};box.append(b)}}
 const saveContactButton = $('saveContact');
 
 if (saveContactButton) {
