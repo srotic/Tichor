@@ -135,11 +135,17 @@ async function refreshFolder(){if(!user||folderBusy)return;folderBusy=true;try{
   for(const c of data)addFolderRow(box,c.contact_id,c.label,'Tap to open conversation','');return;
  }
  const field=activeFolder==='inbox'?'recipient_id':'sender_id';
- const {data,error}=await supa.from('chat_messages').select('sender_id,recipient_id,body,created_at,read_at').eq(field,user.id).order('created_at',{ascending:false}).limit(200);
+ const {data,error}=await supa.from('chat_messages').select('id,sender_id,recipient_id,body,created_at,read_at').eq(field,user.id).order('created_at',{ascending:false}).limit(200);
  if(error)throw error;
  const {data:contacts}=await supa.from('tichor_contacts').select('contact_id,label').eq('owner_id',user.id).limit(100);
+ const messageIds=(data||[]).map(m=>m.id).filter(Boolean);
+ const {data:hiddenRows,error:hiddenError}=messageIds.length
+   ?await supa.from('tichor_hidden_messages').select('message_id').eq('user_id',user.id).in('message_id',messageIds)
+   :{data:[],error:null};
+ if(hiddenError)throw hiddenError;
+ const hiddenSet=new Set((hiddenRows||[]).map(x=>x.message_id));
  const labels=new Map((contacts||[]).map(c=>[c.contact_id,c.label]));const latest=new Map();let unread=0;
- for(const m of data||[]){if(activeFolder==='inbox'&&!m.read_at)unread++;const id=activeFolder==='inbox'?m.sender_id:m.recipient_id;if(!latest.has(id))latest.set(id,m)}
+ for(const m of data||[]){if(hiddenSet.has(m.id))continue;if(activeFolder==='inbox'&&!m.read_at)unread++;const id=activeFolder==='inbox'?m.sender_id:m.recipient_id;if(!latest.has(id))latest.set(id,m)}
  $('inboxCount').textContent=activeFolder==='inbox'&&unread?'('+unread+' unread)':'';
  box.replaceChildren();if(!latest.size){box.innerHTML='<div class="folder-empty">'+(activeFolder==='inbox'?'No received messages yet.':'No sent messages yet.')+'</div>';return}
  for(const [id,m] of latest){let preview=m.body||'';if(preview.startsWith('e2ee1.'))preview='🔒 Older encrypted message';addFolderRow(box,id,labels.get(id)||'Tichor user · '+id.slice(0,8),preview,folderTime(m.created_at),activeFolder==='inbox'&&!m.read_at)}
@@ -191,8 +197,13 @@ async function load(){
  }catch(e){status('chatStatus','Messages: '+e.message)}finally{refreshBusy=false}
 }
 async function deleteTichorMessage(message,attachment,mine){
- const forEveryone=mine&&confirm('Delete for everyone? Choose OK to remove this message for both people, or Cancel for more options.');
- if(!forEveryone&&!confirm('Delete this message for me only?'))return;
+ const action=mine?prompt('Delete message: type EVERYONE to delete for both people, or ME to hide it only for you.','ME'):'ME';
+ if(action===null)return;
+ const normalized=action.trim().toUpperCase();
+ if(normalized!=='ME'&&normalized!=='EVERYONE')return status('chatStatus','Delete cancelled: choose ME or EVERYONE.');
+ if(normalized==='EVERYONE'&&!mine)return status('chatStatus','Only the sender can delete for everyone.');
+ const forEveryone=normalized==='EVERYONE';
+ if(!confirm(forEveryone?'Permanently delete this message for everyone?':'Hide this message from your account only?'))return;
  try{
   if(forEveryone){
    if(attachment){const {error:e}=await supa.storage.from('tichor-attachments').remove([attachment.storage_path]);if(e)throw e}
@@ -234,7 +245,7 @@ $('sendForm').onsubmit=async e=>{e.preventDefault();if(!peer)return status('chat
   const path=user.id+'/'+msg.id+'/'+crypto.randomUUID()+'.'+ext;
   $('tichorAttachmentStatus').textContent='Uploading '+file.name+'…';
   const {error:uploadError}=await supa.storage.from('tichor-attachments').upload(path,file,{contentType:file.type,upsert:false});if(uploadError)throw uploadError;
-  const {error:metadataError}=await supa.from('tichor_attachments').insert({message_id:msg.id,sender_id:user.id,recipient_id:peer,storage_path:path,file_name:file.name.slice(0,200),mime_type:file.type,byte_size:file.size});if(metadataError){await supa.storage.from('tichor-attachments').remove([path]);throw metadataError}
+  const {error:metadataError}=await supa.from('tichor_attachments').insert({message_id:msg.id,sender_id:user.id,recipient_id:peer,storage_path:path,file_name:file.name.slice(0,200),mime_type:file.type,byte_size:file.size});if(metadataError){await supa.storage.from('tichor-attachments').remove([path]);await supa.from('chat_messages').delete().eq('id',msg.id).eq('sender_id',user.id);throw metadataError}
  }
  $('body').value='';$('tichorFile').value='';$('tichorAttachmentStatus').textContent='';
  await load();await loadContacts();await refreshFolder();
