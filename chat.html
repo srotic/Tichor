@@ -134,7 +134,7 @@ async function connect(){try{
    }
  });
 }catch(e){show('setup',true);status('setupStatus','Unable to initialize Tichor: '+e.message)}}
-for(const mode of ['signin','signup'])$(mode).onclick=async()=>{try{const email=$('email').value.trim(),password=$('password').value;const {data,error}=mode==='signin'?await supa.auth.signInWithPassword({email,password}):await supa.auth.signUp({email,password});if(error)throw error;if(data.user&&data.session)await loggedIn(data.user);else status('authStatus','Account created. Check your email for a confirmation link, then sign in.')}catch(e){status('authStatus',e.message)}};
+for(const mode of ['signin','signup'])$(mode).onclick=async()=>{try{const email=$('email').value.trim(),password=$('password').value;const {data,error}=mode==='signin'?await supa.auth.signInWithPassword({email,password}):await supa.auth.signUp({email,password,options:{emailRedirectTo:new URL('./chat.html',window.location.href).href}});if(error)throw error;if(data.user&&data.session)await loggedIn(data.user);else status('authStatus','Account created. Check your email for a confirmation link, then sign in.')}catch(e){status('authStatus',e.message)}};
 // Phone login is Supabase Auth SMS OTP, not a simulated code or an unverified profile number.
 let pendingPhone=null,pendingLinkPhone=null;
 const validPhone=v=>/^\+[1-9]\d{6,14}$/.test(v);
