@@ -49,7 +49,7 @@ jobs:
               p.write_text(code)
               subprocess.run(['node','--check',str(p)],check=True)
           for required in ['id="tichorFile"','tichor_hidden_messages','tichor_attachments',
-                           'Delete for everyone','tichor-attachments','deleteTichorMessage']:
+                           'EVERYONE to delete for both people','tichor-attachments','deleteTichorMessage']:
               assert required in html, f'Missing feature: {required}'
           sql=Path('.github/migrations/002_secure_attachments_and_deletion.sql').read_text()
           for required in ['enable row level security','tichor_sender_delete_message',
