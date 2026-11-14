@@ -1,0 +1,16 @@
+/* Genome brand theme — presentation only; no messaging/auth changes. */
+:root{--genome-navy:#07172f;--genome-cyan:#1be1d5;--genome-blue:#278ef5}
+body{background-color:#07172f!important;background-image:linear-gradient(135deg,rgba(3,13,32,.93),rgba(7,25,51,.89)),url('./genome-icon.svg')!important;background-position:center center,center center!important;background-size:cover,min(84vw,780px)!important;background-repeat:no-repeat!important;background-attachment:fixed!important}
+header{background:linear-gradient(115deg,#06172e,#0b3562 60%,#09283c)!important;border-bottom:3px solid #18d7c5!important;color:#e8ffff!important}
+header:before{background-image:url('./genome-icon.svg')!important}
+header strong::before{content:''!important;background:url('./genome-icon.svg') center/contain no-repeat!important;vertical-align:middle}
+a{color:#0a8b9b}
+.card,.t12-section,.t12-profile,.tichor-mailbox,.tichor-side{background:rgba(255,255,255,.96)!important}
+.t12-nav button{border-color:#b9e6ed!important}
+.t12-nav button.active{background:linear-gradient(135deg,#06536a,#09294f)!important;border-bottom-color:#16ddc6!important}
+button:not(.danger):not(.red):not(.gold){background-color:#0b5b74}
+button.gold{background:#31c9c4!important;color:#06283d!important}
+.tichor-conversation #messages{background-color:#eaf5f6!important;background-image:linear-gradient(rgba(237,249,249,.90),rgba(237,249,249,.90)),url('./genome-icon.svg')!important;background-position:center!important;background-size:cover, min(80%,390px)!important;background-repeat:no-repeat!important}
+.tichor-conversation .msg{background:#fff!important;color:#193348!important}
+.tichor-conversation .msg.mine{background:#d9f6ee!important}
+@media(max-width:750px){body{background-attachment:scroll!important;background-size:cover,90vw!important}}
