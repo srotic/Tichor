@@ -1,0 +1,29 @@
+name: Deploy Tichor database migrations
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/migrations/**'
+      - '.github/workflows/deploy-database.yml'
+permissions:
+  contents: read
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Apply idempotent migrations
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$SUPABASE_DB_URL" ]; then echo 'Missing SUPABASE_DB_URL repository secret'; exit 1; fi
+          for file in .github/migrations/*.sql; do
+            echo "Applying $file"
+            psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+          done
