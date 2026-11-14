@@ -61,14 +61,28 @@ on conflict (id) do update set public=false,file_size_limit=10485760,allowed_mim
 
 drop policy if exists tichor_storage_upload_own on storage.objects;
 create policy tichor_storage_upload_own on storage.objects for insert to authenticated
-with check (bucket_id='tichor-attachments' and (storage.foldername(name))[1]=auth.uid()::text);
+with check (
+ bucket_id='tichor-attachments'
+ and (storage.foldername(name))[1]=auth.uid()::text
+ and exists (
+   select 1 from public.chat_messages m
+   where m.id::text=(storage.foldername(name))[2]
+   and m.sender_id=auth.uid()
+ )
+);
 drop policy if exists tichor_storage_participant_read on storage.objects;
 create policy tichor_storage_participant_read on storage.objects for select to authenticated
-using (bucket_id='tichor-attachments' and exists (
- select 1 from public.tichor_attachments a where a.storage_path=name
- and (a.sender_id=auth.uid() or a.recipient_id=auth.uid())
-));
+using (
+ bucket_id='tichor-attachments'
+ and (
+   -- Uploading sender must be able to access their own pending object for cleanup.
+   (storage.foldername(name))[1]=auth.uid()::text
+   or exists (
+     select 1 from public.tichor_attachments a
+     where a.storage_path=name and a.recipient_id=auth.uid()
+   )
+ )
+);
 drop policy if exists tichor_storage_sender_delete on storage.objects;
 create policy tichor_storage_sender_delete on storage.objects for delete to authenticated
-using (bucket_id='tichor-attachments' and (storage.foldername(name))[1]=auth.uid()::text
- and exists (select 1 from public.tichor_attachments a where a.storage_path=name and a.sender_id=auth.uid()));
+using (bucket_id='tichor-attachments' and (storage.foldername(name))[1]=auth.uid()::text);
