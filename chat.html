@@ -70,7 +70,20 @@ function stopMessageUpdates(){if(refreshTimer)clearInterval(refreshTimer);refres
 function onVisibility(){if(document.visibilityState==='visible'){acknowledgeDelivery();loadContacts();load()}}
 async function saveContact(id,name){if(!user||!id)return;const {error}=await supa.from('tichor_contacts').upsert({owner_id:user.id,contact_id:id,label:(name||'Tichor contact').slice(0,120)},{onConflict:'owner_id,contact_id'});if(error)status('contactsStatus',error.message);else await loadContacts()}
 async function loadContacts(){if(!user)return;const {data,error}=await supa.from('tichor_contacts').select('contact_id,label,created_at').eq('owner_id',user.id).order('created_at',{ascending:false}).limit(100);if(error){status('contactsStatus',error.message);return}const box=$('contactsList');box.replaceChildren();if(!data?.length){box.textContent='No saved contacts yet. Find someone above and open a conversation.';return}for(const c of data){const b=document.createElement('button');b.type='button';b.className='contact-entry';b.textContent=c.label;b.onclick=async()=>{peer=c.contact_id;$('recipient').value=c.label;status('chatStatus','Conversation opened with '+c.label);await load();if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>load()).subscribe()};box.append(b)}}
-$('saveContact').onclick=async()=>{if(!peer)return status('contactsStatus','Open a conversation first.');await saveContact(peer,$('recipient').value.trim()||'Tichor contact')};
+const saveContactButton = $('saveContact');
+
+if (saveContactButton) {
+  saveContactButton.onclick = async () => {
+    if (!peer) {
+      return status('contactsStatus', 'Open a conversation first.');
+    }
+
+    await saveContact(
+      peer,
+      $('recipient').value.trim() || 'Tichor contact'
+    );
+  };
+}
 $('sendForm').onsubmit=async e=>{e.preventDefault();if(!peer)return status('chatStatus','Open a conversation first');try{const body=$('body').value.trim();if(!body)return;const {error}=await supa.from('chat_messages').insert({sender_id:user.id,recipient_id:peer,body});if(error)throw error;$('body').value='';await load();await loadContacts()}catch(err){status('chatStatus',err.message)}};$('refresh').onclick=load;$('secret').addEventListener('change',()=>{if(peer)load()});
 async function loadProfile(){const {data,error}=await supa.from('tichor_profiles').select('username,phone,phone_discoverable').eq('user_id',user.id).maybeSingle();if(error){status('profileStatus',error.message);return}if(data){$('myUsername').value=data.username||'';$('myPhone').value=data.phone||'';$('phoneDiscoverable').checked=!!data.phone_discoverable;}}
 $('saveProfile').onclick=async()=>{try{const username=$('myUsername').value.trim().replace(/^@/,'').toLowerCase(),phone=$('myPhone').value.trim();if(!/^[a-z][a-z0-9_]{2,23}$/.test(username))throw Error('Username must start with a letter and be 3–24 letters, numbers or underscores');if(phone&&!/^\+[1-9][0-9]{6,14}$/.test(phone))throw Error('Use international phone format, e.g. +17805550123');const {error}=await supa.from('tichor_profiles').upsert({user_id:user.id,username,phone:phone||null,phone_discoverable:!!$('phoneDiscoverable').checked});if(error)throw error;status('profileStatus','Profile saved.');}catch(e){status('profileStatus',e.message)}};
