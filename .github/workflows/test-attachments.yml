@@ -1,0 +1,61 @@
+name: Test Tichor attachments and deletion
+on:
+  pull_request:
+    paths:
+      - 'chat.html'
+      - '.github/migrations/002_secure_attachments_and_deletion.sql'
+      - '.github/workflows/test-attachments.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax and feature wiring
+        run: |
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          import subprocess
+          class Extract(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.scripts=[]
+                  self.active=False
+                  self.kind='js'
+              def handle_starttag(self,tag,attrs):
+                  if tag=='script':
+                      d=dict(attrs)
+                      self.active='src' not in d
+                      self.kind='mjs' if d.get('type')=='module' else 'js'
+                      if self.active: self.scripts.append([self.kind,''])
+              def handle_data(self,data):
+                  if self.active:self.scripts[-1][1]+=data
+              def handle_endtag(self,tag):
+                  if tag=='script':self.active=False
+          html=Path('chat.html').read_text()
+          parser=Extract()
+          parser.feed(html)
+          assert parser.scripts,'No inline scripts found'
+          for i,(kind,code) in enumerate(parser.scripts):
+              p=Path(f'/tmp/tichor-script-{i}.{kind}')
+              p.write_text(code)
+              subprocess.run(['node','--check',str(p)],check=True)
+          for required in ['id="tichorFile"','tichor_hidden_messages','tichor_attachments',
+                           'Delete for everyone','tichor-attachments','deleteTichorMessage']:
+              assert required in html, f'Missing feature: {required}'
+          sql=Path('.github/migrations/002_secure_attachments_and_deletion.sql').read_text()
+          for required in ['enable row level security','tichor_sender_delete_message',
+                           'tichor_storage_participant_read','tichor_storage_upload_own',
+                           "public=false"]:
+              assert required in sql, f'Missing SQL safeguard: {required}'
+          print(f'PASS: {len(parser.scripts)} JavaScript blocks parse; attachment and delete wiring present.')
+          print('NOTE: Database policies and end-to-end file access are NOT verified by static tests.')
+          PY
