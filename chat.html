@@ -181,9 +181,45 @@ async function prepareConnection(video){localStream=await navigator.mediaDevices
 async function startCall(video){if(!peer)return callStatus('Open a conversation first');if(pc||pendingOffer)return callStatus('Finish the current call first');try{callId=crypto.randomUUID();callPeer=peer;const c=await prepareConnection(video);const offer=await c.createOffer();await c.setLocalDescription(offer);await emitCall('offer',{sdp:c.localDescription.sdp,type:'offer',video});callStatus('Calling… The recipient must open Tichor to answer. If enabled, push notifications may alert them.')}catch(e){callStatus('Could not start call: '+e.message);await closeCall(false)}}
 $('voiceCall').onclick=()=>startCall(false);$('videoCall').onclick=()=>startCall(true);$('hangup').onclick=()=>closeCall();$('declineCall').onclick=async()=>{if(pendingOffer){try{await emitCall('hangup',{},pendingOffer.sender_id,pendingOffer.call_id)}catch{}}pendingOffer=null;show('acceptCall',false);show('declineCall',false);callStatus('Call declined')};
 $('acceptCall').onclick=async()=>{if(!pendingOffer)return;const e=pendingOffer;pendingOffer=null;show('acceptCall',false);show('declineCall',false);try{callId=e.call_id;callPeer=e.sender_id;const video=!!e.payload.video;const c=await prepareConnection(video);await c.setRemoteDescription({type:'offer',sdp:e.payload.sdp});const answer=await c.createAnswer();await c.setLocalDescription(answer);await emitCall('answer',{type:'answer',sdp:c.localDescription.sdp});for(const cand of remoteCandidates)await c.addIceCandidate(cand);remoteCandidates=[];callStatus('Connecting…')}catch(err){callStatus('Unable to answer: '+err.message);await closeCall(false)}};
-async function processCallEvent(e){if(e.sender_id===user.id)return;if(e.kind==='offer'){if(Date.now()-new Date(e.created_at).getTime()>60000)return;if(pc||pendingOffer)return;pendingOffer=e;remoteCandidates=[];show('acceptCall',true);show('declineCall',true);callStatus('Incoming '+(e.payload.video?'video':'voice')+' call. Accept or decline.');return}if(!callId||e.call_id!==callId)return;if(e.kind==='answer'&&pc){await pc.setRemoteDescription({type:'answer',sdp:e.payload.sdp});for(const cand of remoteCandidates)await pc.addIceCandidate(cand);remoteCandidates=[]}if(e.kind==='candidate'){if(pc&&pc.remoteDescription)await pc.addIceCandidate(e.payload);else remoteCandidates.push(e.payload)}if(e.kind==='hangup')await closeCall(false)}
+async function processCallEvent(e){if(e.sender_id===user.id)return;if(e.kind==='offer'){if(Date.now()-new Date(e.created_at).getTime()>90000)return;if(pc||pendingOffer)return;const {data:closed}=await supa.from('tichor_call_events').select('id').eq('call_id',e.call_id).eq('kind','hangup').limit(1);if(closed?.length)return;pendingOffer=e;remoteCandidates=[];show('acceptCall',true);show('declineCall',true);callStatus('Incoming '+(e.payload.video?'video':'voice')+' call. Accept or decline.');return}if(!callId||e.call_id!==callId)return;if(e.kind==='answer'&&pc){await pc.setRemoteDescription({type:'answer',sdp:e.payload.sdp});for(const cand of remoteCandidates)await pc.addIceCandidate(cand);remoteCandidates=[]}if(e.kind==='candidate'){if(pc&&pc.remoteDescription)await pc.addIceCandidate(e.payload);else remoteCandidates.push(e.payload)}if(e.kind==='hangup')await closeCall(false)}
 async function pollCalls(){if(!user)return;try{const since=new Date(Date.now()-120000).toISOString();const {data,error}=await supa.from('tichor_call_events').select('id,call_id,sender_id,recipient_id,kind,payload,created_at').or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`).gte('created_at',since).order('created_at',{ascending:true}).limit(400);if(error)throw error;for(const e of data){if(seen.has(e.id))continue;seen.add(e.id);try{await processCallEvent(e)}catch(err){callStatus('Call error: '+err.message)}}if(seen.size>2000)seen.clear()}catch(e){callStatus('Call signaling unavailable: '+e.message)}}
-async function startCalling(){seen.clear();const {data}=await supa.from('tichor_call_events').select('id').or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`).gte('created_at',new Date(Date.now()-120000).toISOString());for(const e of data||[])seen.add(e.id);pollTimer=setInterval(pollCalls,1800)}
+async function recoverIncomingCall(){
+ if(!user||pc||pendingOffer)return;
+ // Reconstruct an unanswered invitation when the recipient returns from a push notification.
+ const since=new Date(Date.now()-90000).toISOString();
+ const {data,error}=await supa.from('tichor_call_events')
+  .select('id,call_id,sender_id,recipient_id,kind,payload,created_at')
+  .eq('recipient_id',user.id).eq('kind','offer').gte('created_at',since)
+  .order('created_at',{ascending:false}).limit(12);
+ if(error){callStatus('Unable to check missed calls: '+error.message);return}
+ for(const offer of data||[]){
+  const {data:ended,error:endedError}=await supa.from('tichor_call_events')
+   .select('id').eq('call_id',offer.call_id).eq('kind','hangup').limit(1);
+  if(endedError)continue;
+  if(ended?.length)continue;
+  // Do not revive an offer already answered by this account on another device.
+  const {data:answered}=await supa.from('tichor_call_events')
+   .select('id').eq('call_id',offer.call_id).eq('kind','answer').limit(1);
+  if(answered?.length)continue;
+  seen.add(offer.id);
+  await processCallEvent(offer);
+  if(pendingOffer){window.tichorShowTab?.('calls');
+   status('callStatus','Incoming '+(offer.payload?.video?'video':'voice')+' call — choose Accept or Decline.');
+   break}
+ }
+}
+async function startCalling(){
+ seen.clear();
+ // Seed old signaling events but recover active offers explicitly so notification taps work.
+ const {data}=await supa.from('tichor_call_events').select('id')
+  .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
+  .gte('created_at',new Date(Date.now()-120000).toISOString());
+ for(const e of data||[])seen.add(e.id);
+ await recoverIncomingCall();
+ if(pollTimer)clearInterval(pollTimer);
+ pollTimer=setInterval(pollCalls,1800);
+}
 async function stopCalling(){if(pollTimer){clearInterval(pollTimer);pollTimer=null}await closeCall(false);seen.clear()}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&user)recoverIncomingCall().catch(console.error)});
 connect();if('serviceWorker'  in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script></body></html>
