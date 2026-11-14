@@ -284,9 +284,43 @@ async function deleteTichorMessage(message,attachment,mine){
  }catch(e){status('chatStatus','Delete failed: '+e.message)}
 }
 async function acknowledgeDelivery(){if(!user||deliveryBusy||document.visibilityState!=='visible')return;deliveryBusy=true;try{const {data,error}=await supa.from('chat_messages').select('id').eq('recipient_id',user.id).is('delivered_at',null).order('created_at',{ascending:false}).limit(200);if(error){status('chatStatus','Delivery receipts: '+error.message);return}if(data?.length){const ids=data.map(m=>m.id);const {error:err}=await supa.from('chat_messages').update({delivered_at:new Date().toISOString()}).in('id',ids).eq('recipient_id',user.id).is('delivered_at',null);if(err)status('chatStatus','Delivery receipts: '+err.message)}}finally{deliveryBusy=false}}
-function startMessageUpdates(){stopMessageUpdates();refreshTimer=setInterval(()=>{if(user){acknowledgeDelivery();loadContacts();refreshFolder();if(peer)load()}},4000);document.addEventListener('visibilitychange',onVisibility)}
+// Sound notifications for new incoming direct messages while Tichor is open.
+// Baseline is initialized silently to avoid chiming for historical messages.
+let messageAlertLast=null,messageAlertBusy=false,messageAlertAudio=null;
+const messageAlertButton=document.createElement('button');
+messageAlertButton.type='button';messageAlertButton.textContent='🔔 Enable message sounds';
+messageAlertButton.style.margin='8px 0';
+$('notificationSettings')?.append(messageAlertButton);
+messageAlertButton.onclick=async()=>{
+ try{messageAlertAudio ||= new (window.AudioContext||window.webkitAudioContext)();await messageAlertAudio.resume();messageAlertButton.textContent='🔔 Message sounds enabled';localStorage.setItem('tichor-message-sound','on');playMessageChime()}
+ catch(e){messageAlertButton.textContent='Sound unavailable — check browser permissions'}
+};
+function playMessageChime(){
+ if(!messageAlertAudio||messageAlertAudio.state!=='running')return;
+ const t=messageAlertAudio.currentTime;
+ for(const [frequency,offset] of [[740,0],[990,.16]]){
+  const oscillator=messageAlertAudio.createOscillator(),volume=messageAlertAudio.createGain();
+  oscillator.type='sine';oscillator.frequency.value=frequency;
+  volume.gain.setValueAtTime(.0001,t+offset);volume.gain.exponentialRampToValueAtTime(.075,t+offset+.025);
+  volume.gain.exponentialRampToValueAtTime(.0001,t+offset+.22);
+  oscillator.connect(volume).connect(messageAlertAudio.destination);
+  oscillator.start(t+offset);oscillator.stop(t+offset+.24);
+ }
+}
+async function checkMessageAlerts(){
+ if(!user||messageAlertBusy)return;messageAlertBusy=true;
+ try{
+  const {data,error}=await supa.from('chat_messages').select('id,created_at').eq('recipient_id',user.id).order('created_at',{ascending:false}).limit(1);
+  if(error)throw error;
+  const latest=data?.[0];
+  if(messageAlertLast!==null&&latest&&latest.id!==messageAlertLast)playMessageChime();
+  messageAlertLast=latest?.id||'empty';
+ }catch(e){console.warn('Message sound check:',e.message)}
+ finally{messageAlertBusy=false}
+}
+function startMessageUpdates(){stopMessageUpdates();messageAlertLast=null;checkMessageAlerts();refreshTimer=setInterval(()=>{if(user){acknowledgeDelivery();loadContacts();refreshFolder();checkMessageAlerts();if(peer)load()}},4000);document.addEventListener('visibilitychange',onVisibility)}
 function stopMessageUpdates(){if(refreshTimer)clearInterval(refreshTimer);refreshTimer=null;document.removeEventListener('visibilitychange',onVisibility)}
-function onVisibility(){if(document.visibilityState==='visible'){acknowledgeDelivery();loadContacts();refreshFolder();load()}}
+function onVisibility(){if(document.visibilityState==='visible'){acknowledgeDelivery();loadContacts();refreshFolder();checkMessageAlerts();load()}}
 async function saveContact(id,name){if(!user||!id)return;const {error}=await supa.from('tichor_contacts').upsert({owner_id:user.id,contact_id:id,label:(name||'Tichor contact').slice(0,120)},{onConflict:'owner_id,contact_id'});if(error)status('contactsStatus',error.message);else await loadContacts()}
 async function loadContacts(){if(!user)return;const {data,error}=await supa.from('tichor_contacts').select('contact_id,label,created_at').eq('owner_id',user.id).order('created_at',{ascending:false}).limit(100);if(error){status('contactsStatus',error.message);return}const box=$('contactsList');if(!box)return;box.replaceChildren();if(!data?.length){box.textContent='No saved contacts yet. Find someone above and open a conversation.';return}for(const c of data){const b=document.createElement('button');b.type='button';b.className='contact-entry';b.textContent=c.label;b.dataset.contactId=c.contact_id;b.onclick=async()=>{peer=c.contact_id;$('recipient').value=c.label;window.tichorShowTab?.('calls');status('chatStatus','Conversation opened with '+c.label);await load();if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>load()).subscribe()};box.append(b)}}
 const saveContactButton = $('saveContact');
