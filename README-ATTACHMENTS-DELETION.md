@@ -18,8 +18,11 @@ This is a **proposed** update, not deployed to the live app.
 ## Known limitations / safety
 - Attachments are private to authenticated participants but are **not end-to-end encrypted**.
 - Delete for everyone removes the message and its linked attachment from the application. Previously downloaded copies cannot be recalled.
-- Upload failure after message creation can leave a text-only placeholder message; handle it by deleting the placeholder.
-- Message previews in Inbox/Sent may still show text from messages hidden using Delete for me. A future patch should filter previews.
-- The current user interface uses browser confirmation prompts rather than a polished menu.
+- Upload failures may leave a text-only placeholder message; metadata failure attempts to clean it up, but storage upload failures can still leave one.
+- Inbox/Sent previews now filter hidden messages from the latest fetched batch; older messages outside the 200-message query window are not considered.
+- The current user interface uses browser prompt/confirmation dialogs rather than a polished menu.
 - Existing files are not migrated. This feature only applies to newly uploaded attachments.
 - Storage object deletion and database row deletion are not one atomic transaction; administrators may need to clean up orphaned objects after failures.
+
+## Production caution
+Do not execute this migration in the production project until a backup and staging validation are complete. This branch is a draft and has not been end-to-end tested with two signed-in accounts. The new storage policies are designed to permit sender uploads before metadata insertion; test that unrelated authenticated users cannot access files, and verify the sender's Delete for everyone and storage cleanup before merging.
