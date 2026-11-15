@@ -105,7 +105,7 @@ shell.append(profile,nav,inbox,notifications,contacts,settings,conversation);
 chat.replaceChildren(shell);chat.classList.remove('card');
 // Called after the module attaches its folder handlers.
 window.tichorShowTab=showTab;
-window.addEventListener('load',()=>showTab('inbox'));
+window.addEventListener('load',()=>showTab(new URLSearchParams(location.search).has('incoming')?'calls':'inbox'));
 })();
 </script><script type="module">
 import {enableNotifications,disableNotifications} from "./notifications.js";
@@ -431,6 +431,7 @@ async function recoverIncomingCall(){
   seen.add(offer.id);
   await processCallEvent(offer);
   if(pendingOffer){window.tichorShowTab?.('calls');
+   if(new URLSearchParams(location.search).has('incoming'))history.replaceState(null,'',location.pathname+location.hash);
    status('callStatus','Incoming '+(offer.payload?.video?'video':'voice')+' call — choose Accept or Decline.');
    break}
  }
