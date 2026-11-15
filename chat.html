@@ -1101,6 +1101,28 @@ async function playRemoteSound(){
  }catch(err){$('audioHelp').textContent='Tap Enable call sound to allow audio playback ('+err.message+').'}
 }
 $('enableCallSound').onclick=()=>playRemoteSound();
+function tichorCallHiddenKey(){return 'tichor-hidden-calls-v1-'+user.id}
+function tichorHiddenCalls(){try{return new Set(JSON.parse(localStorage.getItem(tichorCallHiddenKey())||'[]'))}catch{return new Set()}}
+function tichorChooseCallDelete(){
+ return new Promise(resolve=>{
+  const overlay=document.createElement('div');overlay.className='tichor-delete-overlay';
+  const panel=document.createElement('section');panel.className='tichor-delete-sheet';panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-labelledby','tichorCallDeleteTitle');
+  const heading=document.createElement('h3');heading.id='tichorCallDeleteTitle';heading.textContent='Call history';
+  const description=document.createElement('p');description.textContent='Remove this call from history on this device?';
+  const remove=document.createElement('button');remove.type='button';remove.className='tichor-delete-option';
+  const name=document.createElement('strong');name.textContent='Delete from history';
+  const hint=document.createElement('small');hint.textContent='Only hides this entry on this device.';
+  remove.append(name,hint);
+  const cancel=document.createElement('button');cancel.type='button';cancel.className='tichor-delete-cancel';cancel.textContent='Cancel';
+  const previous=document.activeElement;let finished=false;
+  const close=value=>{if(finished)return;finished=true;document.removeEventListener('keydown',keyHandler);overlay.remove();previous?.focus?.();resolve(value)};
+  const keyHandler=e=>{if(e.key==='Escape'){e.preventDefault();close(false)}};
+  remove.onclick=()=>close(true);cancel.onclick=()=>close(false);
+  overlay.onclick=e=>{if(e.target===overlay)close(false)};
+  panel.append(heading,description,remove,cancel);overlay.append(panel);
+  document.addEventListener('keydown',keyHandler);document.body.append(overlay);remove.focus();
+ });
+}
 async function tichorLoadCallHistory(){
  const root=$('tichorCallHistory');if(!root||!user)return;root.textContent='Loading call history…';
  try{
@@ -1138,6 +1160,7 @@ async function tichorLoadCallHistory(){
  root.append(filter);
  const list=document.createElement('div');list.className='tichor-call-history-list';root.append(list);
  const records=[];
+ const hiddenCalls=tichorHiddenCalls();
  for(const [id,events] of grouped){const offer=events.find(e=>e.kind==='offer');if(!offer)continue;
  const incoming=offer.recipient_id===user.id;
  const answer=events.some(e=>e.kind==='answer'||e.kind==='connected');
@@ -1150,7 +1173,7 @@ async function tichorLoadCallHistory(){
  }
  records.sort((a,b)=>new Date(b.offer.created_at)-new Date(a.offer.created_at));
  const render=()=>{list.replaceChildren();let count=0;
- for(const r of records){if(filter.value!=='all'&&filter.value!==r.state)continue;count++;
+ for(const r of records){if(hiddenCalls.has(String(r.offer.call_id))||filter.value!=='all'&&filter.value!==r.state)continue;count++;
  const item=document.createElement('article');item.className='t12-preference tichor-call-history-item';
  const symbol=document.createElement('span');symbol.className='tichor-call-symbol';symbol.dataset.status=r.state;symbol.setAttribute('aria-hidden','true');
  symbol.textContent=({received:'↙',outgoing:'↗',missed:'↙',declined:'✕',cancelled:'↗',unanswered:'↗',ringing:'◌'})[r.state]||'☎';
@@ -1159,7 +1182,16 @@ async function tichorLoadCallHistory(){
  const detail=document.createElement('small');detail.textContent=({received:'Received',outgoing:'Outgoing',missed:'Missed',declined:'Declined',cancelled:'Cancelled',unanswered:'Unanswered',ringing:'Ringing'})[r.state]+' · '+(r.offer.payload?.video?'Video':'Voice')+' · '+new Date(r.offer.created_at).toLocaleString();
  summary.append(label,detail);
  const again=document.createElement('button');again.type='button';again.innerHTML='&#9742;';again.className='tichor-call-again-icon';again.title='Call again';again.setAttribute('aria-label','Call again '+r.other);again.onclick=()=>{peer=r.other;startCall(!!r.offer.payload?.video)};
- item.append(symbol,summary,again);list.append(item);
+ item.append(symbol,summary,again);
+ item.classList.add('tichor-call-tap-delete');item.setAttribute('role','button');item.setAttribute('tabindex','0');
+ item.setAttribute('aria-label','Options for call with '+(names.get(r.other)||'unknown contact'));
+ const deleteEntry=async()=>{if(!await tichorChooseCallDelete())return;
+  try{hiddenCalls.add(String(r.offer.call_id));localStorage.setItem(tichorCallHiddenKey(),JSON.stringify([...hiddenCalls]));render()}
+  catch(e){status('chatStatus','Could not hide call history: '+e.message)}
+ };
+ item.addEventListener('click',event=>{if(event.target.closest('button'))return;deleteEntry()});
+ item.addEventListener('keydown',event=>{if(event.target===item&&(event.key==='Enter'||event.key===' ')){event.preventDefault();deleteEntry()}});
+ list.append(item);
  }
  if(!count){const empty=document.createElement('p');empty.className='muted';empty.textContent='No calls in this category.';list.append(empty)}
  };filter.onchange=render;render();
@@ -1372,4 +1404,7 @@ html[data-tichor-theme="dark"] .tichor-delete-sheet p,html[data-tichor-theme="da
 html[data-tichor-theme="dark"] .tichor-delete-option{background:#28433f!important;color:#f2f8f5!important;border-color:#58796d!important}
 html[data-tichor-theme="dark"] .tichor-delete-cancel{background:#315b70!important;color:#fff!important}
 @media(min-width:650px){.tichor-delete-overlay{align-items:center}}
+</style><style id="tichor-call-delete-touch">
+#tichorCallHistory .tichor-call-tap-delete{cursor:pointer;touch-action:manipulation}
+#tichorCallHistory .tichor-call-tap-delete:focus-visible{outline:3px solid #c49327!important;outline-offset:2px}
 </style></body></html>
