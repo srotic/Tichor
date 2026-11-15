@@ -1077,6 +1077,17 @@ async function tichorLoadCallHistory(){
  try{
  const {data,error}=await supa.from('tichor_call_events').select('call_id,sender_id,recipient_id,kind,payload,created_at').or('sender_id.eq.'+user.id+',recipient_id.eq.'+user.id).order('created_at',{ascending:false}).limit(1000);
  if(error)throw error;
+ const participantIds=[...new Set((data||[]).flatMap(e=>[e.sender_id,e.recipient_id]).filter(id=>id&&id!==user.id))];
+ const names=new Map();
+ if(participantIds.length){
+  const {data:contacts, error:contactsError}=await supa.from('tichor_contacts').select('contact_id,label').eq('owner_id',user.id).in('contact_id',participantIds);
+  if(!contactsError)for(const contact of contacts||[])if(contact.label?.trim())names.set(contact.contact_id,contact.label.trim());
+  const unknown=participantIds.filter(id=>!names.has(id));
+  if(unknown.length){
+   const {data:profiles,error:profileError}=await supa.from('tichor_profiles').select('user_id,username').in('user_id',unknown);
+   if(!profileError)for(const profile of profiles||[])if(profile.username?.trim())names.set(profile.user_id,'@'+profile.username.trim());
+  }
+ }
  const grouped=new Map();
  for(const e of (data||[]).reverse()){if(!grouped.has(e.call_id))grouped.set(e.call_id,[]);grouped.get(e.call_id).push(e)}
  root.replaceChildren();
@@ -1108,15 +1119,15 @@ async function tichorLoadCallHistory(){
  const state=answer?(incoming?'received':'outgoing'):declined?'declined':callerCancelled?'cancelled':incoming?(ended||elapsed>90000?'missed':'ringing'):(ended||elapsed>90000?'unanswered':'ringing');
  records.push({offer,incoming,state,other:incoming?offer.sender_id:offer.recipient_id});
  }
- records.reverse();
+ records.sort((a,b)=>new Date(b.offer.created_at)-new Date(a.offer.created_at));
  const render=()=>{list.replaceChildren();let count=0;
  for(const r of records){if(filter.value!=='all'&&filter.value!==r.state)continue;count++;
  const item=document.createElement('article');item.className='t12-preference tichor-call-history-item';
  const symbol=document.createElement('span');symbol.className='tichor-call-symbol';symbol.dataset.status=r.state;symbol.setAttribute('aria-hidden','true');
  symbol.textContent=({received:'↙',outgoing:'↗',missed:'↙',declined:'✕',cancelled:'↗',unanswered:'↗',ringing:'◌'})[r.state]||'☎';
  const summary=document.createElement('div');summary.className='tichor-call-summary';
- const label=document.createElement('strong');label.textContent=({received:'Received',outgoing:'Outgoing',missed:'Missed',declined:'Declined',cancelled:'Cancelled',unanswered:'Unanswered',ringing:'Ringing'})[r.state]+' · '+(r.offer.payload?.video?'Video':'Voice');
- const detail=document.createElement('small');detail.textContent=new Date(r.offer.created_at).toLocaleString()+' · '+String(r.other||'Unknown').slice(0,8);
+ const label=document.createElement('strong');label.textContent=names.get(r.other)||('Unknown contact · '+String(r.other||'').slice(0,8));
+ const detail=document.createElement('small');detail.textContent=({received:'Received',outgoing:'Outgoing',missed:'Missed',declined:'Declined',cancelled:'Cancelled',unanswered:'Unanswered',ringing:'Ringing'})[r.state]+' · '+(r.offer.payload?.video?'Video':'Voice')+' · '+new Date(r.offer.created_at).toLocaleString();
  summary.append(label,detail);
  const again=document.createElement('button');again.type='button';again.innerHTML='&#9742;';again.className='tichor-call-again-icon';again.title='Call again';again.setAttribute('aria-label','Call again '+r.other);again.onclick=()=>{peer=r.other;startCall(!!r.offer.payload?.video)};
  item.append(symbol,summary,again);list.append(item);
