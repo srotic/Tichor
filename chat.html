@@ -135,7 +135,12 @@ const profileNodes=[profileStart,profileStart?.nextElementSibling,get('myUsernam
 profileNodes.forEach(n=>{if(n)settings.append(n)});
 const contactNodes=[searchStart,get('recipient'),get('openConversation')];contactNodes.forEach(n=>{if(n)contacts.append(n)});
 const callbar=chat.querySelector('.callbar');
-const convNodes=[callbar,get('chatStatus'),get('messages'),get('sendForm'),get('refresh')];convNodes.forEach(n=>{if(n)conversation.append(n)});
+const convNodes=[get('chatStatus'),get('messages'),get('sendForm'),get('refresh')];convNodes.forEach(n=>{if(n)conversation.append(n)});
+const calls=document.createElement('section');calls.className='t12-section';calls.id='t12Calls';
+calls.hidden=true;const callsHeading=document.createElement('h2');callsHeading.textContent='☎ Calls';
+const callsHelp=document.createElement('p');callsHelp.className='muted';callsHelp.textContent='Voice and video calls only. Call history shows answered, declined, missed and unanswered attempts.';
+const callHistory=document.createElement('div');callHistory.id='tichorCallHistory';callHistory.textContent='Open Calls to view recent activity.';
+calls.append(callsHeading,callsHelp,callbar,callHistory);
 // Preserve every original node, even when a future release adds controls.
 // Move sound, security and device preferences out of the live call interface.
 const soundSection=document.createElement('section');soundSection.className='t12-preference';
@@ -169,18 +174,20 @@ if(callDescription){const callPrefs=document.createElement('section');callPrefs.
 const moved=new Set([profileStart,...profileNodes,...contactNodes,...convNodes,mailbox,notification,saved,get('who'),get('signout'),passStart,secretInput,secretNote]);
 const extras=document.createElement('div');extras.className='t12-extras';
 [...chat.children].forEach(n=>{if(!moved.has(n))extras.append(n)});settings.append(extras);
-const tabs=[['inbox','✉','Inbox'],['sent','➤','Sent'],['calls','☎','Calls'],['actions','✓','Actions'],['contacts','♧','Contacts'],['profile','⚙','Settings']];
+const tabs=[['inbox','✉','Chats'],['calls','☎','Calls'],['actions','✓','Actions'],['contacts','♧','Contacts'],['profile','⚙','Settings']];
 const showTab=which=>{
  for(const b of nav.querySelectorAll('button')){const active=b.dataset.tab===which;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active))}
- inbox.hidden=!['inbox','sent'].includes(which);notifications.hidden=true;contacts.hidden=which!=='contacts';settings.hidden=which!=='profile';conversation.hidden=which!=='calls';actions.hidden=which!=='actions';
+ inbox.hidden=which!=='inbox';notifications.hidden=true;contacts.hidden=which!=='contacts';settings.hidden=which!=='profile';conversation.hidden=which!=='chat';calls.hidden=which!=='calls';actions.hidden=which!=='actions';
+ if(which==='calls')window.tichorLoadCallHistory?.();
  if(which==='actions')window.tichorLoadActions?.();
- if(which==='inbox'||which==='sent'){const btn=get(which==='inbox'?'tabInbox':'tabSent');if(btn)btn.click()}
+ if(which==='inbox'){const btn=get('tabInbox');if(btn)btn.click()}
 };
 for(const [key,ico,label] of tabs){const b=document.createElement('button');b.type='button';b.dataset.tab=key;b.innerHTML='<span aria-hidden="true">'+ico+'</span><span>'+label+'</span>';b.onclick=()=>showTab(key);nav.append(b)}
-shell.append(profile,nav,inbox,notifications,contacts,settings,conversation,actions);
+shell.append(profile,nav,inbox,notifications,contacts,settings,conversation,calls,actions);
 chat.replaceChildren(shell);chat.classList.remove('card');
 // Called after the module attaches its folder handlers.
 window.tichorShowTab=showTab;
+window.tichorOpenChat=()=>showTab('chat');
 window.addEventListener('load',()=>showTab(new URLSearchParams(location.search).has('incoming')?'calls':'inbox'));
 })();
 </script><script type="module">
@@ -300,12 +307,12 @@ async function refreshFolder(){if(!user||folderBusy)return;folderBusy=true;try{
  box.replaceChildren();if(!latest.size){box.innerHTML='<div class="folder-empty">'+(activeFolder==='inbox'?'No received messages yet.':'No sent messages yet.')+'</div>';return}
  for(const [id,m] of latest){let preview=m.body||'';if(preview.startsWith('e2ee1.'))preview='🔒 Older encrypted message';addFolderRow(box,id,labels.get(id)||'Tichor user · '+id.slice(0,8),preview,folderTime(m.created_at),activeFolder==='inbox'&&!m.read_at)}
  }catch(e){status('folderStatus','Could not load '+activeFolder+': '+e.message)}finally{folderBusy=false}}
-function addFolderRow(box,id,label,preview,when,unread){const b=document.createElement('button');b.type='button';b.className='folder-row';const avatar=document.createElement('span');avatar.className='folder-avatar';avatar.textContent=initials(label);const mid=document.createElement('span');mid.className='folder-main';const n=document.createElement('div');n.className='folder-name';n.textContent=label;const p=document.createElement('div');p.className='folder-preview';p.textContent=preview;mid.append(n,p);const meta=document.createElement('span');meta.className='folder-meta';meta.textContent=when;if(unread){const dot=document.createElement('span');dot.className='folder-unread';dot.textContent='New';meta.append(' ',dot)}b.append(avatar,mid,meta);b.onclick=async()=>{peer=id;tichorPrivacyRender();$('recipient').value=label;window.tichorShowTab?.('calls');await load();if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>{load();refreshFolder()}).subscribe();setTimeout(refreshFolder,500)};box.append(b)}
+function addFolderRow(box,id,label,preview,when,unread){const b=document.createElement('button');b.type='button';b.className='folder-row';const avatar=document.createElement('span');avatar.className='folder-avatar';avatar.textContent=initials(label);const mid=document.createElement('span');mid.className='folder-main';const n=document.createElement('div');n.className='folder-name';n.textContent=label;const p=document.createElement('div');p.className='folder-preview';p.textContent=preview;mid.append(n,p);const meta=document.createElement('span');meta.className='folder-meta';meta.textContent=when;if(unread){const dot=document.createElement('span');dot.className='folder-unread';dot.textContent='New';meta.append(' ',dot)}b.append(avatar,mid,meta);b.onclick=async()=>{peer=id;tichorPrivacyRender();$('recipient').value=label;window.tichorShowTab?.('chat');await load();if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>{load();refreshFolder()}).subscribe();setTimeout(refreshFolder,500)};box.append(b)}
 for(const [id,tab] of [['tabInbox','inbox'],['tabSent','sent'],['tabContacts','contacts']]){const btn=$(id);if(btn)btn.onclick=()=>chooseFolder(tab)}
 
 $('enablePush').onclick=()=>enableNotifications(supa,user,msg=>status('pushStatus',msg));$('disablePush').onclick=()=>disableNotifications(supa,user,msg=>status('pushStatus',msg));
 $('signout').onclick=async()=>{await stopCalling();stopMessageUpdates();if(subscription)await supa.removeChannel(subscription);await supa.auth.signOut();$('secret').value='';user=null;peer=null;show('chat',false);show('auth',true)};
-$('openConversation').onclick=async()=>{try{if(!user)throw Error('Sign in first');const lookup=$('recipient').value.trim();if(!lookup)throw Error('Enter an email, username, or phone number');const {data,error}=await supa.rpc('find_tichor_user',{lookup});if(error)throw error;if(!data)throw Error('No discoverable Tichor user found');if(data===user.id)throw Error('Choose another user');if(tichorIsBlocked(data))throw Error('This contact is blocked on this device. Unblock in Settings.');peer=data;tichorPrivacyRender();window.tichorShowTab?.('calls');await saveContact(data,lookup);status('chatStatus','Conversation open. New messages do not require a passphrase.');await load();if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>{acknowledgeDelivery();load();loadContacts()}).subscribe();}catch(e){status('chatStatus',e.message)}};
+$('openConversation').onclick=async()=>{try{if(!user)throw Error('Sign in first');const lookup=$('recipient').value.trim();if(!lookup)throw Error('Enter an email, username, or phone number');const {data,error}=await supa.rpc('find_tichor_user',{lookup});if(error)throw error;if(!data)throw Error('No discoverable Tichor user found');if(data===user.id)throw Error('Choose another user');if(tichorIsBlocked(data))throw Error('This contact is blocked on this device. Unblock in Settings.');peer=data;tichorPrivacyRender();window.tichorShowTab?.('chat');await saveContact(data,lookup);status('chatStatus','Conversation open. New messages do not require a passphrase.');await load();if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>{acknowledgeDelivery();load();loadContacts()}).subscribe();}catch(e){status('chatStatus',e.message)}};
 // Tichor Universal Translator (beta): opt-in, on-device when supported.
 const TICHOR_LANGUAGES={en:'English',sw:'Kiswahili',fr:'Français',es:'Español',ar:'العربية',de:'Deutsch',pt:'Português',hi:'हिन्दी',zh:'中文',ja:'日本語',ko:'한국어',it:'Italian',ru:'Русский'};
 const TICHOR_LANG_KEY='tichor-translation-language';
@@ -519,7 +526,7 @@ async function tichorLoadActions(){
     const open=document.createElement('button');open.type='button';open.textContent='Open conversation';open.onclick=async()=>{
       const other=m.sender_id===user.id?m.recipient_id:m.sender_id;
       if(tichorIsBlocked(other))return alert('Unblock this contact in Settings first.');
-      peer=other;window.tichorShowTab?.('calls');await load();
+      peer=other;window.tichorShowTab?.('chat');await load();
     };card.append(open);list.append(card);
    }
    summary.textContent=overdueCount+' overdue · '+dueSoonCount+' due within 24 hours · '+creates.size+' total actions';
@@ -532,6 +539,14 @@ window.tichorLoadActions=tichorLoadActions;
 // Recheck deadlines while the app is open; browsers suspend timers when closed.
 setInterval(()=>{if(document.visibilityState==='visible'&&!$('t12Actions')?.hidden&&user)tichorLoadActions()},300000);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&!$('t12Actions')?.hidden&&user)tichorLoadActions()});
+const tichorCallsStyle=document.createElement('style');
+tichorCallsStyle.textContent=`
+#t12Calls{min-width:0}#t12Calls .callbar{margin:12px 0}#tichorCallHistory select{width:100%;max-width:280px}
+.tichor-call-history-list{display:grid;gap:10px;margin-top:12px}
+.tichor-call-history-item{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0;overflow-wrap:anywhere}
+.tichor-call-history-item strong{flex:1 1 200px}.tichor-call-history-item p{flex:1 1 100%;margin:0}
+@media(max-width:600px){.tichor-call-history-item button{width:100%;min-height:42px}}
+`;document.head.append(tichorCallsStyle);
 const tichorActionsStyle=document.createElement('style');
 tichorActionsStyle.textContent=`
 #t12Actions{min-width:0}
@@ -747,7 +762,7 @@ function startMessageUpdates(){stopMessageUpdates();messageAlertLast=null;checkM
 function stopMessageUpdates(){if(refreshTimer)clearInterval(refreshTimer);refreshTimer=null;document.removeEventListener('visibilitychange',onVisibility)}
 function onVisibility(){if(document.visibilityState==='visible'){acknowledgeDelivery();loadContacts();refreshFolder();checkMessageAlerts();load()}}
 async function saveContact(id,name){if(!user||!id)return;const {error}=await supa.from('tichor_contacts').upsert({owner_id:user.id,contact_id:id,label:(name||'Tichor contact').slice(0,120)},{onConflict:'owner_id,contact_id'});if(error)status('contactsStatus',error.message);else await loadContacts()}
-async function loadContacts(){if(!user)return;const {data,error}=await supa.from('tichor_contacts').select('contact_id,label,created_at').eq('owner_id',user.id).order('created_at',{ascending:false}).limit(100);if(error){status('contactsStatus',error.message);return}const box=$('contactsList');if(!box)return;box.replaceChildren();if(!data?.length){box.textContent='No saved contacts yet. Find someone above and open a conversation.';return}for(const c of data){const b=document.createElement('button');b.type='button';b.className='contact-entry';b.textContent=c.label;b.dataset.contactId=c.contact_id;b.onclick=async()=>{peer=c.contact_id;$('recipient').value=c.label;window.tichorShowTab?.('calls');status('chatStatus','Conversation opened with '+c.label);await load();if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>load()).subscribe()};box.append(b)}refreshCallContactPicker()}
+async function loadContacts(){if(!user)return;const {data,error}=await supa.from('tichor_contacts').select('contact_id,label,created_at').eq('owner_id',user.id).order('created_at',{ascending:false}).limit(100);if(error){status('contactsStatus',error.message);return}const box=$('contactsList');if(!box)return;box.replaceChildren();if(!data?.length){box.textContent='No saved contacts yet. Find someone above and open a conversation.';return}for(const c of data){const b=document.createElement('button');b.type='button';b.className='contact-entry';b.textContent=c.label;b.dataset.contactId=c.contact_id;b.onclick=async()=>{peer=c.contact_id;$('recipient').value=c.label;window.tichorShowTab?.('chat');status('chatStatus','Conversation opened with '+c.label);await load();if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>load()).subscribe()};box.append(b)}refreshCallContactPicker()}
 function refreshCallContactPicker(){
  const picker=$('callContactPicker');if(!picker)return;
  const selected=peer||picker.value;
@@ -828,14 +843,52 @@ async function playRemoteSound(){
  }catch(err){$('audioHelp').textContent='Tap Enable call sound to allow audio playback ('+err.message+').'}
 }
 $('enableCallSound').onclick=()=>playRemoteSound();
+async function tichorLoadCallHistory(){
+ const root=$('tichorCallHistory');if(!root||!user)return;root.textContent='Loading call history…';
+ try{
+ const {data,error}=await supa.from('tichor_call_events').select('call_id,sender_id,recipient_id,kind,payload,created_at').or('sender_id.eq.'+user.id+',recipient_id.eq.'+user.id).order('created_at',{ascending:false}).limit(1000);
+ if(error)throw error;
+ const grouped=new Map();
+ for(const e of (data||[]).reverse()){if(!grouped.has(e.call_id))grouped.set(e.call_id,[]);grouped.get(e.call_id).push(e)}
+ root.replaceChildren();
+ const filter=document.createElement('select');filter.setAttribute('aria-label','Filter call history');
+ for(const [value,label] of [['all','All calls'],['missed','Missed'],['declined','Declined'],['answered','Answered'],['unanswered','Unanswered']]){const o=document.createElement('option');o.value=value;o.textContent=label;filter.append(o)}
+ root.append(filter);
+ const list=document.createElement('div');list.className='tichor-call-history-list';root.append(list);
+ const records=[];
+ for(const [id,events] of grouped){const offer=events.find(e=>e.kind==='offer');if(!offer)continue;
+ const incoming=offer.recipient_id===user.id,answer=events.find(e=>e.kind==='answer');
+ const declined=events.some(e=>e.kind==='decline');
+ const connected=events.some(e=>e.kind==='connected');
+ const ended=events.some(e=>e.kind==='hangup'||e.kind==='decline');
+ const elapsed=Date.now()-new Date(offer.created_at).getTime();
+ let state=declined?'declined':connected?'answered':answer?'answered':incoming?(ended||elapsed>90000?'missed':'ringing'):(ended||elapsed>90000?'unanswered':'ringing');
+ // Legacy hangup events do not reliably distinguish a decline from a missed call.
+ if(!declined&&!answer&&ended)state='unanswered';
+ records.push({offer,incoming,state,other:incoming?offer.sender_id:offer.recipient_id});
+ }
+ records.reverse();
+ const render=()=>{list.replaceChildren();let count=0;
+ for(const r of records){if(filter.value!=='all'&&filter.value!==r.state)continue;count++;
+ const item=document.createElement('article');item.className='t12-preference tichor-call-history-item';
+ const label=document.createElement('strong');label.textContent=(r.incoming?'↙ Incoming':'↗ Outgoing')+' '+(r.offer.payload?.video?'video':'voice')+' call';
+ const detail=document.createElement('p');detail.className='muted';detail.textContent=r.state[0].toUpperCase()+r.state.slice(1)+' · '+new Date(r.offer.created_at).toLocaleString()+' · '+r.other.slice(0,8);
+ const again=document.createElement('button');again.type='button';again.textContent='Call again';again.onclick=()=>{peer=r.other;startCall(!!r.offer.payload?.video)};
+ item.append(label,detail,again);list.append(item);
+ }
+ if(!count){const empty=document.createElement('p');empty.className='muted';empty.textContent='No calls in this category.';list.append(empty)}
+ };filter.onchange=render;render();
+ }catch(e){root.textContent='Unable to load call history: '+e.message}
+}
+window.tichorLoadCallHistory=tichorLoadCallHistory;
 async function emitCall(kind,payload={},to=callPeer,id=callId){const {error}=await supa.from('tichor_call_events').insert({call_id:id,sender_id:user.id,recipient_id:to,kind,payload});if(error)throw error;}
 function mediaTracksStop(){if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null}$('localVideo').srcObject=null;$('remoteVideo').srcObject=null;$('remoteAudio').srcObject=null;show('localVideo',false);show('remoteVideo',false)}
 async function closeCall(send=true){if(send&&callId&&callPeer)try{await emitCall('hangup')}catch{}if(pc){pc.close();pc=null}mediaTracksStop();callId=null;callPeer=null;pendingOffer=null;remoteCandidates=[];show('hangup',false);show('acceptCall',false);show('declineCall',false);stopRinging();$('callIdentity').textContent='Select a contact to call';callStatus('No active call')}
-async function prepareConnection(video){localStream=await navigator.mediaDevices.getUserMedia({audio:true,video});const c=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});pc=c;localStream.getTracks().forEach(t=>c.addTrack(t,localStream));$('localVideo').srcObject=localStream;show('localVideo',video);c.ontrack=e=>{const stream=e.streams[0]||new MediaStream([e.track]);if(video){$('remoteVideo').srcObject=stream;show('remoteVideo',true)}else{$('remoteAudio').srcObject=stream}playRemoteSound().catch(console.warn)};c.onicecandidate=e=>{if(e.candidate&&callId&&callPeer)emitCall('candidate',e.candidate.toJSON()).catch(err=>callStatus('Signaling error: '+err.message))};c.onconnectionstatechange=()=>{if(pc!==c)return;callStatus('Call: '+c.connectionState);if(c.connectionState==='connected'){stopRinging();playRemoteSound().catch(console.warn)}else if(c.connectionState==='failed'){$('audioHelp').textContent='Connection failed. Your networks may require a TURN relay for voice audio.'}};show('hangup',true);return c}
+async function prepareConnection(video){localStream=await navigator.mediaDevices.getUserMedia({audio:true,video});const c=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});pc=c;localStream.getTracks().forEach(t=>c.addTrack(t,localStream));$('localVideo').srcObject=localStream;show('localVideo',video);c.ontrack=e=>{const stream=e.streams[0]||new MediaStream([e.track]);if(video){$('remoteVideo').srcObject=stream;show('remoteVideo',true)}else{$('remoteAudio').srcObject=stream}playRemoteSound().catch(console.warn)};c.onicecandidate=e=>{if(e.candidate&&callId&&callPeer)emitCall('candidate',e.candidate.toJSON()).catch(err=>callStatus('Signaling error: '+err.message))};c.onconnectionstatechange=()=>{if(pc!==c)return;callStatus('Call: '+c.connectionState);if(c.connectionState==='connected'){stopRinging();emitCall('connected').catch(console.warn);playRemoteSound().catch(console.warn)}else if(c.connectionState==='failed'){$('audioHelp').textContent='Connection failed. Your networks may require a TURN relay for voice audio.'}};show('hangup',true);return c}
 async function startCall(video){if(!peer)return callStatus('Open a conversation first');if(tichorIsBlocked(peer))return callStatus('This contact is blocked on this device.');if(pc||pendingOffer)return callStatus('Finish the current call first');try{callId=crypto.randomUUID();callPeer=peer;callIdentity('Calling',peer);const c=await prepareConnection(video);const offer=await c.createOffer();await c.setLocalDescription(offer);await emitCall('offer',{sdp:c.localDescription.sdp,type:'offer',video});startRinging('outgoing');callStatus('Calling… If the recipient enabled notifications, a call alert can invite them to open Tichor and answer.')}catch(e){callStatus('Could not start call: '+e.message);await closeCall(false)}}
-$('voiceCall').onclick=()=>startCall(false);$('videoCall').onclick=()=>startCall(true);$('hangup').onclick=()=>closeCall();$('declineCall').onclick=async()=>{if(pendingOffer){try{await emitCall('hangup',{},pendingOffer.sender_id,pendingOffer.call_id)}catch{}}pendingOffer=null;stopRinging();show('acceptCall',false);show('declineCall',false);$('callIdentity').textContent='Call declined';callStatus('Call declined')};
+$('voiceCall').onclick=()=>startCall(false);$('videoCall').onclick=()=>startCall(true);$('hangup').onclick=()=>closeCall();$('declineCall').onclick=async()=>{if(pendingOffer){try{await emitCall('decline',{},pendingOffer.sender_id,pendingOffer.call_id)}catch{}}pendingOffer=null;stopRinging();show('acceptCall',false);show('declineCall',false);$('callIdentity').textContent='Call declined';callStatus('Call declined')};
 $('acceptCall').onclick=async()=>{if(!pendingOffer)return;const e=pendingOffer;pendingOffer=null;stopRinging();callIdentity('Connecting with',e.sender_id);show('acceptCall',false);show('declineCall',false);try{callId=e.call_id;callPeer=e.sender_id;const video=!!e.payload.video;const c=await prepareConnection(video);playRemoteSound().catch(console.warn);await c.setRemoteDescription({type:'offer',sdp:e.payload.sdp});const answer=await c.createAnswer();await c.setLocalDescription(answer);await emitCall('answer',{type:'answer',sdp:c.localDescription.sdp});for(const cand of remoteCandidates)await c.addIceCandidate(cand);remoteCandidates=[];callStatus('Connecting…')}catch(err){callStatus('Unable to answer: '+err.message);await closeCall(false)}};
-async function processCallEvent(e){if(e.sender_id===user.id)return;if(e.kind==='offer'){if(!tichorAllowIncomingCall(e.sender_id))return;if(Date.now()-new Date(e.created_at).getTime()>90000)return;if(pc||pendingOffer)return;const {data:closed}=await supa.from('tichor_call_events').select('id').eq('call_id',e.call_id).eq('kind','hangup').limit(1);if(closed?.length)return;pendingOffer=e;remoteCandidates=[];callIdentity('Incoming call from',e.sender_id);startRinging();window.tichorShowTab?.('calls');show('acceptCall',true);show('declineCall',true);callStatus('Incoming '+(e.payload.video?'video':'voice')+' call. Accept or decline.');return}if(!callId||e.call_id!==callId)return;if(e.kind==='answer'&&pc){stopRinging();callIdentity('Connected with',e.sender_id);await pc.setRemoteDescription({type:'answer',sdp:e.payload.sdp});for(const cand of remoteCandidates)await pc.addIceCandidate(cand);remoteCandidates=[]}if(e.kind==='candidate'){if(pc&&pc.remoteDescription)await pc.addIceCandidate(e.payload);else remoteCandidates.push(e.payload)}if(e.kind==='hangup')await closeCall(false)}
+async function processCallEvent(e){if(e.sender_id===user.id)return;if(e.kind==='offer'){if(!tichorAllowIncomingCall(e.sender_id))return;if(Date.now()-new Date(e.created_at).getTime()>90000)return;if(pc||pendingOffer)return;const {data:closed}=await supa.from('tichor_call_events').select('id').eq('call_id',e.call_id).eq('kind','hangup').limit(1);if(closed?.length)return;pendingOffer=e;remoteCandidates=[];callIdentity('Incoming call from',e.sender_id);startRinging();window.tichorShowTab?.('calls');show('acceptCall',true);show('declineCall',true);callStatus('Incoming '+(e.payload.video?'video':'voice')+' call. Accept or decline.');return}if(!callId||e.call_id!==callId)return;if(e.kind==='answer'&&pc){stopRinging();callIdentity('Connected with',e.sender_id);await pc.setRemoteDescription({type:'answer',sdp:e.payload.sdp});for(const cand of remoteCandidates)await pc.addIceCandidate(cand);remoteCandidates=[]}if(e.kind==='candidate'){if(pc&&pc.remoteDescription)await pc.addIceCandidate(e.payload);else remoteCandidates.push(e.payload)}if(e.kind==='hangup'||e.kind==='decline')await closeCall(false)}
 async function pollCalls(){if(!user)return;try{const since=new Date(Date.now()-120000).toISOString();const {data,error}=await supa.from('tichor_call_events').select('id,call_id,sender_id,recipient_id,kind,payload,created_at').or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`).gte('created_at',since).order('created_at',{ascending:true}).limit(400);if(error)throw error;for(const e of data){if(seen.has(e.id))continue;seen.add(e.id);try{await processCallEvent(e)}catch(err){callStatus('Call error: '+err.message)}}if(seen.size>2000)seen.clear()}catch(e){callStatus('Call signaling unavailable: '+e.message)}}
 async function recoverIncomingCall(){
  if(!user||pc||pendingOffer)return;
