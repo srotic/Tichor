@@ -303,8 +303,54 @@ for(const [id,tab] of [['tabInbox','inbox'],['tabSent','sent'],['tabContacts','c
 $('enablePush').onclick=()=>enableNotifications(supa,user,msg=>status('pushStatus',msg));$('disablePush').onclick=()=>disableNotifications(supa,user,msg=>status('pushStatus',msg));
 $('signout').onclick=async()=>{await stopCalling();stopMessageUpdates();if(subscription)await supa.removeChannel(subscription);await supa.auth.signOut();$('secret').value='';user=null;peer=null;show('chat',false);show('auth',true)};
 $('openConversation').onclick=async()=>{try{if(!user)throw Error('Sign in first');const lookup=$('recipient').value.trim();if(!lookup)throw Error('Enter an email, username, or phone number');const {data,error}=await supa.rpc('find_tichor_user',{lookup});if(error)throw error;if(!data)throw Error('No discoverable Tichor user found');if(data===user.id)throw Error('Choose another user');if(tichorIsBlocked(data))throw Error('This contact is blocked on this device. Unblock in Settings.');peer=data;tichorPrivacyRender();window.tichorShowTab?.('calls');await saveContact(data,lookup);status('chatStatus','Conversation open. New messages do not require a passphrase.');await load();if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>{acknowledgeDelivery();load();loadContacts()}).subscribe();}catch(e){status('chatStatus',e.message)}};
+// Tichor Universal Translator (beta): opt-in, on-device when supported.
+const TICHOR_LANGUAGES={en:'English',sw:'Kiswahili',fr:'Français',es:'Español',ar:'العربية',de:'Deutsch',pt:'Português',hi:'हिन्दी',zh:'中文',ja:'日本語',ko:'한국어',it:'Italian',ru:'Русский'};
+const TICHOR_LANG_KEY='tichor-translation-language';
+const TICHOR_SOURCE_KEY='tichor-translation-source';
+let tichorTranslatorSession=null,tichorTranslatorPair='';
+function tichorTranslatorControls(){
+ const host=$('messages');if(!host||$('tichorTranslatorBar'))return;
+ const bar=document.createElement('div');bar.id='tichorTranslatorBar';bar.className='callbar';
+ const title=document.createElement('strong');title.textContent='🌐 Universal Translator · Beta';
+ const desc=document.createElement('p');desc.className='muted';desc.textContent='Translate individual messages on your device where supported. Original messages stay visible. Translation may be unavailable in some browsers.';
+ const source=document.createElement('select');source.id='tichorTranslationSource';source.setAttribute('aria-label','Original message language');
+ const target=document.createElement('select');target.id='tichorTranslationTarget';target.setAttribute('aria-label','Translate into');
+ for(const [code,name] of Object.entries(TICHOR_LANGUAGES)){for(const el of [source,target]){const opt=document.createElement('option');opt.value=code;opt.textContent=name;el.append(opt)}}
+ source.value=localStorage.getItem(TICHOR_SOURCE_KEY)||'en';target.value=localStorage.getItem(TICHOR_LANG_KEY)||'sw';
+ source.onchange=()=>{localStorage.setItem(TICHOR_SOURCE_KEY,source.value);tichorTranslatorSession=null;tichorTranslatorPair=''};
+ target.onchange=()=>{localStorage.setItem(TICHOR_LANG_KEY,target.value);tichorTranslatorSession=null;tichorTranslatorPair=''};
+ const labels=document.createElement('div');labels.className='two';
+ for(const [label,sel] of [['From',source],['To',target]]){const wrap=document.createElement('label');wrap.textContent=label+' ';wrap.append(sel);labels.append(wrap)}
+ bar.append(title,desc,labels);host.before(bar);
+}
+async function tichorTranslateOnDevice(value){
+ const from=$('tichorTranslationSource').value,to=$('tichorTranslationTarget').value;
+ if(from===to)return value;
+ const api=globalThis.Translator;
+ if(!api||typeof api.create!=='function')throw Error('On-device translation is not available in this browser.');
+ const pair=from+'>'+to;
+ if(!tichorTranslatorSession||tichorTranslatorPair!==pair){
+  if(typeof api.availability==='function'){const available=await api.availability({sourceLanguage:from,targetLanguage:to});if(available==='unavailable')throw Error('This language pair is not supported on this device.')}
+  tichorTranslatorSession=await api.create({sourceLanguage:from,targetLanguage:to});
+  tichorTranslatorPair=pair;
+ }
+ return await tichorTranslatorSession.translate(value);
+}
+function tichorAddTranslateButton(parent,content){
+ if(!content.textContent||content.textContent.startsWith('🔒'))return;
+ const button=document.createElement('button');button.type='button';button.textContent='🌐 Translate';button.className='tichor-translate-button';
+ button.setAttribute('aria-label','Translate this message');
+ button.onclick=async()=>{
+  if(button.dataset.translated==='yes'){content.textContent=button.dataset.original;button.textContent='🌐 Translate';button.dataset.translated='no';return}
+  const original=content.textContent;button.disabled=true;button.textContent='Translating…';
+  try{const translated=await tichorTranslateOnDevice(original);button.dataset.original=original;content.textContent=translated;button.dataset.translated='yes';button.textContent='Show original'}
+  catch(e){button.textContent='🌐 Translate';alert(e.message+' You can still copy the message into a translator of your choice.')}
+  finally{button.disabled=false}
+ };
+ parent.append(button);
+}
 async function load(){
- tichorPrivacyRender();
+ tichorPrivacyRender();tichorTranslatorControls();
  if(!peer||!user||refreshBusy)return;
  if(tichorIsBlocked(peer)){const box=$('messages');if(box)box.textContent='This contact is hidden on this device. Unblock in Settings to view the conversation.';return}refreshBusy=true;
  try{
@@ -329,7 +375,7 @@ async function load(){
   const content=document.createElement('div');
   try{content.textContent=m.body.startsWith('e2ee1.')?await decryptMessage(m.body,passphrase()):m.body}
   catch{content.textContent='🔒 Older encrypted message. Enter the original passphrase in Settings.'}
-  d.append(small,content);
+  d.append(small,content);tichorAddTranslateButton(d,content);
   const a=attached.get(m.id);
   if(a&&(/\\.(png|jpe?g|webp|pdf)$/i.test(a.file_name))){
    const isPdf=/\\.pdf$/i.test(a.file_name);
