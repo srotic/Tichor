@@ -463,34 +463,65 @@ async function tichorLoadActions(){
    if(valid)states.set(a.id,a.status);
   }
   root.replaceChildren();
-  const controls=document.createElement('div');controls.className='t12-preference';
+  const controls=document.createElement('div');controls.className='t12-preference tichor-actions-controls';
+  const summary=document.createElement('p');summary.className='muted';summary.id='tichorActionsSummary';root.append(summary);
   const filter=document.createElement('select');filter.setAttribute('aria-label','Filter actions');
   for(const [value,label] of [['mine','Assigned to me'],['sent','Assigned by me'],['completed','Completed'],['all','All actions']]){const opt=document.createElement('option');opt.value=value;opt.textContent=label;filter.append(opt)}
   const refresh=document.createElement('button');refresh.type='button';refresh.textContent='↻ Refresh';refresh.onclick=()=>tichorLoadActions();
   controls.append(filter,refresh);root.append(controls);
-  const list=document.createElement('div');root.append(list);
-  const render=()=>{list.replaceChildren();let count=0;
+  const list=document.createElement('div');list.className='tichor-actions-list';root.append(list);
+  const render=()=>{list.replaceChildren();let count=0;let overdueCount=0;let dueSoonCount=0;
    const ordered=[...creates.values()].reverse();
    for(const item of ordered){
     const m=item.message,a=item.action,state=states.get(m.id)||'pending';
     const include=filter.value==='all'||filter.value==='completed'&&state==='completed'||filter.value==='mine'&&m.recipient_id===user.id&&state!=='completed'||filter.value==='sent'&&m.sender_id===user.id&&state!=='completed';
+    const dueMs=a.due?new Date(a.due).getTime():NaN;
+    const active=!['completed','declined'].includes(state);
+    const overdue=active&&Number.isFinite(dueMs)&&dueMs<Date.now();
+    const dueSoon=active&&Number.isFinite(dueMs)&&dueMs>=Date.now()&&dueMs-Date.now()<=86400000;
+    if(overdue)overdueCount++;if(dueSoon)dueSoonCount++;
     if(!include)continue;count++;
-    const card=document.createElement('article');card.className='t12-preference';card.style.margin='10px 0';
+    const card=document.createElement('article');card.className='t12-preference tichor-action-item';
     const heading=document.createElement('strong');heading.textContent=a.title;
     const meta=document.createElement('p');meta.className='muted';meta.textContent=(m.recipient_id===user.id?'Assigned to me':'Assigned by me')+' · '+state+(a.due?' · Due '+new Date(a.due).toLocaleString():'');
     card.append(heading,meta);
+    if(overdue||dueSoon||state==='completed'){
+      const flag=document.createElement('span');flag.className='tichor-action-flag '+(overdue?'overdue':dueSoon?'soon':'done');
+      flag.textContent=overdue?'⚠ Overdue':dueSoon?'◷ Due within 24 hours':'✓ Completed';
+      card.append(flag);
+    }
     const open=document.createElement('button');open.type='button';open.textContent='Open conversation';open.onclick=async()=>{
       const other=m.sender_id===user.id?m.recipient_id:m.sender_id;
       if(tichorIsBlocked(other))return alert('Unblock this contact in Settings first.');
       peer=other;window.tichorShowTab?.('calls');await load();
     };card.append(open);list.append(card);
    }
+   summary.textContent=overdueCount+' overdue · '+dueSoonCount+' due within 24 hours · '+creates.size+' total actions';
    if(!count){const empty=document.createElement('p');empty.className='muted';empty.textContent='No actions in this category.';list.append(empty)}
   };filter.onchange=render;render();
   if(rows.length===5000){const note=document.createElement('p');note.className='muted';note.textContent='Showing actions found in your 5,000 most recent messages.';root.append(note)}
  }catch(e){root.textContent='Could not load actions: '+e.message}
 }
 window.tichorLoadActions=tichorLoadActions;
+const tichorActionsStyle=document.createElement('style');
+tichorActionsStyle.textContent=`
+#t12Actions{min-width:0}
+#t12Actions h2{margin:0 0 8px}
+.tichor-actions-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tichor-actions-controls select{flex:1 1 180px;min-width:0;max-width:100%}
+.tichor-actions-controls button{flex:0 0 auto}
+.tichor-actions-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));gap:12px;margin-top:12px}
+.tichor-action-item{min-width:0;overflow-wrap:anywhere;display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin:0}
+.tichor-action-item strong{font-size:1.04rem;line-height:1.4}
+.tichor-action-item p{margin:0;line-height:1.5}
+.tichor-action-item button{margin-top:auto;min-height:42px;max-width:100%}
+.tichor-action-flag{display:inline-block;border-radius:999px;padding:5px 10px;font-size:.82rem;font-weight:700;border:1px solid currentColor}
+.tichor-action-flag.overdue{color:#ef8b83}
+.tichor-action-flag.soon{color:#dba84b}
+.tichor-action-flag.done{color:#52b994}
+@media(max-width:600px){#t12Actions{padding-inline:12px}.tichor-actions-controls{flex-direction:column;align-items:stretch}.tichor-actions-controls button{width:100%}.tichor-actions-list{grid-template-columns:minmax(0,1fr)}.tichor-action-item button{width:100%}}
+`;
+document.head.append(tichorActionsStyle);
 function tichorActionComposer(){
  const form=$('sendForm');if(!form||$('tichorActionComposer'))return;
  const panel=document.createElement('section');panel.id='tichorActionComposer';panel.className='t12-preference';
