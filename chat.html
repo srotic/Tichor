@@ -787,26 +787,43 @@ function tichorAutoScan(messages,hidden){
  if(changed)tichorAutoSave(items);
  return items;
 }
+function tichorAutoSettings(){
+ const settings=$('t12Settings');if(!settings)return;
+ let panel=$('tichorAutoSettings');
+ if(!panel){panel=document.createElement('section');panel.id='tichorAutoSettings';panel.className='t12-preference';settings.append(panel)}
+ panel.replaceChildren();
+ const heading=document.createElement('h3');heading.textContent='✦ Autonomous Action Intelligence';
+ const description=document.createElement('p');description.className='muted';description.textContent='Optional on-device detection of provisional tasks. No automatic sending or assigning.';
+ const label=document.createElement('label');label.className='tichor-auto-settings-toggle';
+ const toggle=document.createElement('input');toggle.type='checkbox';toggle.checked=localStorage.getItem('tichor-auto-enabled')==='yes';toggle.setAttribute('aria-label','Enable autonomous action intelligence');
+ const text=document.createElement('span');text.textContent='Enable autonomous action intelligence';
+ label.append(toggle,text);
+ const help=document.createElement('small');help.className='muted';help.textContent='When enabled, suggestions appear in Actions for review. Your choice is saved on this device.';
+ toggle.onchange=()=>{localStorage.setItem('tichor-auto-enabled',toggle.checked?'yes':'no');tichorAutoSettings();load()};
+ panel.append(heading,description,label,help);
+}
 function tichorAutoPanel(items){
+ tichorAutoSettings();
  let panel=$('tichorAutoPanel');
- if(!panel){panel=document.createElement('section');panel.id='tichorAutoPanel';panel.className='t12-preference';$('tichorActionComposer')?.after(panel)}
- if(!panel)return;panel.replaceChildren();
- const heading=document.createElement('strong');heading.textContent='✦ Autonomous Action Intelligence';
- const note=document.createElement('p');note.className='muted';note.textContent='Private suggestions on this device. Nothing is assigned or sent without your approval.';
- const controls=document.createElement('div');
- const toggle=document.createElement('input');toggle.type='checkbox';toggle.id='tichorAutoEnabled';toggle.checked=localStorage.getItem('tichor-auto-enabled')==='yes';
- const toggleLabel=document.createElement('label');toggleLabel.htmlFor=toggle.id;toggleLabel.textContent=' Enable automatic provisional actions';
- toggle.onchange=()=>{localStorage.setItem('tichor-auto-enabled',toggle.checked?'yes':'no');load()};
- controls.append(toggle,toggleLabel);panel.append(heading,note,controls);
- if(!toggle.checked)return;
+ const host=$('t12Actions')||$('tichorActionComposer')?.parentElement;
+ if(!host)return;
+ if(!panel){panel=document.createElement('section');panel.id='tichorAutoPanel';panel.className='t12-preference';host.append(panel)}
+ else if(panel.parentElement!==host)host.append(panel);
+ panel.replaceChildren();
+ if(localStorage.getItem('tichor-auto-enabled')!=='yes'){panel.hidden=true;return}
+ panel.hidden=false;
+ const pending=items.filter(x=>x.state==='provisional');
+ const heading=document.createElement('strong');heading.textContent='✦ Suggested actions ('+pending.length+')';
+ const note=document.createElement('p');note.className='muted';note.textContent='Private drafts from conversations. Review before sending.';
+ panel.append(heading,note);
  const now=Date.now();
- for(const task of items.filter(x=>x.state==='provisional').slice(-12).reverse()){
+ for(const task of pending.slice(-12).reverse()){
   const row=document.createElement('div');row.className='tichor-auto-task';
   const title=document.createElement('strong');title.textContent=task.title;
   const due=document.createElement('small');due.className='muted';due.textContent=task.due?('Due '+new Date(task.due).toLocaleString()+(new Date(task.due).getTime()<now?' · Overdue':'')):'No deadline detected';
   const buttons=document.createElement('div');
   const approve=document.createElement('button');approve.type='button';approve.textContent='Review & send';
-  approve.onclick=()=>{tichorActionFromMessage(task.title);const date=$('tichorActionComposer')?.querySelector('input[type="datetime-local"]');if(date&&task.due){const d=new Date(task.due);const local=new Date(d.getTime()-d.getTimezoneOffset()*60000);date.value=local.toISOString().slice(0,16)}};
+  approve.onclick=()=>{window.tichorShowTab?.('chat');tichorActionFromMessage(task.title);const date=$('tichorActionComposer')?.querySelector('input[type="datetime-local"]');if(date&&task.due){const d=new Date(task.due);const local=new Date(d.getTime()-d.getTimezoneOffset()*60000);date.value=local.toISOString().slice(0,16)}};
   const dismiss=document.createElement('button');dismiss.type='button';dismiss.textContent='Dismiss';
   dismiss.onclick=()=>{task.state='dismissed';tichorAutoSave(items);tichorAutoPanel(items)};
   buttons.append(approve,dismiss);row.append(title,due,buttons);panel.append(row);
@@ -1489,4 +1506,10 @@ html[data-tichor-theme="dark"] .tichor-delete-cancel{background:#315b70!importan
 .tichor-auto-task{border-top:1px solid currentColor;padding:10px 0;display:grid;gap:5px}
 .tichor-auto-task strong{font-size:.88rem}.tichor-auto-task small{display:block}
 .tichor-auto-task>div{display:flex;gap:8px;flex-wrap:wrap}.tichor-auto-task button{min-height:34px!important;padding:5px 12px!important;font-size:.8rem!important}
+</style><style id="tichor-auto-settings-style">
+#tichorAutoSettings{margin:12px 0;padding:14px!important}
+.tichor-auto-settings-toggle{display:flex;align-items:center;gap:12px;padding:12px 0;font-weight:600;cursor:pointer}
+.tichor-auto-settings-toggle input{width:22px;height:22px;flex-shrink:0;accent-color:#14966c}
+#tichorAutoSettings>small{display:block;font-size:.82rem}
+#tichorAutoPanel[hidden]{display:none!important}
 </style></body></html>
