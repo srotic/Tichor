@@ -312,30 +312,33 @@ let tichorDetectorSession=null;
 const TICHOR_AUTO_KEY='tichor-translation-auto';
 const tichorTranslationCache=new Map();
 let tichorTranslatorSession=null,tichorTranslatorPair='';
+function tichorTranslationMode(){return localStorage.getItem('tichor-translation-mode')|| (localStorage.getItem(TICHOR_AUTO_KEY)==='off'?'manual':'automatic')}
 function tichorTranslatorControls(){
- const host=$('messages');if(!host||$('tichorTranslatorBar'))return;
- const bar=document.createElement('div');bar.id='tichorTranslatorBar';bar.className='callbar';
- const title=document.createElement('strong');title.textContent='🌐 Universal Translator · Beta';
- const desc=document.createElement('p');desc.className='muted';desc.textContent='Automatically translate incoming messages on your device where supported. Choose your language once; Tichor attempts to detect each incoming message’s language on your device. You can switch to manual selection if detection is unavailable. Original text remains accessible.';
+ const settings=$('t12Settings');if(!settings||$('tichorTranslatorBar'))return;
+ const bar=document.createElement('section');bar.id='tichorTranslatorBar';bar.className='t12-preference';
+ const title=document.createElement('h3');title.textContent='🌐 Language & Translation';
+ const desc=document.createElement('p');desc.className='muted';desc.textContent='Translation is optional and runs on-device only in compatible browsers. Select your preferred reading language. Original messages remain accessible.';
+ const modeLabel=document.createElement('label');modeLabel.textContent='Translation mode';
+ const mode=document.createElement('select');mode.id='tichorTranslationMode';
+ for(const [value,name] of [['automatic','Automatic — translate incoming messages'],['manual','Manual — show Translate controls'],['off','Off — original messages only']]){const option=document.createElement('option');option.value=value;option.textContent=name;mode.append(option)}
+ mode.value=tichorTranslationMode();modeLabel.append(mode);
  const source=document.createElement('select');source.id='tichorTranslationSource';source.setAttribute('aria-label','Original message language');
- const target=document.createElement('select');target.id='tichorTranslationTarget';target.setAttribute('aria-label','Translate into');
+ const target=document.createElement('select');target.id='tichorTranslationTarget';target.setAttribute('aria-label','Preferred reading language');
  for(const [code,name] of Object.entries(TICHOR_LANGUAGES)){for(const el of [source,target]){const opt=document.createElement('option');opt.value=code;opt.textContent=name;el.append(opt)}}
  source.value=localStorage.getItem(TICHOR_SOURCE_KEY)||'en';target.value=localStorage.getItem(TICHOR_LANG_KEY)||'sw';
  const detectLabel=document.createElement('label');detectLabel.style.display='flex';detectLabel.style.alignItems='center';detectLabel.style.gap='8px';
  const detect=document.createElement('input');detect.type='checkbox';detect.id='tichorTranslationDetect';detect.style.width='auto';detect.checked=localStorage.getItem(TICHOR_DETECT_KEY)!=='off';
  detectLabel.append(detect,document.createTextNode('Detect message language automatically'));
- source.disabled=detect.checked;
- detect.onchange=()=>{localStorage.setItem(TICHOR_DETECT_KEY,detect.checked?'on':'off');source.disabled=detect.checked;tichorTranslationCache.clear();load()};
- source.onchange=()=>{localStorage.setItem(TICHOR_SOURCE_KEY,source.value);tichorTranslatorSession=null;tichorTranslatorPair='';tichorTranslationCache.clear();load()};
- target.onchange=()=>{localStorage.setItem(TICHOR_LANG_KEY,target.value);tichorTranslatorSession=null;tichorTranslatorPair='';tichorTranslationCache.clear();load()};
  const labels=document.createElement('div');labels.className='two';
- for(const [label,sel] of [['From',source],['To',target]]){const wrap=document.createElement('label');wrap.textContent=label+' ';wrap.append(sel);labels.append(wrap)}
- const autoLabel=document.createElement('label');autoLabel.style.display='flex';autoLabel.style.alignItems='center';autoLabel.style.gap='8px';
- const auto=document.createElement('input');auto.type='checkbox';auto.id='tichorTranslationAuto';auto.style.width='auto';auto.checked=localStorage.getItem(TICHOR_AUTO_KEY)!=='off';
- auto.onchange=()=>{localStorage.setItem(TICHOR_AUTO_KEY,auto.checked?'on':'off');load()};
- autoLabel.append(auto,document.createTextNode('Automatically translate incoming messages'));
+ for(const [label,sel] of [['From (when detection is off)',source],['Read messages in',target]]){const wrap=document.createElement('label');wrap.textContent=label+' ';wrap.append(sel);labels.append(wrap)}
  const info=document.createElement('small');info.className='muted';info.id='tichorTranslationNotice';info.setAttribute('role','status');
- bar.append(title,desc,detectLabel,labels,autoLabel,info);host.before(bar);
+ const refresh=()=>{source.disabled=detect.checked||mode.value==='off';target.disabled=mode.value==='off';detect.disabled=mode.value==='off';};
+ const changed=()=>{tichorTranslationCache.clear();refresh();load()};
+ mode.onchange=()=>{localStorage.setItem('tichor-translation-mode',mode.value);changed()};
+ detect.onchange=()=>{localStorage.setItem(TICHOR_DETECT_KEY,detect.checked?'on':'off');changed()};
+ source.onchange=()=>{localStorage.setItem(TICHOR_SOURCE_KEY,source.value);tichorTranslatorSession=null;tichorTranslatorPair='';changed()};
+ target.onchange=()=>{localStorage.setItem(TICHOR_LANG_KEY,target.value);tichorTranslatorSession=null;tichorTranslatorPair='';changed()};
+ bar.append(title,desc,modeLabel,detectLabel,labels,info);settings.append(bar);refresh();
 }
 async function tichorDetectLanguage(value){
  const api=globalThis.LanguageDetector;
@@ -368,31 +371,41 @@ async function tichorTranslateOnDevice(value){
 }
 function tichorAddTranslateButton(parent,content,mine,messageId,autoQueue){
  if(!content.textContent||content.textContent.startsWith('🔒'))return;
+ const mode=tichorTranslationMode();
+ if(mode==='off')return;
  const original=content.textContent;
- const button=document.createElement('button');button.type='button';button.textContent='🌐 Translate';button.className='tichor-translate-button';
- button.setAttribute('aria-label','Translate this message');
  const key=messageId+'|'+($('tichorTranslationDetect')?.checked?'detect':$('tichorTranslationSource').value)+'|'+$('tichorTranslationTarget').value;
  const cached=tichorTranslationCache.get(key);
- let translated=null;
- if(cached){translated=cached;content.textContent=cached;button.textContent='Show original'}
+ const automatic=mode==='automatic'&&!mine;
+ if(mode==='automatic'&&mine)return;
+ let translated=cached||null;
+ const button=automatic?null:document.createElement('button');
+ if(button){button.type='button';button.className='tichor-translate-button';button.setAttribute('aria-label','Translate this message');button.textContent=translated?'Show original':'🌐 Translate';parent.append(button)}
+ const showOriginal=()=>{content.textContent=original;translated=null;if(button)button.textContent='🌐 Translate';};
+ const showTranslated=(value)=>{translated=value;content.textContent=value;if(button)button.textContent='Show original';if(automatic){content.title='Translated message — tap to view original';content.style.cursor='pointer';content.setAttribute('role','button');content.tabIndex=0;content.setAttribute('aria-label','Translated message. Activate to switch between translated and original text.')}};
+ const toggle=()=>{if(translated!==null){showOriginal();return}const cachedText=tichorTranslationCache.get(key);if(cachedText)showTranslated(cachedText)};
+ if(automatic){
+  content.onclick=toggle;
+  content.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle()}};
+ }
+ if(cached){if(automatic)showTranslated(cached);else showTranslated(cached)}
  const translate=async(silent=false)=>{
-  if(translated!==null){content.textContent=original;translated=null;button.textContent='🌐 Translate';return}
-  button.disabled=true;button.textContent='Translating…';
+  if(translated!==null){showOriginal();return}
+  if(button){button.disabled=true;button.textContent='Translating…'}
   try{
    const result=tichorTranslationCache.get(key)||await tichorTranslateOnDevice(original);
    const translatedText=typeof result==='string'?result:result.text;
    tichorTranslationCache.set(key,translatedText);
-   if(!parent.isConnected)return;
-   translated=translatedText;content.textContent=translatedText;button.textContent='Show original';
+   if(!parent.isConnected||tichorTranslationMode()!==mode)return;
+   showTranslated(translatedText);
   }catch(e){
-   button.textContent='🌐 Translate';
+   if(button)button.textContent='🌐 Translate';
    if(!silent)alert(e.message);
    else {const notice=$('tichorTranslationNotice');if(notice)notice.textContent='Automatic translation unavailable: '+e.message}
-  }finally{button.disabled=false}
+  }finally{if(button)button.disabled=false}
  };
- button.onclick=()=>translate(false);
- parent.append(button);
- if(!mine&&!cached&&autoQueue&&$('tichorTranslationAuto')?.checked)autoQueue.push(()=>translate(true));
+ if(button)button.onclick=()=>translate(false);
+ if(automatic&&!cached&&autoQueue)autoQueue.push(()=>translate(true));
 }
 async function load(){
  tichorPrivacyRender();tichorTranslatorControls();
@@ -476,7 +489,7 @@ async function load(){
   const del=document.createElement('button');del.type='button';del.textContent='🗑 Delete';del.setAttribute('aria-label','Delete message');del.onclick=()=>deleteTichorMessage(m,a,mine);actions.append(del);d.append(actions);box.append(d);
  }
  // Translate recent incoming messages sequentially, without blocking the conversation UI.
- if(autoQueue.length){(async()=>{for(const task of autoQueue){if(!box.isConnected||!$('tichorTranslationAuto')?.checked)break;await task()}})()}
+ if(autoQueue.length){(async()=>{for(const task of autoQueue){if(!box.isConnected||tichorTranslationMode()!=='automatic')break;await task()}})()}
 
  if(atBottom)box.scrollTop=box.scrollHeight;
  if(document.visibilityState==='visible'){
