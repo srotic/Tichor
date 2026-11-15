@@ -307,6 +307,8 @@ $('openConversation').onclick=async()=>{try{if(!user)throw Error('Sign in first'
 const TICHOR_LANGUAGES={en:'English',sw:'Kiswahili',fr:'Français',es:'Español',ar:'العربية',de:'Deutsch',pt:'Português',hi:'हिन्दी',zh:'中文',ja:'日本語',ko:'한국어',it:'Italian',ru:'Русский'};
 const TICHOR_LANG_KEY='tichor-translation-language';
 const TICHOR_SOURCE_KEY='tichor-translation-source';
+const TICHOR_DETECT_KEY='tichor-translation-detect';
+let tichorDetectorSession=null;
 const TICHOR_AUTO_KEY='tichor-translation-auto';
 const tichorTranslationCache=new Map();
 let tichorTranslatorSession=null,tichorTranslatorPair='';
@@ -314,11 +316,16 @@ function tichorTranslatorControls(){
  const host=$('messages');if(!host||$('tichorTranslatorBar'))return;
  const bar=document.createElement('div');bar.id='tichorTranslatorBar';bar.className='callbar';
  const title=document.createElement('strong');title.textContent='🌐 Universal Translator · Beta';
- const desc=document.createElement('p');desc.className='muted';desc.textContent='Automatically translate incoming messages on your device where supported. Choose the sender’s language and yours. Original text remains available; unsupported browsers keep the original.';
+ const desc=document.createElement('p');desc.className='muted';desc.textContent='Automatically translate incoming messages on your device where supported. Choose your language once; Tichor attempts to detect each incoming message’s language on your device. You can switch to manual selection if detection is unavailable. Original text remains accessible.';
  const source=document.createElement('select');source.id='tichorTranslationSource';source.setAttribute('aria-label','Original message language');
  const target=document.createElement('select');target.id='tichorTranslationTarget';target.setAttribute('aria-label','Translate into');
  for(const [code,name] of Object.entries(TICHOR_LANGUAGES)){for(const el of [source,target]){const opt=document.createElement('option');opt.value=code;opt.textContent=name;el.append(opt)}}
  source.value=localStorage.getItem(TICHOR_SOURCE_KEY)||'en';target.value=localStorage.getItem(TICHOR_LANG_KEY)||'sw';
+ const detectLabel=document.createElement('label');detectLabel.style.display='flex';detectLabel.style.alignItems='center';detectLabel.style.gap='8px';
+ const detect=document.createElement('input');detect.type='checkbox';detect.id='tichorTranslationDetect';detect.style.width='auto';detect.checked=localStorage.getItem(TICHOR_DETECT_KEY)!=='off';
+ detectLabel.append(detect,document.createTextNode('Detect message language automatically'));
+ source.disabled=detect.checked;
+ detect.onchange=()=>{localStorage.setItem(TICHOR_DETECT_KEY,detect.checked?'on':'off');source.disabled=detect.checked;tichorTranslationCache.clear();load()};
  source.onchange=()=>{localStorage.setItem(TICHOR_SOURCE_KEY,source.value);tichorTranslatorSession=null;tichorTranslatorPair='';tichorTranslationCache.clear();load()};
  target.onchange=()=>{localStorage.setItem(TICHOR_LANG_KEY,target.value);tichorTranslatorSession=null;tichorTranslatorPair='';tichorTranslationCache.clear();load()};
  const labels=document.createElement('div');labels.className='two';
@@ -328,27 +335,43 @@ function tichorTranslatorControls(){
  auto.onchange=()=>{localStorage.setItem(TICHOR_AUTO_KEY,auto.checked?'on':'off');load()};
  autoLabel.append(auto,document.createTextNode('Automatically translate incoming messages'));
  const info=document.createElement('small');info.className='muted';info.id='tichorTranslationNotice';info.setAttribute('role','status');
- bar.append(title,desc,labels,autoLabel,info);host.before(bar);
+ bar.append(title,desc,detectLabel,labels,autoLabel,info);host.before(bar);
+}
+async function tichorDetectLanguage(value){
+ const api=globalThis.LanguageDetector;
+ if(!api||typeof api.create!=='function')throw Error('On-device language detection is not supported by this browser. Turn off automatic detection and choose a source language.');
+ if(!tichorDetectorSession){
+  if(typeof api.availability==='function'){
+   const availability=await api.availability();
+   if(availability==='unavailable')throw Error('Language detection is unavailable on this device. Choose the source language manually.');
+  }
+  tichorDetectorSession=await api.create();
+ }
+ const results=await tichorDetectorSession.detect(value);
+ const best=(results||[]).find(x=>x.detectedLanguage&&x.detectedLanguage!=='und'&&x.confidence>=0.5);
+ if(!best)throw Error('Could not confidently detect this message’s language. Choose the source language manually.');
+ return best.detectedLanguage.toLowerCase().split('-')[0];
 }
 async function tichorTranslateOnDevice(value){
- const from=$('tichorTranslationSource').value,to=$('tichorTranslationTarget').value;
- if(from===to)return value;
+ const from=$('tichorTranslationDetect')?.checked?await tichorDetectLanguage(value):$('tichorTranslationSource').value;
+ const to=$('tichorTranslationTarget').value;
+ if(from===to)return {text:value,language:from};
  const api=globalThis.Translator;
  if(!api||typeof api.create!=='function')throw Error('On-device translation is not available in this browser.');
  const pair=from+'>'+to;
  if(!tichorTranslatorSession||tichorTranslatorPair!==pair){
-  if(typeof api.availability==='function'){const available=await api.availability({sourceLanguage:from,targetLanguage:to});if(available==='unavailable')throw Error('This language pair is not supported on this device.')}
+  if(typeof api.availability==='function'){const available=await api.availability({sourceLanguage:from,targetLanguage:to});if(available==='unavailable')throw Error('Translation from '+from+' to '+to+' is not supported on this device.')}
   tichorTranslatorSession=await api.create({sourceLanguage:from,targetLanguage:to});
   tichorTranslatorPair=pair;
  }
- return await tichorTranslatorSession.translate(value);
+ return {text:await tichorTranslatorSession.translate(value),language:from};
 }
 function tichorAddTranslateButton(parent,content,mine,messageId,autoQueue){
  if(!content.textContent||content.textContent.startsWith('🔒'))return;
  const original=content.textContent;
  const button=document.createElement('button');button.type='button';button.textContent='🌐 Translate';button.className='tichor-translate-button';
  button.setAttribute('aria-label','Translate this message');
- const key=messageId+'|'+$('tichorTranslationSource').value+'|'+$('tichorTranslationTarget').value;
+ const key=messageId+'|'+($('tichorTranslationDetect')?.checked?'detect':$('tichorTranslationSource').value)+'|'+$('tichorTranslationTarget').value;
  const cached=tichorTranslationCache.get(key);
  let translated=null;
  if(cached){translated=cached;content.textContent=cached;button.textContent='Show original'}
@@ -357,9 +380,10 @@ function tichorAddTranslateButton(parent,content,mine,messageId,autoQueue){
   button.disabled=true;button.textContent='Translating…';
   try{
    const result=tichorTranslationCache.get(key)||await tichorTranslateOnDevice(original);
-   tichorTranslationCache.set(key,result);
+   const translatedText=typeof result==='string'?result:result.text;
+   tichorTranslationCache.set(key,translatedText);
    if(!parent.isConnected)return;
-   translated=result;content.textContent=result;button.textContent='Show original';
+   translated=translatedText;content.textContent=translatedText;button.textContent='Show original';
   }catch(e){
    button.textContent='🌐 Translate';
    if(!silent)alert(e.message);
