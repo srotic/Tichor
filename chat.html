@@ -122,6 +122,8 @@ const notifications=document.createElement('section');notifications.className='t
 const contacts=document.createElement('section');contacts.className='t12-section';contacts.id='t12Contacts';
 const settings=document.createElement('section');settings.className='t12-section';settings.id='t12Settings';
 const conversation=document.createElement('section');conversation.className='t12-section';conversation.id='t12Conversation';
+const actions=document.createElement('section');actions.className='t12-section';actions.id='t12Actions';actions.hidden=true;
+actions.innerHTML='<h2>✓ My Actions</h2><p class="muted">Track commitments across your conversations.</p><div id="tichorActionsDashboard">Open Actions to load your commitments.</div>';
 const mailbox=get('tichorMailbox');if(mailbox)inbox.append(mailbox);
 const notification=get('notificationSettings');if(notification)settings.append(notification);
 const saved=get('savedContacts');if(saved)contacts.append(saved);
@@ -167,14 +169,15 @@ if(callDescription){const callPrefs=document.createElement('section');callPrefs.
 const moved=new Set([profileStart,...profileNodes,...contactNodes,...convNodes,mailbox,notification,saved,get('who'),get('signout'),passStart,secretInput,secretNote]);
 const extras=document.createElement('div');extras.className='t12-extras';
 [...chat.children].forEach(n=>{if(!moved.has(n))extras.append(n)});settings.append(extras);
-const tabs=[['inbox','✉','Inbox'],['sent','➤','Sent'],['calls','☎','Calls'],['contacts','♧','Contacts'],['profile','⚙','Settings']];
+const tabs=[['inbox','✉','Inbox'],['sent','➤','Sent'],['calls','☎','Calls'],['actions','✓','Actions'],['contacts','♧','Contacts'],['profile','⚙','Settings']];
 const showTab=which=>{
  for(const b of nav.querySelectorAll('button')){const active=b.dataset.tab===which;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active))}
- inbox.hidden=!['inbox','sent'].includes(which);notifications.hidden=true;contacts.hidden=which!=='contacts';settings.hidden=which!=='profile';conversation.hidden=which!=='calls';
+ inbox.hidden=!['inbox','sent'].includes(which);notifications.hidden=true;contacts.hidden=which!=='contacts';settings.hidden=which!=='profile';conversation.hidden=which!=='calls';actions.hidden=which!=='actions';
+ if(which==='actions')window.tichorLoadActions?.();
  if(which==='inbox'||which==='sent'){const btn=get(which==='inbox'?'tabInbox':'tabSent');if(btn)btn.click()}
 };
 for(const [key,ico,label] of tabs){const b=document.createElement('button');b.type='button';b.dataset.tab=key;b.innerHTML='<span aria-hidden="true">'+ico+'</span><span>'+label+'</span>';b.onclick=()=>showTab(key);nav.append(b)}
-shell.append(profile,nav,inbox,notifications,contacts,settings,conversation);
+shell.append(profile,nav,inbox,notifications,contacts,settings,conversation,actions);
 chat.replaceChildren(shell);chat.classList.remove('card');
 // Called after the module attaches its folder handlers.
 window.tichorShowTab=showTab;
@@ -438,6 +441,56 @@ async function tichorSendAction(payload){
  const {error}=await supa.from('chat_messages').insert({sender_id:user.id,recipient_id:peer,body:TICHOR_ACTION_PREFIX+JSON.stringify(payload)});
  if(error)throw error;tichorRecordSend();await load();
 }
+async function tichorLoadActions(){
+ const root=$('tichorActionsDashboard');if(!root||!user)return;
+ root.textContent='Loading actions…';
+ try{
+  // Paginate the user's message history, not just the latest 200 messages in an open chat.
+  const rows=[];for(let offset=0;offset<5000;offset+=500){
+   const {data,error}=await supa.from('chat_messages').select('id,sender_id,recipient_id,body,created_at').or('sender_id.eq.'+user.id+',recipient_id.eq.'+user.id).order('created_at',{ascending:false}).range(offset,offset+499);
+   if(error)throw error;rows.push(...(data||[]));if(!data||data.length<500)break;
+  }
+  rows.reverse();
+  const creates=new Map(),states=new Map();
+  for(const m of rows){const a=tichorParseAction(m.body);if(a?.type==='create')creates.set(m.id,{message:m,action:a})}
+  for(const m of rows){const a=tichorParseAction(m.body);if(a?.type!=='status')continue;
+   const item=creates.get(a.id);if(!item)continue;
+   const original=item.message,previous=states.get(a.id)||'pending';
+   const recipient=m.sender_id===original.recipient_id;
+   const sender=m.sender_id===original.sender_id;
+   const valid=(recipient&&(previous==='pending'?['accepted','declined','more-time'].includes(a.status):['accepted','in-progress'].includes(previous)&&['in-progress','completed','more-time'].includes(a.status)))||
+     (sender&&previous==='more-time'&&['accepted','declined'].includes(a.status));
+   if(valid)states.set(a.id,a.status);
+  }
+  root.replaceChildren();
+  const controls=document.createElement('div');controls.className='t12-preference';
+  const filter=document.createElement('select');filter.setAttribute('aria-label','Filter actions');
+  for(const [value,label] of [['mine','Assigned to me'],['sent','Assigned by me'],['completed','Completed'],['all','All actions']]){const opt=document.createElement('option');opt.value=value;opt.textContent=label;filter.append(opt)}
+  const refresh=document.createElement('button');refresh.type='button';refresh.textContent='↻ Refresh';refresh.onclick=()=>tichorLoadActions();
+  controls.append(filter,refresh);root.append(controls);
+  const list=document.createElement('div');root.append(list);
+  const render=()=>{list.replaceChildren();let count=0;
+   const ordered=[...creates.values()].reverse();
+   for(const item of ordered){
+    const m=item.message,a=item.action,state=states.get(m.id)||'pending';
+    const include=filter.value==='all'||filter.value==='completed'&&state==='completed'||filter.value==='mine'&&m.recipient_id===user.id&&state!=='completed'||filter.value==='sent'&&m.sender_id===user.id&&state!=='completed';
+    if(!include)continue;count++;
+    const card=document.createElement('article');card.className='t12-preference';card.style.margin='10px 0';
+    const heading=document.createElement('strong');heading.textContent=a.title;
+    const meta=document.createElement('p');meta.className='muted';meta.textContent=(m.recipient_id===user.id?'Assigned to me':'Assigned by me')+' · '+state+(a.due?' · Due '+new Date(a.due).toLocaleString():'');
+    card.append(heading,meta);
+    const open=document.createElement('button');open.type='button';open.textContent='Open conversation';open.onclick=async()=>{
+      const other=m.sender_id===user.id?m.recipient_id:m.sender_id;
+      if(tichorIsBlocked(other))return alert('Unblock this contact in Settings first.');
+      peer=other;window.tichorShowTab?.('calls');await load();
+    };card.append(open);list.append(card);
+   }
+   if(!count){const empty=document.createElement('p');empty.className='muted';empty.textContent='No actions in this category.';list.append(empty)}
+  };filter.onchange=render;render();
+  if(rows.length===5000){const note=document.createElement('p');note.className='muted';note.textContent='Showing actions found in your 5,000 most recent messages.';root.append(note)}
+ }catch(e){root.textContent='Could not load actions: '+e.message}
+}
+window.tichorLoadActions=tichorLoadActions;
 function tichorActionComposer(){
  const form=$('sendForm');if(!form||$('tichorActionComposer'))return;
  const panel=document.createElement('section');panel.id='tichorActionComposer';panel.className='t12-preference';
