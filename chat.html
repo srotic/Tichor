@@ -748,6 +748,20 @@ function tichorCompactComposer(){
  form.before(wrapper);
 }
 const tichorComposeStyle=document.createElement('style');tichorComposeStyle.textContent='.tichor-compose-menu{margin:8px 0}.tichor-compose-menu>button{background:#15553d;color:white;border-radius:12px}.tichor-compose-menu>div:not([hidden]){display:flex;gap:6px;flex-wrap:wrap}.tichor-compose-menu>div button{flex:1;min-width:120px}.tichor-compose-menu+section[hidden],#tichorActionComposer[hidden],#tichorPollComposer[hidden]{display:none!important}';document.head.append(tichorComposeStyle);
+// Action Intelligence v1: privacy-preserving on-device suggestion rules; no message is sent without approval.
+function tichorSuggestAction(text){
+ if(typeof text!=='string'||text.length>500||text.length<12)return null;
+ const clean=text.trim();
+ if(clean.startsWith('[')||!/(please|could you|can you|remember to|i will|i'll|i can|by friday|by monday|by tomorrow|send me|submit|deliver|follow up|complete|prepare)/i.test(clean))return null;
+ if(!/(send|submit|deliver|review|prepare|call|complete|follow up|share|upload|finish|provide|remember|schedule)/i.test(clean))return null;
+ return clean.slice(0,500);
+}
+function tichorActionFromMessage(messageText){
+ const panel=$('tichorActionComposer');if(!panel)return;
+ const fields=panel.querySelector('div'),title=fields?.querySelector('textarea');
+ if(!fields||!title)return;
+ fields.hidden=false;title.value=messageText;panel.scrollIntoView({behavior:'smooth',block:'center'});title.focus();
+}
 function tichorActionComposer(){
  const form=$('sendForm');if(!form||$('tichorActionComposer'))return;
  const panel=document.createElement('section');panel.id='tichorActionComposer';panel.className='t12-preference';
@@ -870,7 +884,15 @@ async function load(){
   else if(content.textContent.startsWith(TICHOR_POLL_PREFIX)){d.append(small);const notice=document.createElement('p');notice.textContent='Update Tichor to view this decision poll.';d.append(notice)}
   else if(displayedAction?.type==='create'){d.append(small,tichorActionCard(m,displayedAction,actionStates.get(m.id)||'pending'))}
   else if(content.textContent.trim().startsWith(TICHOR_ACTION_PREFIX)){d.append(small);const notice=document.createElement('p');notice.textContent='Action message received. Update Tichor to view its controls.';d.append(notice)}
-  else {d.append(small,content);tichorAddTranslateButton(d,content,mine,m.id,recentIds.has(m.id)?autoQueue:null)}
+  else {d.append(small,content);tichorAddTranslateButton(d,content,mine,m.id,recentIds.has(m.id)?autoQueue:null);
+   const suggestion=tichorSuggestAction(content.textContent);
+   if(suggestion&&!mine){
+    const create=document.createElement('button');create.type='button';create.className='tichor-ai-suggest';
+    create.textContent='✦ Create action';create.title='Review a suggested action from this message';
+    create.onclick=event=>{event.stopPropagation();tichorActionFromMessage(suggestion)};
+    d.append(create);
+   }
+  }
   const a=attached.get(m.id);
   if(a&&(/\\.(png|jpe?g|webp|pdf)$/i.test(a.file_name))){
    const isPdf=/\\.pdf$/i.test(a.file_name);
@@ -1407,4 +1429,7 @@ html[data-tichor-theme="dark"] .tichor-delete-cancel{background:#315b70!importan
 </style><style id="tichor-call-delete-touch">
 #tichorCallHistory .tichor-call-tap-delete{cursor:pointer;touch-action:manipulation}
 #tichorCallHistory .tichor-call-tap-delete:focus-visible{outline:3px solid #c49327!important;outline-offset:2px}
+</style><style id="tichor-action-intelligence-v1">
+.tichor-ai-suggest{display:inline-flex!important;width:auto!important;min-height:32px!important;padding:5px 11px!important;margin-top:9px!important;border:1px solid #6b9e90!important;border-radius:20px!important;background:#165f4e!important;color:#fff!important;font-size:.78rem!important;font-weight:600!important}
+.tichor-ai-suggest:focus-visible{outline:3px solid #e4ae48!important;outline-offset:3px}
 </style></body></html>
