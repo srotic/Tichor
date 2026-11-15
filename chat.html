@@ -921,7 +921,7 @@ async function load(){
    const {data:blob,error:err}=await supa.storage.from('tichor-attachments').download(a.storage_path);
    if(err)throw err;const url=URL.createObjectURL(blob);const anchor=document.createElement('a');anchor.href=url;anchor.download=a.file_name;document.body.append(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)
   }catch(e){status('chatStatus','Download failed: '+e.message)}};d.append(link)}
-  if(content.isConnected&&content.parentElement===d){
+  if(content.parentElement===d){
    content.setAttribute('role','button');content.setAttribute('tabindex','0');
    content.setAttribute('aria-label','Open delete options for this message');
    content.title='Tap to delete this message';
