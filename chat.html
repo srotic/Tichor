@@ -576,6 +576,41 @@ function parseTichorPoll(body){if(typeof body!=='string'||!body.startsWith(TICHO
 async function sendTichorPoll(payload){if(!user||!peer)throw Error('Open a conversation first');if(tichorIsBlocked(peer))throw Error('Contact blocked');tichorCheckSendGuard();const {error}=await supa.from('chat_messages').insert({sender_id:user.id,recipient_id:peer,body:TICHOR_POLL_PREFIX+JSON.stringify(payload)});if(error)throw error;tichorRecordSend();await load()}
 function tichorPollComposer(){const form=$('sendForm');if(!form||$('tichorPollComposer'))return;const panel=document.createElement('section');panel.id='tichorPollComposer';panel.className='t12-preference';const toggle=document.createElement('button');toggle.type='button';toggle.textContent='◉ Decision';const fields=document.createElement('div');fields.hidden=true;const question=document.createElement('textarea');question.maxLength=300;question.placeholder='Decision question';question.setAttribute('aria-label','Decision question');const options=document.createElement('textarea');options.rows=4;options.placeholder='2–6 options, one per line';options.setAttribute('aria-label','Decision options');const send=document.createElement('button');send.type='button';send.textContent='Send decision';toggle.onclick=()=>{fields.hidden=!fields.hidden};send.onclick=async()=>{const list=options.value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);if(!question.value.trim()||list.length<2||list.length>6||list.some(x=>x.length>100)||new Set(list.map(x=>x.toLowerCase())).size!==list.length)return alert('Provide a question and 2–6 unique options under 100 characters.');send.disabled=true;try{await sendTichorPoll({type:'create',question:question.value.trim(),options:list});question.value='';options.value='';fields.hidden=true}catch(e){alert(e.message)}finally{send.disabled=false}};fields.append(question,options,send);panel.append(toggle,fields);form.before(panel)}
 function tichorPollCard(m,p,votes){const card=document.createElement('section');card.className='t12-preference';card.style.margin='8px 0';const title=document.createElement('strong');title.textContent='◉ Decision: '+p.question;card.append(title);const selected=votes.get(user.id);p.options.forEach((label,index)=>{const count=[...votes.values()].filter(x=>x===index).length;const b=document.createElement('button');b.type='button';b.style.cssText='display:block;width:100%;text-align:left;margin:8px 0;min-height:44px';b.textContent=(selected===index?'✓ ':'')+label+' · '+count+' vote'+(count===1?'':'s');b.setAttribute('aria-pressed',String(selected===index));b.onclick=async()=>{b.disabled=true;try{await sendTichorPoll({type:'vote',id:m.id,choice:index})}catch(e){alert(e.message)}finally{b.disabled=false}};card.append(b)});const note=document.createElement('small');note.className='muted';note.textContent=votes.size+' participant(s) voted · Tap to '+(selected===undefined?'vote':'change your vote');card.append(note);return card}
+
+function tichorGlassComposer(){
+ const form=$('sendForm'),toolbar=form?.querySelector('.tichor-compose'),menu=$('tichorComposeMenu');
+ if(!form||!toolbar||!menu||form.dataset.glassReady)return;form.dataset.glassReady='1';
+ form.classList.add('tichor-glass-composer');
+ const write=$('tichorWritingToggle'),emoji=$('tichorEmojiToggle'),file=$('tichorFile'),attach=toolbar.querySelector('label[for="tichorFile"]'),send=toolbar.querySelector('button[type="submit"]');
+ const plus=menu.querySelector('button'),options=$('tichorComposeOptions');
+ const setIcon=(el,icon,label)=>{if(!el)return;el.textContent=icon;el.setAttribute('aria-label',label);el.title=label;el.classList.add('tichor-glass-icon')};
+ setIcon(plus,'＋','Add action or decision');setIcon(write,'✦','AI writing assistant');setIcon(emoji,'☺','Choose emoji');
+ if(attach){attach.textContent='♧';attach.title='Attach document or image';attach.setAttribute('aria-label','Attach document or image');attach.classList.add('tichor-glass-icon');attach.setAttribute('role','button');attach.tabIndex=0;attach.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();file?.click()}}}
+ setIcon(send,'➤','Send message');send.classList.add('tichor-glass-send');
+ // Move existing controls without replacing their listeners.
+ toolbar.prepend(menu);if(write)toolbar.append(write);if(emoji)toolbar.append(emoji);if(attach)toolbar.append(attach);if(send)toolbar.append(send);
+ if(file){file.classList.add('tichor-glass-file');file.addEventListener('change',()=>{let note=$('tichorSelectedFile');if(!note){note=document.createElement('span');note.id='tichorSelectedFile';note.className='muted';toolbar.after(note)}note.textContent=file.files?.[0]?'📎 '+file.files[0].name:''})}
+ // Keep the plus popover anchored to the icon, while retaining action and decision forms.
+ if(options){options.setAttribute('role','group');options.setAttribute('aria-label','Add to conversation')}
+ const refresh=$('refresh');if(refresh){refresh.classList.add('tichor-glass-refresh');refresh.title='Refresh messages';refresh.setAttribute('aria-label','Refresh messages');refresh.textContent='↻'}
+}
+const tichorGlassStyle=document.createElement('style');tichorGlassStyle.textContent=`
+#sendForm.tichor-glass-composer{padding:14px!important;background:linear-gradient(135deg,rgba(42,93,122,.58),rgba(9,36,60,.86))!important;border:1px solid rgba(141,218,239,.46)!important;border-radius:25px!important;box-shadow:inset 0 1px 1px #d4faff55,0 12px 32px #0003!important;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+#sendForm.tichor-glass-composer #body{width:100%;min-height:64px;max-height:160px;resize:vertical;border-radius:19px!important;background:linear-gradient(145deg,rgba(15,48,76,.83),rgba(37,86,119,.53))!important;color:#f2fcff!important;border:1px solid rgba(162,221,245,.55)!important;padding:16px!important;box-shadow:inset 0 2px 12px #0003!important}
+#sendForm.tichor-glass-composer #body::placeholder{color:#b4cbd7!important}
+#sendForm.tichor-glass-composer .tichor-compose{display:flex!important;align-items:center!important;gap:8px!important;flex-wrap:nowrap!important;margin-top:9px;position:relative;min-width:0}
+#sendForm.tichor-glass-composer .tichor-glass-icon{display:grid!important;place-items:center!important;flex:0 0 44px!important;width:44px!important;height:44px!important;min-width:0!important;padding:0!important;margin:0!important;border-radius:15px!important;background:linear-gradient(150deg,rgba(112,171,206,.38),rgba(22,53,82,.72))!important;color:#f0fbff!important;border:1px solid rgba(175,226,249,.45)!important;box-shadow:inset 0 1px 1px #fff6,0 5px 13px #0004!important;font-size:25px!important;font-weight:650;cursor:pointer;line-height:1}
+#sendForm.tichor-glass-composer .tichor-glass-icon:hover,#sendForm.tichor-glass-composer .tichor-glass-icon:focus-visible{background:linear-gradient(140deg,rgba(50,207,183,.58),rgba(23,94,112,.85))!important;outline:2px solid #7bf3d8;outline-offset:2px}
+#sendForm.tichor-glass-composer .tichor-glass-send{margin-left:auto!important;border-radius:50%!important;background:linear-gradient(135deg,#4af0c2,#00a775)!important;color:#07382f!important;border-color:#89ffe0!important;font-size:27px!important}
+#sendForm.tichor-glass-composer .tichor-compose-menu{margin:0!important;position:relative;flex:0 0 44px}
+#sendForm.tichor-glass-composer .tichor-compose-menu>div:not([hidden]){position:absolute;z-index:20;bottom:calc(100% + 12px);left:0;display:flex;flex-direction:column;gap:8px;width:min(275px,80vw);padding:12px;border-radius:20px;background:linear-gradient(135deg,rgba(32,75,110,.97),rgba(13,37,67,.98));border:1px solid #9ac9e488;box-shadow:0 15px 35px #0008;backdrop-filter:blur(20px)}
+#sendForm.tichor-glass-composer .tichor-compose-menu>div button{width:100%;margin:0;background:#ffffff18;color:#effaff;text-align:left;border:1px solid #ffffff33}
+#sendForm.tichor-glass-composer .tichor-glass-file{position:absolute!important;width:1px!important;height:1px!important;opacity:0!important;overflow:hidden!important;pointer-events:none!important}
+#sendForm.tichor-glass-composer .tichor-writing-panel,#sendForm.tichor-glass-composer .tichor-emoji-picker{max-width:100%}
+#tichorSelectedFile{display:block;overflow-wrap:anywhere;margin-top:7px;color:#b8f4e2!important}
+.tichor-glass-refresh{font-size:21px!important;padding:6px 13px!important}
+@media(max-width:420px){#sendForm.tichor-glass-composer{padding:9px!important}#sendForm.tichor-glass-composer .tichor-compose{gap:5px!important}#sendForm.tichor-glass-composer .tichor-glass-icon,#sendForm.tichor-glass-composer .tichor-compose-menu{flex-basis:39px!important;width:39px!important;height:39px!important}#sendForm.tichor-glass-composer .tichor-glass-icon{font-size:22px!important}}
+`;document.head.append(tichorGlassStyle);
 function tichorCompactComposer(){
  const form=$('sendForm');if(!form||$('tichorComposeMenu'))return;
  const action=$('tichorActionComposer'),decision=$('tichorPollComposer');if(!action||!decision)return;
@@ -620,7 +655,7 @@ function tichorActionCard(m,action,state){
  return card;
 }
 async function load(){
- tichorPrivacyRender();tichorTranslatorControls();tichorActionComposer();tichorPollComposer();tichorCompactComposer();
+ tichorPrivacyRender();tichorTranslatorControls();tichorActionComposer();tichorPollComposer();tichorCompactComposer();tichorGlassComposer();
  if(!peer||!user||refreshBusy)return;
  if(tichorIsBlocked(peer)){const box=$('messages');if(box)box.textContent='This contact is hidden on this device. Unblock in Settings to view the conversation.';return}refreshBusy=true;
  try{
