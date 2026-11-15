@@ -673,7 +673,48 @@ function tichorActionCard(m,action,state){
  for(const next of allowed){const button=document.createElement('button');button.type='button';button.textContent=({'accepted':'Accept','declined':'Decline','more-time':'Request more time','in-progress':'In progress','completed':'Mark completed'})[next];button.style.margin='4px';button.onclick=async()=>{button.disabled=true;try{await tichorSendAction({type:'status',id:m.id,status:next})}catch(e){alert(e.message)}finally{button.disabled=false}};card.append(button)}
  return card;
 }
+let tichorHeaderPeer=null,tichorHeaderLabel='';
+async function tichorUpdateChatHeader(){
+ const host=$('t12Conversation');if(!host||!peer||!user)return;
+ let header=$('tichorActiveChatHeader');
+ if(!header){header=document.createElement('div');header.id='tichorActiveChatHeader';header.className='tichor-active-chat-header';header.setAttribute('role','heading');header.setAttribute('aria-level','2');
+ const avatar=document.createElement('span');avatar.id='tichorChatAvatar';avatar.className='tichor-chat-avatar';
+ const content=document.createElement('div');content.className='tichor-chat-header-text';
+ const label=document.createElement('strong');label.id='tichorChatPeerName';
+ const subtitle=document.createElement('small');subtitle.textContent='Private conversation';
+ content.append(label,subtitle);
+ const back=document.createElement('button');back.type='button';back.className='tichor-chat-back';back.textContent='‹';back.title='Back to chats';back.setAttribute('aria-label','Back to chats');back.onclick=()=>window.tichorShowTab?.('inbox');
+ header.append(back,avatar,content);host.prepend(header)}
+ const current=peer;
+ if(tichorHeaderPeer!==current){tichorHeaderPeer=current;tichorHeaderLabel='';}
+ const recipient=$('recipient');
+ const contact=[...document.querySelectorAll('#contactsList [data-contact-id]')].find(b=>b.dataset.contactId===current);
+ const cached=contact?.textContent?.trim();
+ const typed=recipient?.value?.trim();
+ let label=cached||tichorHeaderLabel;
+ if(!label){label='Loading contact…'}
+ $('tichorChatPeerName').textContent=label;
+ $('tichorChatAvatar').textContent=label==='Loading contact…'?'◌':label.slice(0,1).toUpperCase();
+ if(cached){tichorHeaderLabel=cached;return}
+ if(tichorHeaderLabel)return;
+ try{const {data,error}=await supa.from('tichor_contacts').select('label').eq('owner_id',user.id).eq('contact_id',current).maybeSingle();
+ if(current!==peer)return;
+ if(!error&&data?.label?.trim())tichorHeaderLabel=data.label.trim();
+ else if(typed&&typed!=='Loading contact…')tichorHeaderLabel=typed;
+ else tichorHeaderLabel='Tichor contact';
+ $('tichorChatPeerName').textContent=tichorHeaderLabel;$('tichorChatAvatar').textContent=tichorHeaderLabel.slice(0,1).toUpperCase()
+ }catch{if(current===peer){tichorHeaderLabel=typed||'Tichor contact';$('tichorChatPeerName').textContent=tichorHeaderLabel;$('tichorChatAvatar').textContent=tichorHeaderLabel.slice(0,1).toUpperCase()}}
+}
+const tichorChatHeaderStyle=document.createElement('style');tichorChatHeaderStyle.textContent=`
+#tichorActiveChatHeader{display:flex;align-items:center;gap:12px;padding:12px 15px;margin:0 0 14px;border:1px solid #a5d9e68a;border-radius:20px;background:linear-gradient(120deg,#194f69ed,#103951ee 70%,#08675cb8);box-shadow:inset 0 1px 2px #fff5,0 8px 22px #0003;color:#f3ffff;position:sticky;top:0;z-index:10;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+#tichorActiveChatHeader .tichor-chat-avatar{display:grid;place-items:center;flex:0 0 42px;height:42px;border-radius:50%;background:linear-gradient(145deg,#38d8b3,#0a756b);border:1px solid #a2ffe2;color:#fff;font-size:21px;font-weight:700;box-shadow:0 0 12px #27e9c14d}
+#tichorActiveChatHeader .tichor-chat-header-text{display:flex;flex-direction:column;min-width:0;flex:1}
+#tichorActiveChatHeader strong{color:#fff!important;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#tichorActiveChatHeader small{color:#c2e5e5!important;font-size:12px}
+#tichorActiveChatHeader .tichor-chat-back{background:#ffffff18!important;border:1px solid #ffffff45!important;color:#fff!important;padding:2px 11px!important;font-size:27px!important;border-radius:13px!important;min-height:40px}
+`;document.head.append(tichorChatHeaderStyle);
 async function load(){
+ tichorUpdateChatHeader();
  tichorPrivacyRender();tichorTranslatorControls();tichorActionComposer();tichorPollComposer();tichorCompactComposer();tichorGlassComposer();
  if(!peer||!user||refreshBusy)return;
  if(tichorIsBlocked(peer)){const box=$('messages');if(box)box.textContent='This contact is hidden on this device. Unblock in Settings to view the conversation.';return}refreshBusy=true;
