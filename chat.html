@@ -1080,30 +1080,46 @@ async function tichorLoadCallHistory(){
  const grouped=new Map();
  for(const e of (data||[]).reverse()){if(!grouped.has(e.call_id))grouped.set(e.call_id,[]);grouped.get(e.call_id).push(e)}
  root.replaceChildren();
+ const styleId='tichorCompactCallsStyle';
+ if(!document.getElementById(styleId)){const css=document.createElement('style');css.id=styleId;css.textContent=`
+ #tichorCallHistory{margin-top:12px}#tichorCallHistory select{max-width:210px;margin-bottom:10px}
+ .tichor-call-history-list{display:grid;gap:6px}.tichor-call-history-item{display:flex;align-items:center;gap:10px;padding:10px 12px!important;margin:0!important;min-height:62px;border-radius:13px}
+ .tichor-call-symbol{width:34px;height:34px;display:grid;place-items:center;flex-shrink:0;border-radius:10px;background:color-mix(in srgb,currentColor 9%,transparent);font-size:21px;font-weight:800}
+ .tichor-call-symbol[data-status="missed"],.tichor-call-symbol[data-status="declined"]{color:#e75a62}
+ .tichor-call-symbol[data-status="cancelled"]{color:#b28b4c}
+ .tichor-call-symbol[data-status="received"],.tichor-call-symbol[data-status="answered"]{color:#26a67b}
+ .tichor-call-symbol[data-status="outgoing"]{color:#5599e5}
+ .tichor-call-summary{min-width:0;flex:1}.tichor-call-summary strong{display:block;font-size:.91rem}.tichor-call-summary small{display:block;opacity:.8;font-size:.77rem;margin-top:2px}
+ .tichor-call-history-item button{flex-shrink:0;padding:7px 10px!important;min-height:34px!important;font-size:.79rem!important}
+ `;document.head.append(css)}
+ root.replaceChildren();
  const filter=document.createElement('select');filter.setAttribute('aria-label','Filter call history');
- for(const [value,label] of [['all','All calls'],['missed','Missed'],['declined','Declined'],['answered','Answered'],['unanswered','Unanswered']]){const o=document.createElement('option');o.value=value;o.textContent=label;filter.append(o)}
+ for(const [value,label] of [['all','All calls'],['missed','Missed'],['declined','Declined'],['received','Received'],['outgoing','Outgoing'],['cancelled','Cancelled'],['unanswered','Unanswered']]){const o=document.createElement('option');o.value=value;o.textContent=label;filter.append(o)}
  root.append(filter);
  const list=document.createElement('div');list.className='tichor-call-history-list';root.append(list);
  const records=[];
  for(const [id,events] of grouped){const offer=events.find(e=>e.kind==='offer');if(!offer)continue;
- const incoming=offer.recipient_id===user.id,answer=events.find(e=>e.kind==='answer');
+ const incoming=offer.recipient_id===user.id;
+ const answer=events.some(e=>e.kind==='answer'||e.kind==='connected');
  const declined=events.some(e=>e.kind==='decline');
- const connected=events.some(e=>e.kind==='connected');
  const ended=events.some(e=>e.kind==='hangup'||e.kind==='decline');
+ const callerCancelled=!incoming&&!answer&&!declined&&events.some(e=>e.kind==='hangup'&&e.sender_id===offer.sender_id);
  const elapsed=Date.now()-new Date(offer.created_at).getTime();
- let state=declined?'declined':connected?'answered':answer?'answered':incoming?(ended||elapsed>90000?'missed':'ringing'):(ended||elapsed>90000?'unanswered':'ringing');
- // Legacy hangup events do not reliably distinguish a decline from a missed call.
- if(!declined&&!answer&&ended)state='unanswered';
+ const state=answer?(incoming?'received':'outgoing'):declined?'declined':callerCancelled?'cancelled':incoming?(ended||elapsed>90000?'missed':'ringing'):(ended||elapsed>90000?'unanswered':'ringing');
  records.push({offer,incoming,state,other:incoming?offer.sender_id:offer.recipient_id});
  }
  records.reverse();
  const render=()=>{list.replaceChildren();let count=0;
  for(const r of records){if(filter.value!=='all'&&filter.value!==r.state)continue;count++;
  const item=document.createElement('article');item.className='t12-preference tichor-call-history-item';
- const label=document.createElement('strong');label.textContent=(r.incoming?'↙ Incoming':'↗ Outgoing')+' '+(r.offer.payload?.video?'video':'voice')+' call';
- const detail=document.createElement('p');detail.className='muted';detail.textContent=r.state[0].toUpperCase()+r.state.slice(1)+' · '+new Date(r.offer.created_at).toLocaleString()+' · '+r.other.slice(0,8);
- const again=document.createElement('button');again.type='button';again.textContent='Call again';again.onclick=()=>{peer=r.other;startCall(!!r.offer.payload?.video)};
- item.append(label,detail,again);list.append(item);
+ const symbol=document.createElement('span');symbol.className='tichor-call-symbol';symbol.dataset.status=r.state;symbol.setAttribute('aria-hidden','true');
+ symbol.textContent=({received:'↙',outgoing:'↗',missed:'↙',declined:'✕',cancelled:'↗',unanswered:'↗',ringing:'◌'})[r.state]||'☎';
+ const summary=document.createElement('div');summary.className='tichor-call-summary';
+ const label=document.createElement('strong');label.textContent=({received:'Received',outgoing:'Outgoing',missed:'Missed',declined:'Declined',cancelled:'Cancelled',unanswered:'Unanswered',ringing:'Ringing'})[r.state]+' · '+(r.offer.payload?.video?'Video':'Voice');
+ const detail=document.createElement('small');detail.textContent=new Date(r.offer.created_at).toLocaleString()+' · '+String(r.other||'Unknown').slice(0,8);
+ summary.append(label,detail);
+ const again=document.createElement('button');again.type='button';again.textContent='Call again';again.setAttribute('aria-label','Call again '+r.other);again.onclick=()=>{peer=r.other;startCall(!!r.offer.payload?.video)};
+ item.append(symbol,summary,again);list.append(item);
  }
  if(!count){const empty=document.createElement('p');empty.className='muted';empty.textContent='No calls in this category.';list.append(empty)}
  };filter.onchange=render;render();
