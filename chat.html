@@ -307,21 +307,28 @@ $('openConversation').onclick=async()=>{try{if(!user)throw Error('Sign in first'
 const TICHOR_LANGUAGES={en:'English',sw:'Kiswahili',fr:'Français',es:'Español',ar:'العربية',de:'Deutsch',pt:'Português',hi:'हिन्दी',zh:'中文',ja:'日本語',ko:'한국어',it:'Italian',ru:'Русский'};
 const TICHOR_LANG_KEY='tichor-translation-language';
 const TICHOR_SOURCE_KEY='tichor-translation-source';
+const TICHOR_AUTO_KEY='tichor-translation-auto';
+const tichorTranslationCache=new Map();
 let tichorTranslatorSession=null,tichorTranslatorPair='';
 function tichorTranslatorControls(){
  const host=$('messages');if(!host||$('tichorTranslatorBar'))return;
  const bar=document.createElement('div');bar.id='tichorTranslatorBar';bar.className='callbar';
  const title=document.createElement('strong');title.textContent='🌐 Universal Translator · Beta';
- const desc=document.createElement('p');desc.className='muted';desc.textContent='Translate individual messages on your device where supported. Original messages stay visible. Translation may be unavailable in some browsers.';
+ const desc=document.createElement('p');desc.className='muted';desc.textContent='Automatically translate incoming messages on your device where supported. Choose the sender’s language and yours. Original text remains available; unsupported browsers keep the original.';
  const source=document.createElement('select');source.id='tichorTranslationSource';source.setAttribute('aria-label','Original message language');
  const target=document.createElement('select');target.id='tichorTranslationTarget';target.setAttribute('aria-label','Translate into');
  for(const [code,name] of Object.entries(TICHOR_LANGUAGES)){for(const el of [source,target]){const opt=document.createElement('option');opt.value=code;opt.textContent=name;el.append(opt)}}
  source.value=localStorage.getItem(TICHOR_SOURCE_KEY)||'en';target.value=localStorage.getItem(TICHOR_LANG_KEY)||'sw';
- source.onchange=()=>{localStorage.setItem(TICHOR_SOURCE_KEY,source.value);tichorTranslatorSession=null;tichorTranslatorPair=''};
- target.onchange=()=>{localStorage.setItem(TICHOR_LANG_KEY,target.value);tichorTranslatorSession=null;tichorTranslatorPair=''};
+ source.onchange=()=>{localStorage.setItem(TICHOR_SOURCE_KEY,source.value);tichorTranslatorSession=null;tichorTranslatorPair='';tichorTranslationCache.clear();load()};
+ target.onchange=()=>{localStorage.setItem(TICHOR_LANG_KEY,target.value);tichorTranslatorSession=null;tichorTranslatorPair='';tichorTranslationCache.clear();load()};
  const labels=document.createElement('div');labels.className='two';
  for(const [label,sel] of [['From',source],['To',target]]){const wrap=document.createElement('label');wrap.textContent=label+' ';wrap.append(sel);labels.append(wrap)}
- bar.append(title,desc,labels);host.before(bar);
+ const autoLabel=document.createElement('label');autoLabel.style.display='flex';autoLabel.style.alignItems='center';autoLabel.style.gap='8px';
+ const auto=document.createElement('input');auto.type='checkbox';auto.id='tichorTranslationAuto';auto.style.width='auto';auto.checked=localStorage.getItem(TICHOR_AUTO_KEY)!=='off';
+ auto.onchange=()=>{localStorage.setItem(TICHOR_AUTO_KEY,auto.checked?'on':'off');load()};
+ autoLabel.append(auto,document.createTextNode('Automatically translate incoming messages'));
+ const info=document.createElement('small');info.className='muted';info.id='tichorTranslationNotice';info.setAttribute('role','status');
+ bar.append(title,desc,labels,autoLabel,info);host.before(bar);
 }
 async function tichorTranslateOnDevice(value){
  const from=$('tichorTranslationSource').value,to=$('tichorTranslationTarget').value;
@@ -336,18 +343,32 @@ async function tichorTranslateOnDevice(value){
  }
  return await tichorTranslatorSession.translate(value);
 }
-function tichorAddTranslateButton(parent,content){
+function tichorAddTranslateButton(parent,content,mine,messageId,autoQueue){
  if(!content.textContent||content.textContent.startsWith('🔒'))return;
+ const original=content.textContent;
  const button=document.createElement('button');button.type='button';button.textContent='🌐 Translate';button.className='tichor-translate-button';
  button.setAttribute('aria-label','Translate this message');
- button.onclick=async()=>{
-  if(button.dataset.translated==='yes'){content.textContent=button.dataset.original;button.textContent='🌐 Translate';button.dataset.translated='no';return}
-  const original=content.textContent;button.disabled=true;button.textContent='Translating…';
-  try{const translated=await tichorTranslateOnDevice(original);button.dataset.original=original;content.textContent=translated;button.dataset.translated='yes';button.textContent='Show original'}
-  catch(e){button.textContent='🌐 Translate';alert(e.message+' You can still copy the message into a translator of your choice.')}
-  finally{button.disabled=false}
+ const key=messageId+'|'+$('tichorTranslationSource').value+'|'+$('tichorTranslationTarget').value;
+ const cached=tichorTranslationCache.get(key);
+ let translated=null;
+ if(cached){translated=cached;content.textContent=cached;button.textContent='Show original'}
+ const translate=async(silent=false)=>{
+  if(translated!==null){content.textContent=original;translated=null;button.textContent='🌐 Translate';return}
+  button.disabled=true;button.textContent='Translating…';
+  try{
+   const result=tichorTranslationCache.get(key)||await tichorTranslateOnDevice(original);
+   tichorTranslationCache.set(key,result);
+   if(!parent.isConnected)return;
+   translated=result;content.textContent=result;button.textContent='Show original';
+  }catch(e){
+   button.textContent='🌐 Translate';
+   if(!silent)alert(e.message);
+   else {const notice=$('tichorTranslationNotice');if(notice)notice.textContent='Automatic translation unavailable: '+e.message}
+  }finally{button.disabled=false}
  };
+ button.onclick=()=>translate(false);
  parent.append(button);
+ if(!mine&&!cached&&autoQueue&&$('tichorTranslationAuto')?.checked)autoQueue.push(()=>translate(true));
 }
 async function load(){
  tichorPrivacyRender();tichorTranslatorControls();
@@ -365,6 +386,7 @@ async function load(){
  const hiddenIds=new Set((hidden||[]).map(h=>h.message_id));
  const attached=new Map((attachments||[]).map(a=>[a.message_id,a]));
  const box=$('messages'),atBottom=box.scrollHeight-box.scrollTop-box.clientHeight<90;box.replaceChildren();
+ const autoQueue=[];const recentIds=new Set((data||[]).filter(m=>m.sender_id!==user.id&&!hiddenIds.has(m.id)).slice(-20).map(m=>m.id));
  for(const m of data||[]){
   if(hiddenIds.has(m.id))continue;
   const mine=m.sender_id===user.id,d=document.createElement('div');d.className='msg'+(mine?' mine':'');
@@ -375,7 +397,7 @@ async function load(){
   const content=document.createElement('div');
   try{content.textContent=m.body.startsWith('e2ee1.')?await decryptMessage(m.body,passphrase()):m.body}
   catch{content.textContent='🔒 Older encrypted message. Enter the original passphrase in Settings.'}
-  d.append(small,content);tichorAddTranslateButton(d,content);
+  d.append(small,content);tichorAddTranslateButton(d,content,mine,m.id,recentIds.has(m.id)?autoQueue:null);
   const a=attached.get(m.id);
   if(a&&(/\\.(png|jpe?g|webp|pdf)$/i.test(a.file_name))){
    const isPdf=/\\.pdf$/i.test(a.file_name);
@@ -429,6 +451,9 @@ async function load(){
   const actions=document.createElement('div');actions.className='tichor-message-actions';
   const del=document.createElement('button');del.type='button';del.textContent='🗑 Delete';del.setAttribute('aria-label','Delete message');del.onclick=()=>deleteTichorMessage(m,a,mine);actions.append(del);d.append(actions);box.append(d);
  }
+ // Translate recent incoming messages sequentially, without blocking the conversation UI.
+ if(autoQueue.length){(async()=>{for(const task of autoQueue){if(!box.isConnected||!$('tichorTranslationAuto')?.checked)break;await task()}})()}
+
  if(atBottom)box.scrollTop=box.scrollHeight;
  if(document.visibilityState==='visible'){
   const unread=(data||[]).filter(m=>m.recipient_id===user.id&&!m.read_at).map(m=>m.id);
