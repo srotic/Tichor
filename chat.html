@@ -773,15 +773,25 @@ function tichorAutoDue(text,created){
  else {const days=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];const match=lower.match(/\\b(?:by|on|before)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\b/);if(!match)return null;let delta=(days.indexOf(match[1])-d.getDay()+7)%7;if(delta===0)delta=7;d.setDate(d.getDate()+delta)}
  d.setHours(17,0,0,0);return d.toISOString();
 }
+function tichorAutoClassify(body,mine){
+ const t=body.trim();
+ const own=/\\b(i will|i'll|i can|i shall|let me|i promise|i need to|i have to)\\b/i.test(t);
+ const request=/\\b(please|could you|can you|would you|send me|remember to|you need to|you should)\\b/i.test(t);
+ const work=/\\b(send|submit|deliver|review|prepare|call|complete|follow up|share|upload|finish|provide|schedule|report|check)\\b/i.test(t);
+ if(!work||(!own&&!request))return null;
+ // Requests from me are others' actions; promises from me are my actions.
+ // Requests to me are my actions; promises from the other party are others' actions.
+ const category=own?(mine?'mine':'others'):(mine?'others':'mine');
+ return {category,title:t.slice(0,500)};
+}
 function tichorAutoScan(messages,hidden){
  const items=tichorAutoRead(),known=new Set(items.map(x=>x.source));
  let changed=false;
  for(const m of messages||[]){
-  if(m.sender_id===user.id||hidden.has(m.id)||known.has(m.id)||!m.body||m.body.startsWith('['))continue;
-  // Encrypted messages remain private: no automatic decryption or upload.
-  if(m.body.startsWith('e2ee1.'))continue;
-  const title=tichorSuggestAction(m.body);if(!title)continue;
-  items.push({source:m.id,title,due:tichorAutoDue(title,m.created_at),created:m.created_at,state:'provisional'});
+  if(hidden.has(m.id)||known.has(m.id)||!m.body||m.body.startsWith('[')||m.body.startsWith('e2ee1.'))continue;
+  const classification=tichorAutoClassify(m.body,m.sender_id===user.id);
+  if(!classification)continue;
+  items.push({source:m.id,title:classification.title,category:classification.category,due:tichorAutoDue(m.body,m.created_at),created:m.created_at,state:'provisional'});
   known.add(m.id);changed=true;
  }
  if(changed)tichorAutoSave(items);
@@ -817,16 +827,21 @@ function tichorAutoPanel(items){
  const note=document.createElement('p');note.className='muted';note.textContent='Private drafts from conversations. Review before sending.';
  panel.append(heading,note);
  const now=Date.now();
- for(const task of pending.slice(-12).reverse()){
+ const categories=[['mine','My Actions'],['others',"Others' Actions"]];
+ for(const [category,label] of categories){
+  const group=pending.filter(t=>(t.category||'mine')===category);
+  const subtitle=document.createElement('h4');subtitle.textContent=label+' ('+group.length+')';panel.append(subtitle);
+  for(const task of group.slice(-12).reverse()){
   const row=document.createElement('div');row.className='tichor-auto-task';
   const title=document.createElement('strong');title.textContent=task.title;
   const due=document.createElement('small');due.className='muted';due.textContent=task.due?('Due '+new Date(task.due).toLocaleString()+(new Date(task.due).getTime()<now?' · Overdue':'')):'No deadline detected';
   const buttons=document.createElement('div');
-  const approve=document.createElement('button');approve.type='button';approve.textContent='Review & send';
+  const approve=document.createElement('button');approve.type='button';approve.textContent=category==='mine'?'Review task':'Review & send';
   approve.onclick=()=>{window.tichorShowTab?.('chat');tichorActionFromMessage(task.title);const date=$('tichorActionComposer')?.querySelector('input[type="datetime-local"]');if(date&&task.due){const d=new Date(task.due);const local=new Date(d.getTime()-d.getTimezoneOffset()*60000);date.value=local.toISOString().slice(0,16)}};
   const dismiss=document.createElement('button');dismiss.type='button';dismiss.textContent='Dismiss';
   dismiss.onclick=()=>{task.state='dismissed';tichorAutoSave(items);tichorAutoPanel(items)};
   buttons.append(approve,dismiss);row.append(title,due,buttons);panel.append(row);
+  }
  }
 }
 function tichorActionComposer(){
