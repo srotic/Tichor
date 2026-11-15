@@ -428,12 +428,23 @@ if (saveContactButton) {
     );
   };
 }
+// Client-side abuse friction. Not a server-side rate limit; automated clients can bypass it.
+const tichorSendGuard={recent:[],last:0};
+function tichorCheckSendGuard(){
+ const now=Date.now();
+ tichorSendGuard.recent=tichorSendGuard.recent.filter(t=>now-t<60000);
+ if(now-tichorSendGuard.last<1500)throw Error('Please wait a moment before sending another message.');
+ if(tichorSendGuard.recent.length>=15)throw Error('Too many messages in a short time. Please wait up to one minute.');
+}
+function tichorRecordSend(){const now=Date.now();tichorSendGuard.last=now;tichorSendGuard.recent.push(now)}
 $('sendForm').onsubmit=async e=>{e.preventDefault();if(!peer)return status('chatStatus','Open a conversation first');const button=$('sendForm').querySelector('button[type=submit]');button.disabled=true;try{
  const body=$('body').value.trim(),file=$('tichorFile').files[0];
  if(!body&&!file)return;
+ tichorCheckSendGuard();
  const allowed=['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','image/png','image/jpeg','image/webp','text/plain'];
  if(file&&(file.size>10485760||!allowed.includes(file.type)))throw Error('Choose a supported file under 10 MB.');
  const {data:msg,error:insertError}=await supa.from('chat_messages').insert({sender_id:user.id,recipient_id:peer,body:body||(file?'📎 Attachment':'')}).select('id').single();if(insertError)throw insertError;
+ tichorRecordSend();
  if(file){
   const ext=(file.name.split('.').pop()||'file').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,10);
   const path=user.id+'/'+msg.id+'/'+crypto.randomUUID()+'.'+ext;
@@ -620,4 +631,14 @@ $('tichorWritingGenerate').addEventListener('click',async()=>{
 });
 $('tichorWritingApply').addEventListener('click',()=>{if(!preview.value.trim()){status.textContent='Generate or enter a suggestion first.';return}draft.value=preview.value.slice(0,5000);draft.dispatchEvent(new Event('input',{bubbles:true}));draft.focus();status.textContent='Suggestion applied to your draft. Nothing has been sent.'});
 })();
+</script><script id="tichor-link-safety">
+/* Warn before opening untrusted external links inside message content. */
+document.addEventListener('click',event=>{
+ const anchor=event.target.closest?.('#messages a[href], #folderItems a[href]');
+ if(!anchor||event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
+ let url;try{url=new URL(anchor.href,location.href)}catch{return}
+ if(!['https:','http:'].includes(url.protocol)){event.preventDefault();return}
+ if(url.origin===location.origin)return;
+ if(!confirm('External link warning: Only open links you trust.\n\nDestination: '+url.hostname+'\n\nContinue?'))event.preventDefault();
+},true);
 </script></body></html>
