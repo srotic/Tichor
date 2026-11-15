@@ -28,12 +28,12 @@ main{max-width:1100px!important}.t12-shell{display:flex;flex-direction:column;ga
 </style><link rel="stylesheet" href="genome-theme.css"><script id="tichor-theme-script">
 (()=>{'use strict';
 const key='tichor-theme-preference';
-const valid=new Set(['system','light','dark']);
+const valid=new Set(['system','light','dark','aurora']);
 const root=document.documentElement;
 let selected='system';
 try{const saved=localStorage.getItem(key);if(valid.has(saved))selected=saved}catch{}
 const media=window.matchMedia?.('(prefers-color-scheme: dark)');
-function apply(){const dark=selected==='dark'||(selected==='system'&&!!media?.matches);root.dataset.tichorTheme=dark?'dark':'light';root.dataset.tichorThemePreference=selected;const theme=document.querySelector('meta[name="theme-color"]');if(theme)theme.content=dark?'#0d1714':'#103c2c'}
+function apply(){const dark=selected==='dark'||selected==='aurora'||(selected==='system'&&!!media?.matches);root.dataset.tichorTheme=dark?'dark':'light';root.dataset.tichorThemePreference=selected;const theme=document.querySelector('meta[name="theme-color"]');if(theme)theme.content=selected==='aurora'?'#071326':dark?'#0d1714':'#103c2c'}
 apply();
 function mount(){
  if(document.getElementById('tichorThemePreference'))return;
@@ -42,10 +42,10 @@ function mount(){
  const title=document.createElement('h3');title.textContent='🌙 Appearance';
  const label=document.createElement('label');label.htmlFor='tichorThemePreference';label.textContent='Choose your theme';
  const select=document.createElement('select');select.id='tichorThemePreference';
- for(const [value,name] of [['system','Automatic (match device)'],['light','Light'],['dark','Dark']]){const option=document.createElement('option');option.value=value;option.textContent=name;select.append(option)}
+ for(const [value,name] of [['system','Automatic (match device)'],['light','Light'],['dark','Dark'],['aurora','Aurora Glass']]){const option=document.createElement('option');option.value=value;option.textContent=name;select.append(option)}
  select.value=selected;
  select.addEventListener('change',()=>{selected=valid.has(select.value)?select.value:'system';try{localStorage.setItem(key,selected)}catch{}apply()});
- const description=document.createElement('p');description.className='muted';description.textContent='Your choice is saved on this device. Automatic follows your phone or computer appearance settings.';
+ const description=document.createElement('p');description.className='muted';description.textContent='Your choice is saved on this device. Automatic follows your phone or computer appearance settings. Aurora Glass uses the premium blue, violet and gold glass theme.';
  section.append(title,label,select,description);settings.prepend(section);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
