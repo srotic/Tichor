@@ -940,18 +940,41 @@ async function load(){
  }
  }catch(e){status('chatStatus','Messages: '+e.message)}finally{refreshBusy=false}
 }
+function tichorChooseDelete(mine){
+ return new Promise(resolve=>{
+  const overlay=document.createElement('div');overlay.className='tichor-delete-overlay';
+  const panel=document.createElement('section');panel.className='tichor-delete-sheet';panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-labelledby','tichorDeleteTitle');
+  const title=document.createElement('h3');title.id='tichorDeleteTitle';title.textContent='Delete message';
+  const hint=document.createElement('p');hint.textContent='Choose where to remove this message.';
+  let settled=false;
+  const previous=document.activeElement;
+  const finish=value=>{if(settled)return;settled=true;document.removeEventListener('keydown',onKey);overlay.remove();previous?.focus?.();resolve(value)};
+  const onKey=e=>{if(e.key==='Escape'){e.preventDefault();finish(null)}};
+  const option=(label,description,value)=>{
+   const button=document.createElement('button');button.type='button';button.className='tichor-delete-option';
+   const name=document.createElement('strong');name.textContent=label;
+   const detail=document.createElement('small');detail.textContent=description;
+   button.append(name,detail);button.onclick=()=>finish(value);return button;
+  };
+  const mineButton=option('Delete for me','Remove from your view only.','ME');
+  panel.append(title,hint,mineButton);
+  if(mine)panel.append(option('Delete for everyone','Remove for both people.','EVERYONE'));
+  const cancel=document.createElement('button');cancel.type='button';cancel.className='tichor-delete-cancel';cancel.textContent='Cancel';cancel.onclick=()=>finish(null);
+  panel.append(cancel);overlay.append(panel);
+  overlay.addEventListener('click',e=>{if(e.target===overlay)finish(null)});
+  document.addEventListener('keydown',onKey);document.body.append(overlay);mineButton.focus();
+ });
+}
 async function deleteTichorMessage(message,attachment,mine){
- const action=mine?prompt('Delete message: type EVERYONE to delete for both people, or ME to hide it only for you.','ME'):'ME';
- if(action===null)return;
- const normalized=action.trim().toUpperCase();
- if(normalized!=='ME'&&normalized!=='EVERYONE')return status('chatStatus','Delete cancelled: choose ME or EVERYONE.');
- if(normalized==='EVERYONE'&&!mine)return status('chatStatus','Only the sender can delete for everyone.');
- const forEveryone=normalized==='EVERYONE';
- if(!confirm(forEveryone?'Permanently delete this message for everyone?':'Hide this message from your account only?'))return;
+ const action=await tichorChooseDelete(mine);
+ if(!action)return;
+ const forEveryone=action==='EVERYONE';
+ if(forEveryone&&!mine)return status('chatStatus','Only the sender can delete for everyone.');
+ if(!confirm(forEveryone?'Delete this message for everyone? This cannot be undone.':'Delete this message from your view?'))return;
  try{
   if(forEveryone){
-   if(attachment){const {error:e}=await supa.storage.from('tichor-attachments').remove([attachment.storage_path]);if(e)throw e}
    const {error:e}=await supa.from('chat_messages').delete().eq('id',message.id).eq('sender_id',user.id);if(e)throw e;
+   if(attachment){const {error:storageError}=await supa.storage.from('tichor-attachments').remove([attachment.storage_path]);if(storageError)status('chatStatus','Message deleted; attachment cleanup: '+storageError.message)}
   }else{
    const {error:e}=await supa.from('tichor_hidden_messages').upsert({user_id:user.id,message_id:message.id},{onConflict:'user_id,message_id'});if(e)throw e;
   }
@@ -1336,4 +1359,17 @@ html[data-tichor-theme="dark"] #tichorCallHistory .tichor-call-again-icon{backgr
 .tichor-message-tap-delete[role="button"]{cursor:pointer;touch-action:manipulation;border-radius:6px}
 .tichor-message-tap-delete[role="button"]:focus-visible{outline:3px solid #cc9b32!important;outline-offset:3px}
 .tichor-message-tap-delete[role="button"]:active{filter:brightness(.94)}
+</style><style id="tichor-delete-sheet-style">
+.tichor-delete-overlay{position:fixed;inset:0;z-index:100000;display:flex;align-items:flex-end;justify-content:center;padding:16px;background:#07121bb8;box-sizing:border-box}
+.tichor-delete-sheet{width:min(100%,430px);padding:20px;border-radius:22px;background:#f8fcfa;color:#17372c;border:1px solid #a9c3b6;box-shadow:0 16px 45px #0006;box-sizing:border-box}
+.tichor-delete-sheet h3{color:inherit!important;margin:0 0 6px;font-size:1.15rem}
+.tichor-delete-sheet p{color:#405d51;margin:0 0 15px;font-size:.9rem}
+.tichor-delete-option{display:flex!important;flex-direction:column;align-items:flex-start!important;gap:4px;width:100%;margin:0 0 9px!important;padding:13px 15px!important;border-radius:13px!important;text-align:left;background:#e9f3ed!important;color:#17372c!important;border:1px solid #b7d0c1!important}
+.tichor-delete-option strong{color:inherit!important;font-size:1rem}.tichor-delete-option small{color:#405d51!important;font-size:.83rem}
+.tichor-delete-cancel{width:100%;margin:5px 0 0!important;background:#235844!important;color:white!important}
+html[data-tichor-theme="dark"] .tichor-delete-sheet{background:#182c32!important;color:#f2f8f5!important;border-color:#53737a!important}
+html[data-tichor-theme="dark"] .tichor-delete-sheet p,html[data-tichor-theme="dark"] .tichor-delete-option small{color:#c2d7ce!important}
+html[data-tichor-theme="dark"] .tichor-delete-option{background:#28433f!important;color:#f2f8f5!important;border-color:#58796d!important}
+html[data-tichor-theme="dark"] .tichor-delete-cancel{background:#315b70!important;color:#fff!important}
+@media(min-width:650px){.tichor-delete-overlay{align-items:center}}
 </style></body></html>
