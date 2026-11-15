@@ -1288,4 +1288,24 @@ document.addEventListener('click',event=>{
  if(url.origin===location.origin)return;
  if(!confirm('External link warning: Only open links you trust.\n\nDestination: '+url.hostname+'\n\nContinue?'))event.preventDefault();
 },true);
-</script></body></html>
+</script><style id="tichor-adaptive-legibility">
+/* Theme-aware contrast tokens. The existing appearance selector and device preference set data-tichor-theme. */
+html[data-tichor-theme="light"]{color-scheme:light;--tichor-readable:#142b24;--tichor-secondary:#425a50;--tichor-surface:#ffffff;--tichor-border:#b9cfc3;--tichor-link:#075b46}
+html[data-tichor-theme="dark"]{color-scheme:dark;--tichor-readable:#f1f7f4;--tichor-secondary:#c2d5cc;--tichor-surface:#172b31;--tichor-border:#55727a;--tichor-link:#8fe7c8}
+html[data-tichor-theme="light"] body{color:var(--tichor-readable)!important}
+html[data-tichor-theme="light"] :is(.card,.t12-section,.t12-profile,.t12-preference,.tichor-mailbox,.tichor-side,.tichor-conversation,.tichor-top,.tichor-callpanel,.tichor-writing-panel,.tichor-theme-controls){color:var(--tichor-readable)!important}
+html[data-tichor-theme="light"] :is(.card,.t12-section,.t12-profile,.t12-preference,.tichor-mailbox,.tichor-side,.tichor-conversation,.tichor-top,.tichor-callpanel,.tichor-writing-panel,.tichor-theme-controls) :is(h1,h2,h3,h4,h5,strong,label){color:var(--tichor-readable)!important}
+html[data-tichor-theme="light"] :is(.muted,.folder-preview,.folder-meta,.t12-extras,.tichor-call-summary small){color:var(--tichor-secondary)!important;opacity:1!important}
+html[data-tichor-theme="light"] :is(input,textarea,select){background:#fff!important;color:#142b24!important;border-color:#829e90!important}
+html[data-tichor-theme="light"] :is(input,textarea)::placeholder{color:#566b60!important;opacity:1}
+html[data-tichor-theme="light"] :is(.folder-row,.contact-entry,.tichor-tabs button:not(.active),.tichor-call-history-item){color:#142b24!important}
+html[data-tichor-theme="light"] .tichor-call-history-item{background:#f9fcfa!important;border:1px solid var(--tichor-border)!important}
+html[data-tichor-theme="light"] .tichor-call-history-item button{background:#14513f!important;color:#fff!important}
+html[data-tichor-theme="light"] a:not(.button){color:var(--tichor-link)}
+html[data-tichor-theme="light"] :is(.msg,.folder-row,.tichor-call-history-item) :is(small,strong){opacity:1}
+html[data-tichor-theme="dark"] .tichor-call-summary small{color:var(--tichor-secondary)!important;opacity:1!important}
+html[data-tichor-theme="dark"] .tichor-call-history-item{border:1px solid var(--tichor-border)!important}
+html[data-tichor-theme="dark"] .tichor-call-history-item button{background:#285748!important;color:#fff!important}
+html[data-tichor-theme] :is(button,a,input,textarea,select):focus-visible{outline:3px solid #c49327!important;outline-offset:3px}
+@media(forced-colors:active){.tichor-call-symbol{forced-color-adjust:auto!important}.tichor-call-history-item{border:1px solid CanvasText!important}}
+</style></body></html>
