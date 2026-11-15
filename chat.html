@@ -441,6 +441,26 @@ async function tichorSendAction(payload){
  const {error}=await supa.from('chat_messages').insert({sender_id:user.id,recipient_id:peer,body:TICHOR_ACTION_PREFIX+JSON.stringify(payload)});
  if(error)throw error;tichorRecordSend();await load();
 }
+const TICHOR_REMINDERS_KEY='tichor-action-reminders-v1';
+function tichorReminderSeen(id,phase){
+ try{return JSON.parse(localStorage.getItem(TICHOR_REMINDERS_KEY)||'{}')[id+'|'+phase]===true}catch{return false}
+}
+function tichorMarkReminder(id,phase){
+ try{const seen=JSON.parse(localStorage.getItem(TICHOR_REMINDERS_KEY)||'{}');seen[id+'|'+phase]=true;
+ const entries=Object.entries(seen).slice(-400);localStorage.setItem(TICHOR_REMINDERS_KEY,JSON.stringify(Object.fromEntries(entries)))}catch{}
+}
+function tichorNotifyAction(id,title,phase){
+ if(tichorReminderSeen(id,phase))return;
+ const label=phase==='overdue'?'Overdue action':'Action due within 24 hours';
+ // In-app alert works without OS notification permission.
+ const dashboard=$('tichorActionsReminderBanner');
+ if(dashboard){const notice=document.createElement('p');notice.className='tichor-action-flag '+(phase==='overdue'?'overdue':'soon');
+ notice.textContent=label+': '+title;dashboard.append(notice)}
+ if('Notification' in window&&Notification.permission==='granted'&&document.visibilityState==='visible'){
+  try{new Notification('Tichor · '+label,{body:title,tag:'tichor-action-'+id+'-'+phase})}catch{}
+ }
+ tichorMarkReminder(id,phase);
+}
 async function tichorLoadActions(){
  const root=$('tichorActionsDashboard');if(!root||!user)return;
  root.textContent='Loading actions…';
@@ -463,12 +483,17 @@ async function tichorLoadActions(){
    if(valid)states.set(a.id,a.status);
   }
   root.replaceChildren();
+  const banner=document.createElement('div');banner.id='tichorActionsReminderBanner';banner.setAttribute('role','status');root.append(banner);
   const controls=document.createElement('div');controls.className='t12-preference tichor-actions-controls';
   const summary=document.createElement('p');summary.className='muted';summary.id='tichorActionsSummary';root.append(summary);
   const filter=document.createElement('select');filter.setAttribute('aria-label','Filter actions');
   for(const [value,label] of [['mine','Assigned to me'],['sent','Assigned by me'],['completed','Completed'],['all','All actions']]){const opt=document.createElement('option');opt.value=value;opt.textContent=label;filter.append(opt)}
   const refresh=document.createElement('button');refresh.type='button';refresh.textContent='↻ Refresh';refresh.onclick=()=>tichorLoadActions();
-  controls.append(filter,refresh);root.append(controls);
+  const enable=document.createElement('button');enable.type='button';enable.textContent='Enable device reminders';
+  enable.onclick=async()=>{if(!('Notification' in window)){alert('Device notifications are not supported in this browser. In-app reminders still work.');return}
+   const result=await Notification.requestPermission();enable.textContent=result==='granted'?'Device reminders enabled':'Device reminders unavailable';};
+  if('Notification' in window&&Notification.permission==='granted')enable.textContent='Device reminders enabled';
+  controls.append(filter,refresh,enable);root.append(controls);
   const list=document.createElement('div');list.className='tichor-actions-list';root.append(list);
   const render=()=>{list.replaceChildren();let count=0;let overdueCount=0;let dueSoonCount=0;
    const ordered=[...creates.values()].reverse();
@@ -480,6 +505,7 @@ async function tichorLoadActions(){
     const overdue=active&&Number.isFinite(dueMs)&&dueMs<Date.now();
     const dueSoon=active&&Number.isFinite(dueMs)&&dueMs>=Date.now()&&dueMs-Date.now()<=86400000;
     if(overdue)overdueCount++;if(dueSoon)dueSoonCount++;
+    if(m.recipient_id===user.id&&(overdue||dueSoon))tichorNotifyAction(m.id,a.title,overdue?'overdue':'soon');
     if(!include)continue;count++;
     const card=document.createElement('article');card.className='t12-preference tichor-action-item';
     const heading=document.createElement('strong');heading.textContent=a.title;
@@ -503,13 +529,16 @@ async function tichorLoadActions(){
  }catch(e){root.textContent='Could not load actions: '+e.message}
 }
 window.tichorLoadActions=tichorLoadActions;
+// Recheck deadlines while the app is open; browsers suspend timers when closed.
+setInterval(()=>{if(document.visibilityState==='visible'&&!$('t12Actions')?.hidden&&user)tichorLoadActions()},300000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&!$('t12Actions')?.hidden&&user)tichorLoadActions()});
 const tichorActionsStyle=document.createElement('style');
 tichorActionsStyle.textContent=`
 #t12Actions{min-width:0}
 #t12Actions h2{margin:0 0 8px}
 .tichor-actions-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .tichor-actions-controls select{flex:1 1 180px;min-width:0;max-width:100%}
-.tichor-actions-controls button{flex:0 0 auto}
+.tichor-actions-controls button{flex:0 0 auto;min-height:42px}
 .tichor-actions-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));gap:12px;margin-top:12px}
 .tichor-action-item{min-width:0;overflow-wrap:anywhere;display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin:0}
 .tichor-action-item strong{font-size:1.04rem;line-height:1.4}
