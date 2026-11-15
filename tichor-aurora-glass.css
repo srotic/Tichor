@@ -1,13 +1,7 @@
-/* Tichor Aurora Glass — CSS-only, lightweight, no remote images or JS.
-   The blurred neon palette echoes the DNA-glass icon while preserving readable surfaces. */
+/* Tichor Aurora Glass — clear deep-space appearance, no clouds or glow blobs. */
 html[data-tichor-theme-preference="aurora"] body{
  background-color:#071326!important;
- background-image:
- radial-gradient(ellipse 54% 40% at 92% 8%,rgba(180,55,226,.29),transparent 76%),
- radial-gradient(ellipse 52% 42% at 3% 43%,rgba(8,172,242,.24),transparent 76%),
- radial-gradient(ellipse 42% 36% at 85% 89%,rgba(245,145,52,.13),transparent 80%),
- radial-gradient(ellipse 58% 42% at 25% 100%,rgba(113,65,218,.23),transparent 78%),
- linear-gradient(145deg,#06152c,#10102a 52%,#061c2c)!important;
+ background-image:linear-gradient(155deg,#050c1e 0%,#09132a 55%,#0a1124 100%)!important;
  background-attachment:fixed!important;
  background-size:cover!important;
 }
@@ -29,20 +23,13 @@ html[data-tichor-theme-preference="aurora"] .t12-nav button.active{
  border-bottom-color:#55e6f5!important;
 }
 html[data-tichor-theme-preference="aurora"] .tichor-conversation #messages{
- background-image:linear-gradient(rgba(241,248,253,.95),rgba(238,248,253,.94)),
- radial-gradient(ellipse at 80% 20%,rgba(124,61,224,.24),transparent 65%),
- radial-gradient(ellipse at 10% 80%,rgba(0,178,228,.19),transparent 65%)!important;
+ background-image:none!important;
  background-size:cover!important;
 }
 html[data-tichor-theme="dark"][data-tichor-theme-preference="aurora"] body{
  color:#edf5ff!important;
  background-color:#071326!important;
- background-image:
- radial-gradient(ellipse 54% 40% at 92% 8%,rgba(180,55,226,.29),transparent 76%),
- radial-gradient(ellipse 52% 42% at 3% 43%,rgba(8,172,242,.24),transparent 76%),
- radial-gradient(ellipse 42% 36% at 85% 89%,rgba(245,145,52,.13),transparent 80%),
- radial-gradient(ellipse 58% 42% at 25% 100%,rgba(113,65,218,.23),transparent 78%),
- linear-gradient(145deg,#06152c,#10102a 52%,#061c2c)!important;
+ background-image:linear-gradient(155deg,#050c1e 0%,#09132a 55%,#0a1124 100%)!important;
 }
 html[data-tichor-theme="dark"][data-tichor-theme-preference="aurora"] .card,html[data-tichor-theme="dark"][data-tichor-theme-preference="aurora"] .t12-profile,html[data-tichor-theme="dark"][data-tichor-theme-preference="aurora"] .t12-section,html[data-tichor-theme="dark"][data-tichor-theme-preference="aurora"] .tichor-mailbox,html[data-tichor-theme="dark"][data-tichor-theme-preference="aurora"] .tichor-side,html[data-tichor-theme="dark"][data-tichor-theme-preference="aurora"] .tichor-layout,html[data-tichor-theme="dark"][data-tichor-theme-preference="aurora"] .tichor-conversation,html[data-tichor-theme="dark"][data-tichor-theme-preference="aurora"] .tichor-top,html[data-tichor-theme="dark"][data-tichor-theme-preference="aurora"] .tichor-conversation form,html[data-tichor-theme="dark"][data-tichor-theme-preference="aurora"] .tichor-callpanel{
  background:rgba(15,29,52,.95)!important;
@@ -51,9 +38,7 @@ html[data-tichor-theme="dark"][data-tichor-theme-preference="aurora"] .card,html
 }
 html[data-tichor-theme="dark"][data-tichor-theme-preference="aurora"] .tichor-conversation #messages{
  background-color:#101c37!important;
- background-image:linear-gradient(rgba(9,22,44,.94),rgba(14,25,48,.94)),
- radial-gradient(ellipse at 85% 20%,rgba(158,59,222,.32),transparent 65%),
- radial-gradient(ellipse at 10% 85%,rgba(0,172,235,.28),transparent 65%)!important;
+ background-image:none!important;
 }
 html[data-tichor-theme="dark"][data-tichor-theme-preference="aurora"] .tichor-conversation .msg,html[data-tichor-theme="dark"][data-tichor-theme-preference="aurora"] .msg{
  background:#283954!important;color:#f5f8ff!important;
@@ -67,3 +52,9 @@ html[data-tichor-theme="dark"][data-tichor-theme-preference="aurora"] .t12-prefe
 html[data-tichor-theme="dark"][data-tichor-theme-preference="aurora"] input,html[data-tichor-theme="dark"][data-tichor-theme-preference="aurora"] textarea,html[data-tichor-theme="dark"][data-tichor-theme-preference="aurora"] select{background:#0b2038!important;color:#f4f8ff!important;border-color:#597da3!important}
 @media(max-width:750px){html[data-tichor-theme-preference="aurora"] body{background-attachment:scroll!important}}
 @media(prefers-reduced-motion:reduce){html *,html *::before,html *::after{scroll-behavior:auto!important}}
+
+/* Quiet typography-only identity, behind content; no photo or cloud texture. */
+html[data-tichor-theme-preference="aurora"] body::before{content:"T";position:fixed;inset:0;display:grid;place-items:center;font:900 min(62vw,680px)/1 system-ui,sans-serif;letter-spacing:-.12em;color:rgba(108,175,239,.055);text-shadow:12px 14px 0 rgba(166,90,222,.025);pointer-events:none;user-select:none;z-index:0}
+html[data-tichor-theme-preference="aurora"] body>header,html[data-tichor-theme-preference="aurora"] body>main{position:relative;z-index:1}
+html[data-tichor-theme-preference="aurora"] header{background:#0b1630!important}
+html[data-tichor-theme-preference="aurora"] .t12-nav button.active{background:#163c6c!important;border-bottom-color:#7bcaf2!important}
