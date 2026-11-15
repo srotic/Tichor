@@ -859,7 +859,7 @@ async function load(){
   const check=mine?(m.read_at?' ✓✓ Read':m.delivered_at?' ✓✓ Delivered':' ✓ Sent'):'';
   small.textContent=(mine?'You':'Them')+' · '+new Date(m.created_at).toLocaleString()+check;
   if(mine){small.classList.add('receipt');if(m.read_at)small.classList.add('receipt-read')}
-  const content=document.createElement('div');
+  const content=document.createElement('div');content.classList.add('tichor-message-tap-delete');
   try{content.textContent=m.body.startsWith('e2ee1.')?await decryptMessage(m.body,passphrase()):m.body}
   catch{content.textContent='🔒 Older encrypted message. Enter the original passphrase in Settings.'}
   const displayedAction=action||tichorParseAction(content.textContent);
@@ -921,8 +921,14 @@ async function load(){
    const {data:blob,error:err}=await supa.storage.from('tichor-attachments').download(a.storage_path);
    if(err)throw err;const url=URL.createObjectURL(blob);const anchor=document.createElement('a');anchor.href=url;anchor.download=a.file_name;document.body.append(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)
   }catch(e){status('chatStatus','Download failed: '+e.message)}};d.append(link)}
-  const actions=document.createElement('div');actions.className='tichor-message-actions';
-  const del=document.createElement('button');del.type='button';del.textContent='🗑 Delete';del.setAttribute('aria-label','Delete message');del.onclick=()=>deleteTichorMessage(m,a,mine);actions.append(del);d.append(actions);box.append(d);
+  if(content.isConnected&&content.parentElement===d){
+   content.setAttribute('role','button');content.setAttribute('tabindex','0');
+   content.setAttribute('aria-label','Open delete options for this message');
+   content.title='Tap to delete this message';
+   content.addEventListener('click',()=>deleteTichorMessage(m,a,mine));
+   content.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();deleteTichorMessage(m,a,mine)}});
+  }
+  box.append(d);
  }
  // Translate recent incoming messages sequentially, without blocking the conversation UI.
  if(autoQueue.length){(async()=>{for(const task of autoQueue){if(!box.isConnected||tichorTranslationMode()!=='automatic')break;await task()}})()}
@@ -1326,4 +1332,8 @@ html[data-tichor-theme] :is(button,a,input,textarea,select):focus-visible{outlin
 #tichorCallHistory .tichor-call-again-icon:hover{background:#167da2!important}
 html[data-tichor-theme="light"] #tichorCallHistory .tichor-call-again-icon{background:#14533e!important;color:#fff!important}
 html[data-tichor-theme="dark"] #tichorCallHistory .tichor-call-again-icon{background:#235873!important;color:#fff!important}
+</style><style id="tichor-tap-message-actions">
+.tichor-message-tap-delete[role="button"]{cursor:pointer;touch-action:manipulation;border-radius:6px}
+.tichor-message-tap-delete[role="button"]:focus-visible{outline:3px solid #cc9b32!important;outline-offset:3px}
+.tichor-message-tap-delete[role="button"]:active{filter:brightness(.94)}
 </style></body></html>
