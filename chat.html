@@ -762,6 +762,56 @@ function tichorActionFromMessage(messageText){
  if(!fields||!title)return;
  fields.hidden=false;title.value=messageText;panel.scrollIntoView({behavior:'smooth',block:'center'});title.focus();
 }
+// Autonomous Action Intelligence v1: device-local provisional tasks; never auto-send.
+function tichorAutoKey(){return 'tichor-auto-actions-v1:'+user.id+':'+peer}
+function tichorAutoRead(){try{const a=JSON.parse(localStorage.getItem(tichorAutoKey())||'[]');return Array.isArray(a)?a:[]}catch{return []}}
+function tichorAutoSave(items){try{localStorage.setItem(tichorAutoKey(),JSON.stringify(items.slice(-150)))}catch(e){status('chatStatus','Local action storage unavailable: '+e.message)}}
+function tichorAutoDue(text,created){
+ const lower=text.toLowerCase(),base=new Date(created),d=new Date(base);
+ if(/\\btomorrow\\b/.test(lower))d.setDate(d.getDate()+1);
+ else if(/\\btoday\\b/.test(lower)){}
+ else {const days=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];const match=lower.match(/\\b(?:by|on|before)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\b/);if(!match)return null;let delta=(days.indexOf(match[1])-d.getDay()+7)%7;if(delta===0)delta=7;d.setDate(d.getDate()+delta)}
+ d.setHours(17,0,0,0);return d.toISOString();
+}
+function tichorAutoScan(messages,hidden){
+ const items=tichorAutoRead(),known=new Set(items.map(x=>x.source));
+ let changed=false;
+ for(const m of messages||[]){
+  if(m.sender_id===user.id||hidden.has(m.id)||known.has(m.id)||!m.body||m.body.startsWith('['))continue;
+  // Encrypted messages remain private: no automatic decryption or upload.
+  if(m.body.startsWith('e2ee1.'))continue;
+  const title=tichorSuggestAction(m.body);if(!title)continue;
+  items.push({source:m.id,title,due:tichorAutoDue(title,m.created_at),created:m.created_at,state:'provisional'});
+  known.add(m.id);changed=true;
+ }
+ if(changed)tichorAutoSave(items);
+ return items;
+}
+function tichorAutoPanel(items){
+ let panel=$('tichorAutoPanel');
+ if(!panel){panel=document.createElement('section');panel.id='tichorAutoPanel';panel.className='t12-preference';$('tichorActionComposer')?.after(panel)}
+ if(!panel)return;panel.replaceChildren();
+ const heading=document.createElement('strong');heading.textContent='✦ Autonomous Action Intelligence';
+ const note=document.createElement('p');note.className='muted';note.textContent='Private suggestions on this device. Nothing is assigned or sent without your approval.';
+ const controls=document.createElement('div');
+ const toggle=document.createElement('input');toggle.type='checkbox';toggle.id='tichorAutoEnabled';toggle.checked=localStorage.getItem('tichor-auto-enabled')==='yes';
+ const toggleLabel=document.createElement('label');toggleLabel.htmlFor=toggle.id;toggleLabel.textContent=' Enable automatic provisional actions';
+ toggle.onchange=()=>{localStorage.setItem('tichor-auto-enabled',toggle.checked?'yes':'no');load()};
+ controls.append(toggle,toggleLabel);panel.append(heading,note,controls);
+ if(!toggle.checked)return;
+ const now=Date.now();
+ for(const task of items.filter(x=>x.state==='provisional').slice(-12).reverse()){
+  const row=document.createElement('div');row.className='tichor-auto-task';
+  const title=document.createElement('strong');title.textContent=task.title;
+  const due=document.createElement('small');due.className='muted';due.textContent=task.due?('Due '+new Date(task.due).toLocaleString()+(new Date(task.due).getTime()<now?' · Overdue':'')):'No deadline detected';
+  const buttons=document.createElement('div');
+  const approve=document.createElement('button');approve.type='button';approve.textContent='Review & send';
+  approve.onclick=()=>{tichorActionFromMessage(task.title);const date=$('tichorActionComposer')?.querySelector('input[type="datetime-local"]');if(date&&task.due){const d=new Date(task.due);const local=new Date(d.getTime()-d.getTimezoneOffset()*60000);date.value=local.toISOString().slice(0,16)}};
+  const dismiss=document.createElement('button');dismiss.type='button';dismiss.textContent='Dismiss';
+  dismiss.onclick=()=>{task.state='dismissed';tichorAutoSave(items);tichorAutoPanel(items)};
+  buttons.append(approve,dismiss);row.append(title,due,buttons);panel.append(row);
+ }
+}
 function tichorActionComposer(){
  const form=$('sendForm');if(!form||$('tichorActionComposer'))return;
  const panel=document.createElement('section');panel.id='tichorActionComposer';panel.className='t12-preference';
@@ -844,6 +894,8 @@ async function load(){
  ]);
  if(hiddenError||attachmentError)throw (hiddenError||attachmentError);
  const hiddenIds=new Set((hidden||[]).map(h=>h.message_id));
+ const autoItems=localStorage.getItem('tichor-auto-enabled')==='yes'?tichorAutoScan(data,hiddenIds):tichorAutoRead();
+ tichorAutoPanel(autoItems);
  const attached=new Map((attachments||[]).map(a=>[a.message_id,a]));
  const box=$('messages'),atBottom=box.scrollHeight-box.scrollTop-box.clientHeight<90;box.replaceChildren();
  const actionCreates=new Map(),actionStates=new Map(),pollCreates=new Map(),pollVotes=new Map();
@@ -1432,4 +1484,9 @@ html[data-tichor-theme="dark"] .tichor-delete-cancel{background:#315b70!importan
 </style><style id="tichor-action-intelligence-v1">
 .tichor-ai-suggest{display:inline-flex!important;width:auto!important;min-height:32px!important;padding:5px 11px!important;margin-top:9px!important;border:1px solid #6b9e90!important;border-radius:20px!important;background:#165f4e!important;color:#fff!important;font-size:.78rem!important;font-weight:600!important}
 .tichor-ai-suggest:focus-visible{outline:3px solid #e4ae48!important;outline-offset:3px}
+</style><style id="tichor-auto-styles">
+#tichorAutoPanel{margin:10px 0;padding:12px!important}#tichorAutoPanel>p{font-size:.83rem}
+.tichor-auto-task{border-top:1px solid currentColor;padding:10px 0;display:grid;gap:5px}
+.tichor-auto-task strong{font-size:.88rem}.tichor-auto-task small{display:block}
+.tichor-auto-task>div{display:flex;gap:8px;flex-wrap:wrap}.tichor-auto-task button{min-height:34px!important;padding:5px 12px!important;font-size:.8rem!important}
 </style></body></html>
