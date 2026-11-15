@@ -74,6 +74,15 @@ const ringtone=get('ringtoneSettings');if(ringtone)soundSection.append(ringtone)
 const audioHelp=get('audioHelp'),audioButton=get('enableCallSound');
 if(audioHelp)soundSection.append(audioHelp);if(audioButton)soundSection.append(audioButton);
 settings.append(soundSection);
+// Reassert sound-control placement after startup so Calls never retains them.
+window.addEventListener('DOMContentLoaded',()=>{
+ const target=document.querySelector('#t12Settings .t12-preference');
+ if(!target)return;
+ for(const id of ['ringtoneSettings','audioHelp','enableCallSound']){
+  const node=document.getElementById(id);
+  if(node&&node.parentElement!==target)target.append(node);
+ }
+});
 const securitySection=document.createElement('section');securitySection.className='t12-preference';
 const securityHeading=document.createElement('h3');securityHeading.textContent='Privacy & Security';securitySection.append(securityHeading);
 const secretInput=get('secret');const secretNote=secretInput?.nextElementSibling;
