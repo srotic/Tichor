@@ -583,10 +583,17 @@ function tichorGlassComposer(){
  form.classList.add('tichor-glass-composer');
  const write=$('tichorWritingToggle'),emoji=$('tichorEmojiToggle'),file=$('tichorFile'),attach=toolbar.querySelector('label[for="tichorFile"]'),send=toolbar.querySelector('button[type="submit"]');
  const plus=menu.querySelector('button'),options=$('tichorComposeOptions');
- const setIcon=(el,icon,label)=>{if(!el)return;el.textContent=icon;el.setAttribute('aria-label',label);el.title=label;el.classList.add('tichor-glass-icon')};
- setIcon(plus,'＋','Add action or decision');setIcon(write,'✦','AI writing assistant');setIcon(emoji,'☺','Choose emoji');
- if(attach){attach.textContent='♧';attach.title='Attach document or image';attach.setAttribute('aria-label','Attach document or image');attach.classList.add('tichor-glass-icon');attach.setAttribute('role','button');attach.tabIndex=0;attach.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();file?.click()}}}
- setIcon(send,'➤','Send message');send.classList.add('tichor-glass-send');
+ const icons={
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  wand:'<path d="m3 21 9-9M12 12l-3-3M16 3l1.5 3.5L21 8l-3.5 1.5L16 13l-1.5-3.5L11 8l3.5-1.5L16 3ZM5 2v4M3 4h4M20 17v4M18 19h4"/>',
+  smile:'<circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01" stroke-width="3" stroke-linecap="round"/>',
+  clip:'<path d="m20.5 11.5-8.8 8.8a6 6 0 0 1-8.5-8.5l9.5-9.5a4 4 0 0 1 5.7 5.7l-9.5 9.5a2 2 0 0 1-2.8-2.8l8.8-8.8"/>',
+  send:'<path d="m22 2-7 20-4-9-9-4 20-7ZM11 13 22 2"/>'
+ };
+ const setIcon=(el,key,label)=>{if(!el)return;el.replaceChildren();const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('width','25');svg.setAttribute('height','25');svg.setAttribute('fill','none');svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','1.9');svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round');svg.setAttribute('aria-hidden','true');svg.innerHTML=icons[key];el.append(svg);el.setAttribute('aria-label',label);el.title=label;el.classList.add('tichor-glass-icon','tichor-glass-'+key)};
+ setIcon(plus,'plus','Add action or decision');setIcon(write,'wand','AI writing assistant');setIcon(emoji,'smile','Choose emoji');
+ if(attach){setIcon(attach,'clip','Attach document or image');attach.setAttribute('role','button');attach.tabIndex=0;attach.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();file?.click()}}}
+ setIcon(send,'send','Send message');send.classList.add('tichor-glass-send');
  // Move existing controls without replacing their listeners.
  toolbar.prepend(menu);if(write)toolbar.append(write);if(emoji)toolbar.append(emoji);if(attach)toolbar.append(attach);if(send)toolbar.append(send);
  if(file){file.classList.add('tichor-glass-file');file.addEventListener('change',()=>{let note=$('tichorSelectedFile');if(!note){note=document.createElement('span');note.id='tichorSelectedFile';note.className='muted';toolbar.after(note)}note.textContent=file.files?.[0]?'📎 '+file.files[0].name:''})}
@@ -610,6 +617,18 @@ const tichorGlassStyle=document.createElement('style');tichorGlassStyle.textCont
 #tichorSelectedFile{display:block;overflow-wrap:anywhere;margin-top:7px;color:#b8f4e2!important}
 .tichor-glass-refresh{font-size:21px!important;padding:6px 13px!important}
 @media(max-width:420px){#sendForm.tichor-glass-composer{padding:9px!important}#sendForm.tichor-glass-composer .tichor-compose{gap:5px!important}#sendForm.tichor-glass-composer .tichor-glass-icon,#sendForm.tichor-glass-composer .tichor-compose-menu{flex-basis:39px!important;width:39px!important;height:39px!important}#sendForm.tichor-glass-composer .tichor-glass-icon{font-size:22px!important}}
+
+/* Reference-inspired sapphire glass buttons with teal, gold and emerald luminous accents. */
+#sendForm.tichor-glass-composer{background:linear-gradient(125deg,rgba(35,86,119,.9),rgba(8,35,63,.95) 58%,rgba(0,76,75,.7))!important;border:1.5px solid #9fd9f0aa!important;box-shadow:inset 0 2px 2px #e4ffff55,inset 0 -12px 22px #00253a66,0 15px 35px #0006!important}
+#sendForm.tichor-glass-composer .tichor-glass-icon{background:linear-gradient(155deg,#6599ba9c 0%,#2a5c82b8 42%,#102f4ddc 100%)!important;border:1.5px solid #c2edff99!important;box-shadow:inset 0 2px 2px #efffff80,inset 0 -5px 9px #06243d88,0 5px 12px #0007,0 0 12px #62d3ed30!important;color:#f5fcff!important;text-shadow:none!important}
+#sendForm.tichor-glass-composer .tichor-glass-icon svg{display:block;filter:drop-shadow(0 0 3px #a2e6ff80)}
+#sendForm.tichor-glass-composer .tichor-glass-plus{background:linear-gradient(150deg,#3df7d6,#008c79 65%,#07535e)!important;border-color:#8fffe5!important;box-shadow:inset 0 2px 3px #d5fffbbb,0 0 14px #2bfad0aa,0 6px 12px #0006!important}
+#sendForm.tichor-glass-composer .tichor-glass-wand{color:#ffe48b!important}
+#sendForm.tichor-glass-composer .tichor-glass-smile{color:#ffdb63!important}
+#sendForm.tichor-glass-composer .tichor-glass-send{background:linear-gradient(140deg,#4dffc6,#06b883 55%,#007f68)!important;border-color:#a2ffe0!important;box-shadow:inset 0 2px 3px #e3fffbb8,0 0 16px #1af5aa88,0 6px 13px #0007!important;color:#fff!important}
+#sendForm.tichor-glass-composer .tichor-glass-send svg{width:26px;height:26px;fill:#f9fffe25}
+#sendForm.tichor-glass-composer .tichor-glass-icon:active{transform:translateY(1px);filter:brightness(1.15)}
+#sendForm.tichor-glass-composer .tichor-compose-menu>div:not([hidden]){background:linear-gradient(135deg,#2e6288f5,#0d2c4af8)!important;border:1px solid #a4e4ff99!important;box-shadow:inset 0 1px 1px #fff5,0 15px 30px #0008,0 0 20px #39d6e233!important}
 `;document.head.append(tichorGlassStyle);
 function tichorCompactComposer(){
  const form=$('sendForm');if(!form||$('tichorComposeMenu'))return;
