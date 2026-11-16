@@ -2098,7 +2098,8 @@ async function tichorLoadCallHistory(){
  for(const [value,label] of [['all','All calls'],['missed','Missed'],['declined','Declined'],['received','Received'],['outgoing','Outgoing'],['cancelled','Cancelled'],['unanswered','Unanswered']]){const o=document.createElement('option');o.value=value;o.textContent=label;filter.append(o)}
  root.append(filter);
  const list=document.createElement('div');list.className='tichor-call-history-list';root.append(list);
- const records=[];
+const tcCallIcon=(kind)=>{const ns='http://www.w3.org/2000/svg';const svg=document.createElementNS(ns,'svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('width','22');svg.setAttribute('height','22');svg.setAttribute('fill','none');svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','2.2');svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round');svg.setAttribute('aria-hidden','true');const path=document.createElementNS(ns,'path');path.setAttribute('d',kind==='video'?'m23 7-7 5 7 5V7ZM1 6h15v12H1z':kind==='phone'?'M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.13.97.36 1.93.68 2.85a2 2 0 0 1-.45 2.11L8.1 9.9a16 16 0 0 0 6 6l1.27-1.23a2 2 0 0 1 2.11-.45c.92.32 1.88.55 2.85.68a2 2 0 0 1 1.67 2Z':kind==='incoming'?'M17 7 7 17 M7 8v9h9':kind==='outgoing'?'M7 17 17 7 M8 7h9v9':'M6 6 18 18 M18 6 6 18');svg.append(path);return svg};
+  const records=[];
  const hiddenCalls=tichorHiddenCalls();
  for(const [id,events] of grouped){const offer=events.find(e=>e.kind==='offer');if(!offer)continue;
  const incoming=offer.recipient_id===user.id;
@@ -2115,12 +2116,12 @@ async function tichorLoadCallHistory(){
  for(const r of records){if(hiddenCalls.has(String(r.offer.call_id))||filter.value!=='all'&&filter.value!==r.state)continue;count++;
  const item=document.createElement('article');item.className='t12-preference tichor-call-history-item';
  const symbol=document.createElement('span');symbol.className='tichor-call-symbol';symbol.dataset.status=r.state;symbol.setAttribute('aria-hidden','true');
- symbol.textContent=({received:'↙',outgoing:'↗',missed:'↙',declined:'✕',cancelled:'↗',unanswered:'↗',ringing:'◌'})[r.state]||'☎';
+ symbol.append(tcCallIcon(r.incoming?'incoming':'outgoing'));symbol.dataset.direction=r.incoming?'incoming':'outgoing';
  const summary=document.createElement('div');summary.className='tichor-call-summary';
  const label=document.createElement('strong');label.textContent=names.get(r.other)||('Unknown contact · '+String(r.other||'').slice(0,8));
  const detail=document.createElement('small');detail.textContent=({received:'Received',outgoing:'Outgoing',missed:'Missed',declined:'Declined',cancelled:'Cancelled',unanswered:'Unanswered',ringing:'Ringing'})[r.state]+' · '+(r.offer.payload?.video?'Video':'Voice')+' · '+tichorLocalDateTime(r.offer.created_at);
  summary.append(label,detail);
- const again=document.createElement('button');again.type='button';again.textContent=r.offer.payload?.video?'▣':'♧';again.className='tichor-call-again-icon';again.title=r.offer.payload?.video?'Video call again':'Voice call again';again.setAttribute('aria-label','Call again '+r.other);again.onclick=()=>{peer=r.other;startCall(!!r.offer.payload?.video)};
+ const again=document.createElement('button');again.type='button';again.append(tcCallIcon(r.offer.payload?.video?'video':'phone'));again.className='tichor-call-again-icon';again.title=r.offer.payload?.video?'Video call again':'Voice call again';again.setAttribute('aria-label','Call again '+r.other);again.onclick=()=>{peer=r.other;startCall(!!r.offer.payload?.video)};
  item.append(symbol,summary,again);
  item.classList.add('tichor-call-tap-delete');item.setAttribute('role','button');item.setAttribute('tabindex','0');
  item.setAttribute('aria-label','Options for call with '+(names.get(r.other)||'unknown contact'));
@@ -2493,4 +2494,15 @@ html body>header>strong,html body>header.tichor-cover-ready>strong{
 #t12Calls .tichor-call-again-icon{background:transparent!important;color:var(--tichor-primary,#cde6ef)!important;border:1px solid var(--tichor-border,#63889b)!important;width:36px!important;height:36px!important;min-height:36px!important;flex-basis:36px!important;font-size:20px!important}
 #t12Calls .tichor-call-history-item[hidden]{display:none!important}
 @media(max-width:480px){#t12Calls{padding:12px!important}#t12Calls .tc-call-title h2{font-size:1.5rem!important}#t12Calls .tc-new-call{padding:8px 11px!important;font-size:.85rem!important}#t12Calls .tichor-call-summary small{font-size:.7rem!important}}
-</style></body></html>
+<style id="tc-call-svg-icons-v2">
+#t12Calls .tichor-call-symbol{font-family:Arial,sans-serif!important;border-radius:50%!important;background:transparent!important;color:#219c76!important}
+#t12Calls .tichor-call-symbol[data-direction="incoming"]{color:#219c76!important}
+#t12Calls .tichor-call-symbol[data-direction="outgoing"]{color:#248cc1!important}
+#t12Calls .tichor-call-symbol[data-status="missed"],#t12Calls .tichor-call-symbol[data-status="declined"],#t12Calls .tichor-call-symbol[data-status="unanswered"]{color:#e45160!important}
+#t12Calls .tichor-call-symbol[data-status="cancelled"]{color:#a78b59!important}
+#t12Calls .tichor-call-symbol svg{display:block!important;width:23px!important;height:23px!important}
+#t12Calls .tichor-call-again-icon svg{display:block!important;width:20px!important;height:20px!important}
+#t12Calls .tichor-call-again-icon{display:grid!important;place-items:center!important;background:transparent!important;color:#168f76!important;border:0!important;box-shadow:none!important}
+html[data-tichor-theme="dark"] #t12Calls .tichor-call-again-icon{color:#75d6bf!important}
+#t12Calls .tichor-call-summary small{overflow-wrap:anywhere}
+</style></style></body></html>
