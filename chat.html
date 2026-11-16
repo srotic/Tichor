@@ -1900,4 +1900,54 @@ html[data-tichor-theme="light"] .tichor-unified-toolbar .tichor-account-trigger{
  .tichor-unified-toolbar{overflow-x:auto!important;overflow-y:visible!important}
  .tichor-unified-toolbar .tichor-account-menu{margin-left:auto!important}
 }
-</style></body></html>
+</style><style id="tichor-account-position-repair-v4">
+.t12-shell>.tichor-unified-toolbar{display:flex!important;align-items:center!important;flex-wrap:nowrap!important;width:100%!important;gap:12px!important;overflow:visible!important}
+.t12-shell>.tichor-unified-toolbar>.t12-nav{flex:0 1 auto!important;width:auto!important;margin:0!important;min-width:0!important}
+.t12-shell>.tichor-unified-toolbar>.tichor-account-menu{display:block!important;flex:0 0 auto!important;margin-left:auto!important;position:relative!important;z-index:1000!important}
+.t12-shell>.tichor-unified-toolbar .tichor-account-trigger{display:grid!important;place-items:center!important;min-width:44px!important;min-height:44px!important;background:#14394b!important;color:#fff!important;border:1px solid #70bba9!important;border-radius:12px!important;cursor:pointer!important}
+.t12-shell>.tichor-unified-toolbar .tichor-account-popover{position:absolute!important;right:0!important;top:calc(100% + 8px)!important;z-index:1001!important;min-width:230px!important;padding:12px!important;border-radius:12px!important;background:#102b3a!important;color:white!important;border:1px solid #6c9eab!important;box-shadow:0 10px 30px #0009!important}
+.t12-shell>.tichor-unified-toolbar .tichor-account-popover[hidden]{display:none!important}
+.t12-shell>.tichor-unified-toolbar .tichor-account-username{color:#fff!important;-webkit-text-fill-color:#fff!important;display:block!important;margin:0 0 12px!important;overflow-wrap:anywhere!important}
+.t12-shell>.tichor-unified-toolbar .tichor-account-popover #signout{display:flex!important;align-items:center!important;gap:9px!important;width:100%!important;height:auto!important;min-height:42px!important;background:#28536a!important;color:#fff!important;-webkit-text-fill-color:#fff!important;border-radius:8px!important;padding:8px!important;margin:0!important}
+.t12-shell>.t12-profile{display:none!important}
+@media(max-width:700px){.t12-shell>.tichor-unified-toolbar{gap:4px!important;overflow-x:auto!important}.t12-shell>.tichor-unified-toolbar>.tichor-account-menu{margin-left:8px!important}}
+</style>
+<script id="tichor-account-position-repair-script-v4">
+(function(){
+ function repair(){
+  const shell=document.querySelector('#chat .t12-shell');if(!shell)return;
+  let bar=shell.querySelector(':scope > .tichor-unified-toolbar');
+  const nav=shell.querySelector('.t12-nav');if(!nav)return;
+  if(!bar){bar=document.createElement('div');bar.className='tichor-unified-toolbar';shell.prepend(bar);}
+  if(nav.parentElement!==bar)bar.append(nav);
+  const utility=document.querySelector('main > p:has(.tichor-dashboard-icon-link)');
+  if(utility&&utility.parentElement!==bar)bar.prepend(utility);
+  let account=bar.querySelector(':scope > .tichor-account-menu');
+  if(!account){account=document.createElement('div');account.className='tichor-account-menu';bar.append(account)}
+  let trigger=account.querySelector('.tichor-account-trigger');
+  if(!trigger){
+   trigger=document.createElement('button');trigger.type='button';trigger.className='tichor-account-trigger';
+   trigger.setAttribute('aria-label','Account and sign out');trigger.setAttribute('aria-expanded','false');trigger.setAttribute('aria-haspopup','true');
+   trigger.innerHTML='<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>';
+   account.prepend(trigger);
+  }
+  let pop=account.querySelector('.tichor-account-popover');
+  if(!pop){pop=document.createElement('div');pop.className='tichor-account-popover';pop.hidden=true;account.append(pop)}
+  const who=document.getElementById('who');if(who&&who.parentElement!==pop){who.classList.add('tichor-account-username');pop.prepend(who)}
+  const signout=document.getElementById('signout');
+  if(signout&&signout.parentElement!==pop){signout.classList.add('tichor-toolbar-signout');pop.append(signout)}
+  if(signout&&!signout.querySelector('.tichor-signout-label')){const label=document.createElement('span');label.className='tichor-signout-label';label.textContent='Sign out';signout.append(label)}
+  if(!trigger.dataset.tichorWired){
+   trigger.dataset.tichorWired='true';
+   const toggle=state=>{pop.hidden=!state;trigger.setAttribute('aria-expanded',String(state))};
+   trigger.addEventListener('click',e=>{e.stopPropagation();toggle(pop.hidden)});
+   account.addEventListener('mouseenter',()=>{if(matchMedia('(hover:hover)').matches)toggle(true)});
+   account.addEventListener('mouseleave',()=>{if(matchMedia('(hover:hover)').matches)toggle(false)});
+   document.addEventListener('click',e=>{if(!account.contains(e.target))toggle(false)});
+   document.addEventListener('keydown',e=>{if(e.key==='Escape')toggle(false)});
+  }
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',repair,{once:true});else repair();
+ window.addEventListener('load',repair,{once:true});
+})();
+</script></body></html>
