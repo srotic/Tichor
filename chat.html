@@ -522,7 +522,19 @@ const calls=document.createElement('section');calls.className='t12-section';call
 calls.hidden=true;const callsHeading=document.createElement('h2');callsHeading.textContent='☎ Calls';
 const callsHelp=document.createElement('p');callsHelp.className='muted';callsHelp.textContent='Voice and video calls only. Call history shows answered, declined, missed and unanswered attempts.';
 const callHistory=document.createElement('div');callHistory.id='tichorCallHistory';callHistory.textContent='Open Calls to view recent activity.';
-calls.append(callsHeading,callsHelp,callbar,callHistory);
+const callTools=document.createElement('div');callTools.className='tc-call-tools';
+const callTitle=document.createElement('div');callTitle.className='tc-call-title';callTitle.append(callsHeading);
+const newCall=document.createElement('button');newCall.type='button';newCall.id='tcNewCall';newCall.className='tc-new-call';newCall.textContent='＋ New call';newCall.setAttribute('aria-expanded','false');
+callTitle.append(newCall);callTools.append(callTitle);
+const callSearch=document.createElement('input');callSearch.type='search';callSearch.id='tcCallSearch';callSearch.placeholder='Search call history';callSearch.setAttribute('aria-label','Search call history');
+callTools.append(callSearch);
+calls.append(callTools,callbar,callHistory);
+callsHelp.remove();callbar.classList.add('tc-call-composer');
+newCall.addEventListener('click',()=>{const open=!callbar.classList.contains('tc-composer-open');callbar.classList.toggle('tc-composer-open',open);newCall.setAttribute('aria-expanded',String(open));if(open)document.getElementById('callContactPicker')?.focus()});
+const callStatusNode=document.getElementById('callStatus');
+if(callStatusNode)new MutationObserver(()=>{const active=!/^(no active call|)$/i.test(callStatusNode.textContent.trim());callbar.classList.toggle('tc-call-active',active)}).observe(callStatusNode,{childList:true,subtree:true,characterData:true});
+callSearch.addEventListener('input',()=>{document.querySelectorAll('#tichorCallHistory .tichor-call-history-item').forEach(row=>{row.hidden=!row.textContent.toLowerCase().includes(callSearch.value.trim().toLowerCase())})});
+
 // Preserve every original node, even when a future release adds controls.
 // Move sound, security and device preferences out of the live call interface.
 const soundSection=document.createElement('section');soundSection.className='t12-preference';
@@ -2108,7 +2120,7 @@ async function tichorLoadCallHistory(){
  const label=document.createElement('strong');label.textContent=names.get(r.other)||('Unknown contact · '+String(r.other||'').slice(0,8));
  const detail=document.createElement('small');detail.textContent=({received:'Received',outgoing:'Outgoing',missed:'Missed',declined:'Declined',cancelled:'Cancelled',unanswered:'Unanswered',ringing:'Ringing'})[r.state]+' · '+(r.offer.payload?.video?'Video':'Voice')+' · '+tichorLocalDateTime(r.offer.created_at);
  summary.append(label,detail);
- const again=document.createElement('button');again.type='button';again.innerHTML='&#9742;';again.className='tichor-call-again-icon';again.title='Call again';again.setAttribute('aria-label','Call again '+r.other);again.onclick=()=>{peer=r.other;startCall(!!r.offer.payload?.video)};
+ const again=document.createElement('button');again.type='button';again.textContent=r.offer.payload?.video?'▣':'♧';again.className='tichor-call-again-icon';again.title=r.offer.payload?.video?'Video call again':'Voice call again';again.setAttribute('aria-label','Call again '+r.other);again.onclick=()=>{peer=r.other;startCall(!!r.offer.payload?.video)};
  item.append(symbol,summary,again);
  item.classList.add('tichor-call-tap-delete');item.setAttribute('role','button');item.setAttribute('tabindex','0');
  item.setAttribute('aria-label','Options for call with '+(names.get(r.other)||'unknown contact'));
@@ -2118,7 +2130,7 @@ async function tichorLoadCallHistory(){
  };
  item.addEventListener('click',event=>{if(event.target.closest('button'))return;deleteEntry()});
  item.addEventListener('keydown',event=>{if(event.target===item&&(event.key==='Enter'||event.key===' ')){event.preventDefault();deleteEntry()}});
- list.append(item);
+ list.append(item);const search=$('tcCallSearch');if(search?.value.trim())item.hidden=!item.textContent.toLowerCase().includes(search.value.trim().toLowerCase());
  }
  if(!count){const empty=document.createElement('p');empty.className='muted';empty.textContent='No calls in this category.';list.append(empty)}
  };filter.onchange=render;render();
@@ -2458,4 +2470,27 @@ html body>header>strong,html body>header.tichor-cover-ready>strong{
  min-height:180px!important;height:180px!important;background-size:cover!important;background-position:34% center!important;
  }
 }
+</style><style id="tc-calls-refresh-2026">
+#t12Calls{max-width:100%!important;overflow-x:hidden}
+#t12Calls .tc-call-tools{display:grid;gap:12px;margin:0 0 12px}
+#t12Calls .tc-call-title{display:flex;justify-content:space-between;align-items:center;gap:12px}
+#t12Calls .tc-call-title h2{margin:0!important}
+#t12Calls .tc-new-call{border-radius:24px!important;padding:9px 16px!important;min-height:40px!important;width:auto!important;background:#245c6c!important;color:#fff!important;font-weight:700!important;border:1px solid #83aeba!important;white-space:nowrap}
+#t12Calls #tcCallSearch{width:100%;box-sizing:border-box;min-height:42px!important;margin:0!important;padding:10px 14px!important;border-radius:14px!important;background:var(--tichor-surface,#1d3446)!important;color:var(--tichor-primary,#f2f7fb)!important;border:1px solid var(--tichor-border,#5d8095)!important}
+#t12Calls .tc-call-composer{display:none!important;margin:0 0 12px!important;padding:14px!important;border-radius:15px!important}
+#t12Calls .tc-call-composer.tc-composer-open,#t12Calls .tc-call-composer.tc-call-active{display:block!important}
+#t12Calls .tc-call-composer>strong{display:none}
+#t12Calls .tc-call-composer label[for="callContactPicker"]{margin-top:0!important}
+#t12Calls .tc-call-composer #tichorQuickBlock{display:none!important}
+#t12Calls #tichorCallHistory{margin-top:0!important}
+#t12Calls #tichorCallHistory>select{max-width:none!important;width:100%!important;min-height:39px!important;margin-bottom:12px!important;border-radius:12px!important}
+#t12Calls .tichor-call-history-list{gap:0!important;border:1px solid var(--tichor-border,#425f79);border-radius:16px;overflow:hidden}
+#t12Calls .tichor-call-history-item{border:0!important;border-bottom:1px solid var(--tichor-border,#425f79)!important;border-radius:0!important;min-height:62px!important;padding:9px 11px!important;margin:0!important;background:transparent!important;box-shadow:none!important;gap:10px!important}
+#t12Calls .tichor-call-history-item:last-child{border-bottom:0!important}
+#t12Calls .tichor-call-symbol{width:30px!important;height:30px!important;background:transparent!important;font-size:23px!important}
+#t12Calls .tichor-call-summary strong{font-size:.94rem!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#t12Calls .tichor-call-summary small{font-size:.76rem!important;line-height:1.35!important}
+#t12Calls .tichor-call-again-icon{background:transparent!important;color:var(--tichor-primary,#cde6ef)!important;border:1px solid var(--tichor-border,#63889b)!important;width:36px!important;height:36px!important;min-height:36px!important;flex-basis:36px!important;font-size:20px!important}
+#t12Calls .tichor-call-history-item[hidden]{display:none!important}
+@media(max-width:480px){#t12Calls{padding:12px!important}#t12Calls .tc-call-title h2{font-size:1.5rem!important}#t12Calls .tc-new-call{padding:8px 11px!important;font-size:.85rem!important}#t12Calls .tichor-call-summary small{font-size:.7rem!important}}
 </style></body></html>
