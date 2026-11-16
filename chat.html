@@ -702,7 +702,7 @@ const translateTitle=document.createElement('h2');translateTitle.textContent='ðŸ
 const translateNote=document.createElement('p');translateNote.className='muted';translateNote.textContent='Cross-language conversations. Replies are sent exactly as written; translations are for reading only.';
 const translateList=document.createElement('div');translateList.id='tichorTranslateThreads';translateWorkspace.append(translateTitle,translateNote,translateList);
 nav.parentElement?.after(translateWorkspace);
-const signout=get('signout');
+const signout=profile.querySelector('#signout');
 if(signout){
  const account=document.createElement('div');account.className='tichor-menu-user-tile';
  const trigger=document.createElement('button');trigger.type='button';trigger.className='tichor-menu-user-button';
@@ -711,7 +711,7 @@ if(signout){
  trigger.innerHTML='<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="9" r="3"/><path d="M5.5 19c.8-3 3-4.5 6.5-4.5s5.7 1.5 6.5 4.5"/></svg><span class="tichor-user-word">User</span>';
  const menu=document.createElement('div');menu.className='tichor-menu-user-popover';menu.hidden=true;
  menu.setAttribute('role','group');menu.setAttribute('aria-label','Account options');
- const username=get('who');if(username){username.classList.add('tichor-account-username');menu.append(username)}
+ const username=profile.querySelector('#who');if(username){username.classList.add('tichor-account-username');menu.append(username)}
  signout.classList.add('tichor-toolbar-signout');signout.setAttribute('aria-label','Sign out');signout.removeAttribute('title');signout.replaceChildren();
  const label=document.createElement('span');label.textContent='Sign out';label.className='tichor-signout-label';signout.append(label);
  menu.append(signout);account.append(trigger,menu);nav.append(account);
