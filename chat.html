@@ -2550,7 +2550,7 @@ settings.classList.add('tc-settings-compact');
 const heading=document.createElement('h2');heading.className='tc-settings-heading';heading.textContent='Settings';
 settings.prepend(heading);
 const definitions=[
-['Appearance','Theme and display','◐',n=>n.classList.contains('tichor-theme-controls')],
+['Appearance','Theme and display','◐',n=>n.classList.contains('tichor-theme-controls')&&!n.classList.contains('tichor-font-settings')],
 ['Typography','Font style and text size','Aa',n=>/font/i.test(n.id+' '+n.className+' '+(n.querySelector('h3')?.textContent||''))],
 ['Privacy & Security','Contact and privacy controls','♢',n=>/privacy|security|block|contact and call controls/i.test(n.id+' '+n.className+' '+(n.querySelector('h3')?.textContent||''))],
 ['Calls & Notifications','Ringtones and call preferences','☎',n=>/ringtone|sound|callinformation|call preferences|notification/i.test(n.id+' '+n.className+' '+(n.querySelector('h3')?.textContent||''))],
@@ -2576,5 +2576,53 @@ groups[index<0?4:index].body.append(n);
 });
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mount,0),{once:true});else setTimeout(mount,0);
+})();
+</script><style id="tc-font-color-v1">
+#t12Settings .tc-font-color-panel{display:grid;gap:10px;margin-top:12px;font-family:system-ui,sans-serif}
+#t12Settings .tc-font-color-swatches{display:flex;gap:9px;flex-wrap:wrap}
+#t12Settings .tc-font-color-swatch{width:38px;height:38px;min-height:38px;padding:0;border-radius:50%;border:2px solid #879b9b;box-shadow:0 0 0 2px transparent;cursor:pointer}
+#t12Settings .tc-font-color-swatch[aria-pressed="true"]{outline:3px solid #219c8b;outline-offset:2px}
+#t12Settings .tc-font-color-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+#t12Settings #tcFontCustomColor{width:55px;height:42px;padding:3px;border-radius:9px}
+#t12Settings #tcFontReset{padding:9px 14px;border-radius:9px}
+#t12Settings #tcFontColorPreview{border-radius:12px;padding:14px;background:#102f30;color:var(--tc-font-color,#f7fbfa);font-size:1rem}
+html[data-tc-custom-font-color="yes"] #messages .message,html[data-tc-custom-font-color="yes"] #messages .bubble,html[data-tc-custom-font-color="yes"] #messages .message-content,html[data-tc-custom-font-color="yes"] #messages .msg-text{color:var(--tc-font-color)!important}
+</style><script id="tc-font-color-v1-script">
+(function(){
+const key='tichor-font-color-v1';
+const colors=[['Default',''],['White','#ffffff'],['Black','#111111'],['Forest green','#147d54'],['Ocean blue','#2479d1'],['Purple','#9957cc'],['Rose','#db4973'],['Gold','#b77b15']];
+function read(){try{return localStorage.getItem(key)||''}catch{return ''}}
+function apply(value){
+const valid=/^#[0-9a-f]{6}$/i.test(value);
+document.documentElement.dataset.tcCustomFontColor=valid?'yes':'no';
+if(valid)document.documentElement.style.setProperty('--tc-font-color',value);
+else document.documentElement.style.removeProperty('--tc-font-color');
+}
+apply(read());
+function mount(){
+const settings=document.getElementById('t12Settings'),font=document.getElementById('tichorFontPreference');
+if(!settings||!font||document.getElementById('tcFontColorPanel'))return;
+const section=font.closest('.tichor-font-settings');if(!section)return;
+const panel=document.createElement('div');panel.id='tcFontColorPanel';panel.className='tc-font-color-panel';
+const label=document.createElement('strong');label.textContent='Font color';
+const hint=document.createElement('small');hint.textContent='Customize message text color on this device. Default adapts to the selected theme.';
+const swatches=document.createElement('div');swatches.className='tc-font-color-swatches';
+const preview=document.createElement('div');preview.id='tcFontColorPreview';preview.textContent='TichorConnect — Hello! How are you?';
+const row=document.createElement('div');row.className='tc-font-color-row';
+const customLabel=document.createElement('label');customLabel.htmlFor='tcFontCustomColor';customLabel.textContent='Custom color';
+const custom=document.createElement('input');custom.type='color';custom.id='tcFontCustomColor';custom.value=/^#[0-9a-f]{6}$/i.test(read())?read():'#ffffff';
+const reset=document.createElement('button');reset.type='button';reset.id='tcFontReset';reset.textContent='Restore default';
+function update(value){
+try{if(value)localStorage.setItem(key,value);else localStorage.removeItem(key)}catch{}
+apply(value);preview.style.color=value||'#f7fbfa';
+[...swatches.children].forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.color===value)));
+}
+colors.forEach(([name,color])=>{const button=document.createElement('button');button.type='button';button.className='tc-font-color-swatch';button.dataset.color=color;button.title=name;button.setAttribute('aria-label',name);button.style.background=color||'linear-gradient(135deg,#fff 50%,#1a3235 50%)';button.addEventListener('click',()=>update(color));swatches.append(button)});
+custom.addEventListener('input',()=>update(custom.value));reset.addEventListener('click',()=>update(''));
+row.append(customLabel,custom,reset);panel.append(label,hint,swatches,row,preview);section.append(panel);update(read());
+const typography=[...settings.querySelectorAll('.tc-settings-group')].find(g=>g.querySelector('summary')?.textContent.includes('Typography'));
+if(typography&&section.parentElement!==typography.querySelector('.tc-settings-body'))typography.querySelector('.tc-settings-body').append(section);
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mount,80),{once:true});else setTimeout(mount,80);
 })();
 </script></body></html>
