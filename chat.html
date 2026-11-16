@@ -300,6 +300,24 @@ for(const [key,ico,label] of tabs){const b=document.createElement('button');b.ty
   }
  }
  nav.append(b)}
+ // Give the navigation cards a visible multicolor frame independent of theme background overrides.
+ const paintSpectrumFrames=()=>{
+  const pref=document.documentElement.getAttribute('data-tichor-theme-preference')||'';
+  const theme=document.documentElement.getAttribute('data-tichor-theme')||'';
+  const light=pref==='crystal'||pref==='light'||(pref==='system'&&theme==='light')||(!pref&&theme==='light');
+  for(const b of nav.querySelectorAll('button')){
+   const active=b.classList.contains('active');
+   const fill=active?'#173e59':light?'#f2f8fb':'#0b2033';
+   b.style.setProperty('background',`linear-gradient(${fill},${fill}) padding-box,linear-gradient(110deg,#064b34 0%,#08734d 23%,#f26b9f 43%,#ffd45a 52%,#f26b9f 62%,#08734d 82%,#064b34 100%) border-box`,'important');
+   b.style.setProperty('border','4px solid transparent','important');
+   b.style.setProperty('background-clip','padding-box,border-box','important');
+   b.style.setProperty('box-shadow',active?'0 0 0 1px #fbdc7b,0 0 12px #f26b9f55':'0 2px 8px #071d2733','important');
+  }
+ };
+ const oldShowTab=showTab;
+ nav.addEventListener('click',()=>requestAnimationFrame(paintSpectrumFrames));
+ new MutationObserver(paintSpectrumFrames).observe(document.documentElement,{attributes:true,attributeFilter:['data-tichor-theme','data-tichor-theme-preference']});
+ paintSpectrumFrames();
 shell.append(profile,nav,inbox,notifications,contacts,settings,conversation,calls,actions);
 chat.replaceChildren(shell);chat.classList.remove('card');
 // Called after the module attaches its folder handlers.
