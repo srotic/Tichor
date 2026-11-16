@@ -1,3 +1,4 @@
+-- DRAFT ONLY. DO NOT RUN IN PRODUCTION. Requires schema/permissions review and removal of legacy permissive INSERT policies.
 -- Tichor contact-consent migration. Review in a staging Supabase project first.
 -- Requires existing public.chat_messages(sender_id,recipient_id),
 -- public.tichor_call_events(sender_id,recipient_id), and public.tichor_profiles(user_id,username).
@@ -49,8 +50,6 @@ returns boolean language sql stable security definer set search_path=public,pg_t
  select auth.uid() is not null and other_id is not null and (
   exists(select 1 from public.tichor_contact_requests r where r.status='accepted'
      and ((r.requester_id=auth.uid() and r.recipient_id=other_id) or (r.recipient_id=auth.uid() and r.requester_id=other_id)))
-  or exists(select 1 from public.chat_messages m where
-    (m.sender_id=auth.uid() and m.recipient_id=other_id) or (m.recipient_id=auth.uid() and m.sender_id=other_id))
  ) and not exists(select 1 from public.tichor_contact_requests b where b.status='blocked'
     and ((b.requester_id=auth.uid() and b.recipient_id=other_id) or (b.recipient_id=auth.uid() and b.requester_id=other_id)));
 $$;
