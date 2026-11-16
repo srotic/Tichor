@@ -645,6 +645,35 @@ html #messages .msg .tichor-sender-line small{font-size:calc(11px * var(--tichor
  .tichor-toolbar-clean>.tichor-account-menu{grid-column:2!important;grid-row:2!important}
  .tichor-toolbar-clean>.t12-nav.tichor-menu-open{grid-column:1/-1!important;grid-row:3!important;grid-template-columns:repeat(3,minmax(0,1fr))!important}
 }
+</style><style id="tichor-menu-organized-v6">
+.tichor-toolbar-clean>.tichor-account-menu>.tichor-account-trigger{
+ background:linear-gradient(160deg,#f6fdff 0%,#b6c9d6 25%,#4a7288 52%,#e2f1f7 77%,#668fa3 100%)!important;
+ border:1px solid #d5f1fb!important;color:#071e2b!important;-webkit-text-fill-color:#071e2b!important;
+ box-shadow:inset 0 2px 2px #fff,inset 0 -2px 2px #345266,0 3px 9px #0009!important;
+ text-shadow:none!important;gap:7px!important
+}
+.tichor-toolbar-clean>.tichor-account-menu>.tichor-account-trigger::after{content:none!important;display:none!important}
+.tichor-toolbar-clean>.tichor-account-menu>.tichor-account-trigger .tichor-user-word{
+ display:inline-block!important;position:static!important;opacity:1!important;visibility:visible!important;
+ font-size:14px!important;font-weight:800!important;color:#071e2b!important;-webkit-text-fill-color:#071e2b!important;
+ text-shadow:0 1px 0 #fff9!important;white-space:nowrap!important
+}
+.tichor-toolbar-clean>.tichor-account-menu>.tichor-account-trigger svg{stroke:#082e43!important;filter:none!important}
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open>.tichor-menu-group-heading{
+ display:block!important;grid-column:1/-1!important;width:100%!important;min-width:0!important;
+ padding:11px 5px 4px!important;margin:0!important;border-bottom:1px solid #72b4bd70!important;
+ color:#d8f6f7!important;-webkit-text-fill-color:#d8f6f7!important;
+ font-size:11px!important;font-weight:800!important;letter-spacing:.11em!important;text-align:left!important
+}
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open>button[data-tab] .tichor-nav-label{
+ overflow-wrap:anywhere!important;line-height:1.2!important
+}
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open>button[data-tab].active{
+ outline:2px solid #50e5d7!important;outline-offset:0!important
+}
+@media(max-width:700px){
+ .tichor-toolbar-clean>.tichor-account-menu>.tichor-account-trigger .tichor-user-word{font-size:13px!important}
+}
 </style></head><body><header><img id="tichorOfficialHeaderIcon" src="icon-192.png?v=metallic-20261116-v2" alt="Tichor official app icon" width="76" height="76" decoding="async"><strong>Tichor Connect</strong></header><main><p><a href="index.html" class="tichor-dashboard-icon-link" aria-label="Dashboard" title="Dashboard"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></a> · <a href="guest.html" class="tichor-glass-utility tichor-guest-link" aria-label="Create or join a guest room" title="Guest chat (no account required)"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6m-3-3h6"/></svg></a></p><section class="card hide" id="setup"><h2>Connection status</h2><p id="setupStatus" role="status">Connecting to Tichor…</p></section><section class="card hide" id="auth"><h2>Sign in or create account</h2><div class="two" role="group" aria-label="Choose sign-in method"><button type="button" id="emailMode" class="gold">Email</button><button type="button" id="phoneMode">Phone number</button></div><div id="emailAuth"><label for="email">Email address</label><input id="email" type="email" autocomplete="email" placeholder="Email"><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" placeholder="Password (at least 6 characters)"><button type="button" id="signin">Sign in</button><button type="button" id="signup">Create account</button><p class="muted">Existing email accounts continue to work. Email confirmation may be required.</p></div><div id="phoneAuth" class="hide"><label for="authPhone">Phone number (international format)</label><input id="authPhone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+17805550123"><button type="button" id="sendPhoneCode">Send SMS code</button><div id="phoneCodeArea" class="hide"><label for="authPhoneCode">Verification code</label><input id="authPhoneCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="SMS code"><button type="button" id="verifyPhoneCode" class="gold">Verify code & sign in</button></div><p class="muted">New phone numbers can create an account after SMS verification. Requires phone sign-in and an SMS provider configured in Supabase. SMS may cost money. If you already have an email account, sign in by email and link your phone under My profile first to keep the same messages and contacts.</p></div><p id="authStatus" role="status"></p></section><section class="card hide" id="chat"><h2>Messages</h2><p class="muted">Internet messaging: recipients do not need to have Tichor open. Messages are saved to Supabase and appear when they reconnect. Push alerts require notification permission and working server setup. Messages are not end-to-end encrypted in this version.</p><p id="who" class="muted"></p><button id="signout" type="button" class="tichor-glass-utility tichor-signout-icon" aria-label="Sign out" title="Sign out"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"/><path d="m15 16 4-4-4-4M19 12H9"/></svg></button><section class="card" id="notificationSettings"><h3>Background notifications</h3><p class="muted">Receive new-message and incoming-call alerts even when this app is closed. Enable separately on each device. On iPhone, add Tichor to your Home Screen first.</p><button type="button" id="enablePush" class="gold">Enable notifications</button><button type="button" id="disablePush">Disable notifications</button><p id="pushStatus" role="status" class="muted"></p></section><h3>Your profile</h3><p class="muted">Choose a unique username. A phone number is optional and searchable only if you enable discovery. Profile phone numbers are not verified. To use a phone for sign-in, link and verify it below.</p><div class="two"><input id="myUsername" placeholder="Username (3–24 letters/numbers/_)" maxlength="24"><input id="myPhone" type="tel" placeholder="Optional phone, e.g. +17805550123"></div><label><input id="phoneDiscoverable" type="checkbox" style="width:auto"> Let other registered users find me by phone number</label><p><button id="saveProfile">Save profile</button></p><div id="linkPhonePanel"><h4>Link a verified phone to this account</h4><p class="muted">For existing email users: link your phone here before using phone sign-in. This keeps your existing account ID, messages and contacts. Saving an optional profile phone number alone does not link it for login.</p><input id="linkAuthPhone" type="tel" inputmode="tel" placeholder="+17805550123"><button id="sendLinkCode" type="button">Send phone linking code</button><div id="linkCodeArea" class="hide"><input id="linkAuthCode" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="SMS verification code"><button id="verifyLinkCode" type="button">Verify & link phone</button></div><p id="linkPhoneStatus" role="status" class="muted"></p></div><p id="profileStatus" role="status"></p><hr><section class="tichor-mailbox" id="tichorMailbox" aria-label="Message folders">
  <div class="tichor-tabs" role="group" aria-label="Message folders">
  <button type="button" id="tabInbox" class="active">📥 Inbox <span id="inboxCount"></span></button>
@@ -807,7 +836,12 @@ const showTab=which=>{
 };
 for(const [key,ico,label] of tabs){const b=document.createElement('button');b.type='button';b.dataset.tab=key;b.setAttribute('aria-label',label);b.innerHTML='<span class="tichor-nav-icon" aria-hidden="true">'+ico+'</span><span class="tichor-nav-label">'+label+'</span>';b.onclick=()=>showTab(key);
  nav.append(b)}
- // Give the navigation cards a visible multicolor frame independent of theme background overrides.
+ // Group features by purpose while retaining every existing navigation button.
+for(const [key,label] of [['inbox','COMMUNICATION'],['vault','PRODUCTIVITY'],['profile','ACCOUNT']]){
+ const before=nav.querySelector('[data-tab="'+key+'"]');
+ if(before){const heading=document.createElement('div');heading.className='tichor-menu-group-heading';heading.textContent=label;heading.setAttribute('role','presentation');nav.insertBefore(heading,before)}
+}
+// Give the navigation cards a visible multicolor frame independent of theme background overrides.
  const paintSpectrumFrames=()=>{
   for(const b of nav.querySelectorAll('button[data-tab]')){
    b.style.setProperty('background','transparent','important');
@@ -874,7 +908,7 @@ const setMenuOpen=open=>{
  menuToggle.querySelector('span').textContent=open?'Close menu':'Menu';
 };
 menuToggle.onclick=()=>setMenuOpen(menuToggle.getAttribute('aria-expanded')!=='true');
-nav.addEventListener('click',event=>{if(event.target.closest('button[data-tab]'))setMenuOpen(false)});
+// Keep the menu expanded while switching sections; only the toggle or Escape closes it.
 document.addEventListener('keydown',event=>{if(event.key==='Escape')setMenuOpen(false)});
 const syncMenuNotice=()=>{
  const requests=nav.querySelector('[data-tab="requests"] .tichor-nav-unread');
@@ -898,7 +932,7 @@ if(signout){
  const trigger=document.createElement('button');trigger.type='button';trigger.className='tichor-account-trigger';
  trigger.setAttribute('aria-label','Account and sign out');trigger.setAttribute('aria-haspopup','true');trigger.setAttribute('aria-expanded','false');
  trigger.title='Account and sign out';
- trigger.innerHTML='<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>';
+ trigger.innerHTML='<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="9" r="3"/><path d="M5.5 19c.8-3 3-4.5 6.5-4.5s5.7 1.5 6.5 4.5"/></svg><span class="tichor-user-word">User</span>';
  const menu=document.createElement('div');menu.className='tichor-account-popover';menu.hidden=true;
  menu.setAttribute('role','group');menu.setAttribute('aria-label','Account options');
  const username=get('who');if(username){username.classList.add('tichor-account-username');menu.append(username)}
