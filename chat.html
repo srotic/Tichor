@@ -2617,7 +2617,7 @@ try{if(value)localStorage.setItem(key,value);else localStorage.removeItem(key)}c
 apply(value);preview.style.color=value||'#f7fbfa';
 [...swatches.children].forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.color===value)));
 }
-colors.forEach(([name,color])=>{const button=document.createElement('button');button.type='button';button.className='tc-font-color-swatch';button.dataset.color=color;button.title=name;button.setAttribute('aria-label',name);button.style.background=color||'linear-gradient(135deg,#fff 50%,#1a3235 50%)';button.addEventListener('click',()=>update(color));swatches.append(button)});
+colors.forEach(([name,color])=>{const button=document.createElement('button');button.type='button';button.className='tc-font-color-swatch';button.dataset.color=color;button.title=name;button.setAttribute('aria-label',name);button.style.setProperty('background',color||'linear-gradient(135deg,#fff 50%,#1a3235 50%)','important');button.style.setProperty('background-color',color||'transparent','important');button.addEventListener('click',()=>update(color));swatches.append(button)});
 custom.addEventListener('input',()=>update(custom.value));reset.addEventListener('click',()=>update(''));
 row.append(customLabel,custom,reset);panel.append(label,hint,swatches,row,preview);section.append(panel);update(read());
 const typography=[...settings.querySelectorAll('.tc-settings-group')].find(g=>g.querySelector('summary')?.textContent.includes('Typography'));
@@ -2625,4 +2625,15 @@ if(typography&&section.parentElement!==typography.querySelector('.tc-settings-bo
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mount,80),{once:true});else setTimeout(mount,80);
 })();
-</script></body></html>
+</script><style id="tc-font-swatch-color-fix">
+/* Prevent global theme button backgrounds from overriding individual palette colors. */
+#t12Settings .tc-font-color-swatches button.tc-font-color-swatch{appearance:none!important;-webkit-appearance:none!important;background-image:none!important;min-width:38px!important;max-width:38px!important;flex:0 0 38px!important;border:2px solid #8b9a9e!important;box-shadow:inset 0 0 0 1px #ffffff66!important}
+#t12Settings .tc-font-color-swatches button.tc-font-color-swatch[data-color=""]{background:linear-gradient(135deg,#fff 50%,#1a3235 50%)!important}
+#t12Settings .tc-font-color-swatches button.tc-font-color-swatch[data-color="#ffffff"]{background:#ffffff!important}
+#t12Settings .tc-font-color-swatches button.tc-font-color-swatch[data-color="#111111"]{background:#111111!important}
+#t12Settings .tc-font-color-swatches button.tc-font-color-swatch[data-color="#147d54"]{background:#147d54!important}
+#t12Settings .tc-font-color-swatches button.tc-font-color-swatch[data-color="#2479d1"]{background:#2479d1!important}
+#t12Settings .tc-font-color-swatches button.tc-font-color-swatch[data-color="#9957cc"]{background:#9957cc!important}
+#t12Settings .tc-font-color-swatches button.tc-font-color-swatch[data-color="#db4973"]{background:#db4973!important}
+#t12Settings .tc-font-color-swatches button.tc-font-color-swatch[data-color="#b77b15"]{background:#b77b15!important}
+</style></body></html>
