@@ -874,17 +874,36 @@ function tichorAutoKey(contact=peer){return 'tichor-auto-actions-v1:'+user.id+':
 function tichorAutoRead(contact=peer){try{const a=JSON.parse(localStorage.getItem(tichorAutoKey(contact))||'[]');return Array.isArray(a)?a:[]}catch{return []}}
 function tichorAutoSave(items,contact=peer){try{localStorage.setItem(tichorAutoKey(contact),JSON.stringify(items.slice(-150)))}catch(e){status('chatStatus','Local action storage unavailable: '+e.message)}}
 function tichorAutoDue(text,created){
- const lower=text.toLowerCase(),base=new Date(created),d=new Date(base);
+ const lower=String(text||'').toLowerCase();
+ const d=new Date(created||Date.now());
+ if(!Number.isFinite(d.getTime()))return null;
  if(/\btomorrow\b/.test(lower))d.setDate(d.getDate()+1);
  else if(/\btoday\b/.test(lower)){}
- else {const days=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];const match=lower.match(/\b(?:by|on|before)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/);if(!match)return null;let delta=(days.indexOf(match[1])-d.getDay()+7)%7;if(delta===0)delta=7;d.setDate(d.getDate()+delta)}
- d.setHours(17,0,0,0);return d.toISOString();
+ else {
+  const days=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+  const match=lower.match(/\b(?:by|on|before|this|next)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/);
+  if(!match)return null;
+  let delta=(days.indexOf(match[1])-d.getDay()+7)%7;
+  if(delta===0&&match[0].startsWith('next'))delta=7;
+  d.setDate(d.getDate()+delta);
+ }
+ let hour=17,minute=0;
+ const time=lower.match(/\b(?:at\s*)?(\d{1,2})[.:](\d{2})\s*(a\.?m\.?|p\.?m\.?)\b/i)
+  ||lower.match(/\b(?:at\s+)(\d{1,2})(?:\s*)(a\.?m\.?|p\.?m\.?)\b/i);
+ if(time){
+  const h=Number(time[1]),hasMinutes=time.length>3;
+  const min=hasMinutes?Number(time[2]):0;
+  const meridiem=(hasMinutes?time[3]:time[2]).replace(/\./g,'').toLowerCase();
+  if(h>=1&&h<=12&&min>=0&&min<60){hour=(h%12)+(meridiem==='pm'?12:0);minute=min}
+ }
+ d.setHours(hour,minute,0,0);
+ return d.toISOString();
 }
 function tichorAutoClassify(body,mine){
  const t=body.trim();
  const own=/\b(i will|i'll|i can|i shall|let me|i promise|i need to|i have to)\b/i.test(t);
  const request=/\b(please|could you|can you|would you|send me|remember to|you need to|you should)\b/i.test(t);
- const work=/\b(send|submit|deliver|review|prepare|call|complete|follow up|share|upload|finish|provide|schedule|report|check)\b/i.test(t);
+ const work=/\b(send|submit|deliver|review|prepare|call|complete|follow up|share|upload|finish|provide|schedule|report|check|bring|collect|pick up|pickup|drop off|deliver|attend|remind|return|fetch|take|give|purchase|buy|meet|book|confirm|email|text|forward|print|sign|pay|organize|arrange|update|fix|visit|carry|hand over)\b/i.test(t);
  if(!work||(!own&&!request))return null;
  // Requests from me are others' actions; promises from me are my actions.
  // Requests to me are my actions; promises from the other party are others' actions.
