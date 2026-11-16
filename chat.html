@@ -646,7 +646,7 @@ const showTab=which=>{
  for(const b of nav.querySelectorAll('button[data-tab]')){const active=b.dataset.tab===(which==='chat'?'inbox':which==='translate-chat'?'translate':which);b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active))}
  vaultPanel.hidden=which!=='vault';if(which==='vault')vaultRender();tasksPanel.hidden=which!=='tasks';if(which==='tasks')renderTasks();inbox.hidden=which!=='inbox'&&which!=='requests';translateWorkspace.hidden=which!=='translate';notifications.hidden=true;contacts.hidden=which!=='contacts';settings.hidden=which!=='profile'&&which!=='settings';conversation.hidden=which!=='chat'&&which!=='translate-chat';calls.hidden=which!=='calls';actions.hidden=which!=='actions';
  if(which==='calls')window.tichorLoadCallHistory?.();
- if(which==='actions')window.tichorLoadActions?.();
+ if(which==='actions'){window.tichorRefreshAutonomous?.();window.tichorLoadActions?.();}
  if(which==='inbox'||which==='requests'){const btn=get(which==='requests'?'tabRequests':'tabInbox');if(btn)btn.click();if(which==='requests')window.tichorRefreshRequests?.()}
  if(which==='translate')window.tichorRenderTranslateWorkspace?.();
 };
@@ -1350,6 +1350,7 @@ async function tichorLoadActions(){
  }catch(e){root.textContent='Could not load actions: '+e.message}
 }
 window.tichorLoadActions=tichorLoadActions;
+window.tichorRefreshAutonomous=()=>{if(!user)return;tichorAutoSettings();tichorAutoPanel(tichorAutoAll());};
 // Recheck deadlines while the app is open; browsers suspend timers when closed.
 setInterval(()=>{if(document.visibilityState==='visible'&&!$('t12Actions')?.hidden&&user)tichorLoadActions()},300000);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&!$('t12Actions')?.hidden&&user)tichorLoadActions()});
@@ -1589,9 +1590,10 @@ function tichorAutoAll(){
  return items.sort((a,b)=>Date.parse(a.created||0)-Date.parse(b.created||0));
 }
 function tichorAutoSettings(){
- const settings=$('t12Settings');if(!settings)return;
+ const settings=$('t12Actions')||$('t12Settings');if(!settings)return;
  let panel=$('tichorAutoSettings');
- if(!panel){panel=document.createElement('section');panel.id='tichorAutoSettings';panel.className='t12-preference';settings.append(panel)}
+ if(!panel){panel=document.createElement('section');panel.id='tichorAutoSettings';panel.className='t12-preference';settings.prepend(panel)}
+ else if(panel.parentElement!==settings)settings.prepend(panel);
  panel.replaceChildren();
  const heading=document.createElement('h3');heading.textContent='✦ Autonomous Action Intelligence';
  const description=document.createElement('p');description.className='muted';description.textContent='Optional on-device detection of provisional tasks. No automatic sending or assigning.';
@@ -2636,4 +2638,13 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 #t12Settings .tc-font-color-swatches button.tc-font-color-swatch[data-color="#9957cc"]{background:#9957cc!important}
 #t12Settings .tc-font-color-swatches button.tc-font-color-swatch[data-color="#db4973"]{background:#db4973!important}
 #t12Settings .tc-font-color-swatches button.tc-font-color-swatch[data-color="#b77b15"]{background:#b77b15!important}
+</style><style id="tc-autonomous-restoration-v1">
+#t12Actions #tichorAutoSettings{display:grid;gap:8px;padding:17px!important;margin:12px 0!important;border:1px solid #5d9f91!important;border-radius:15px!important;background:rgba(32,130,110,.09)!important}
+#t12Actions #tichorAutoSettings h3{margin:0!important;font:750 18px/1.3 system-ui,sans-serif!important}
+#t12Actions #tichorAutoSettings .tichor-auto-settings-toggle{display:flex;align-items:center;gap:12px;font-weight:650;cursor:pointer}
+#t12Actions #tichorAutoSettings input[type="checkbox"]{width:21px;height:21px;accent-color:#218e77}
+#t12Actions #tichorAutoPanel{display:block;margin:12px 0!important;padding:16px!important;border-radius:15px!important;border:1px solid #5d9f91!important}
+#t12Actions #tichorAutoPanel[hidden]{display:none!important}
+#t12Actions .tichor-auto-task{margin:10px 0;padding:13px;border-radius:12px;border:1px solid #849f9c66}
+#t12Actions .tichor-auto-task button{margin:4px;padding:8px 11px}
 </style></body></html>
