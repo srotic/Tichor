@@ -433,6 +433,14 @@ let activeFolder='inbox',folderBusy=false;
 function folderTime(v){try{return new Date(v).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}catch{return ''}}
 function initials(v){return (v||'?').split(/[\s@._-]+/).filter(Boolean).slice(0,2).map(x=>x[0].toUpperCase()).join('')}
 function chooseFolder(which){activeFolder=which;for(const [key,id] of [['inbox','tabInbox'],['sent','tabSent'],['contacts','tabContacts']]){const b=$(id);if(b){b.classList.toggle('active',key===which);b.setAttribute('aria-pressed',String(key===which))}}$('folderHeading').textContent=which==='inbox'?'Inbox':which==='sent'?'Sent messages':'Saved contacts';$('folderHint').textContent=which==='inbox'?'Latest messages from your contacts':which==='sent'?'Messages you have sent':'Contacts you have saved';refreshFolder()}
+// Establish a one-time local baseline so legacy messages without read receipts
+// are not all mislabeled as newly arrived. Server read_at remains authoritative.
+function tichorInboxNewSince(){
+ const key='tichor-inbox-new-since-v1:'+user.id;
+ let value=localStorage.getItem(key);
+ if(!value){value=new Date().toISOString();try{localStorage.setItem(key,value)}catch{}}
+ return Date.parse(value)||Date.now();
+}
 async function refreshFolder(){if(!user||folderBusy)return;folderBusy=true;try{
  const box=$('folderItems');if(!box)return;
  if(activeFolder==='contacts'){
@@ -450,11 +458,11 @@ async function refreshFolder(){if(!user||folderBusy)return;folderBusy=true;try{
    :{data:[],error:null};
  if(hiddenError)throw hiddenError;
  const hiddenSet=new Set((hiddenRows||[]).map(x=>x.message_id));
- const labels=new Map((contacts||[]).map(c=>[c.contact_id,c.label]));const latest=new Map();let unread=0;
- for(const m of data||[]){if(hiddenSet.has(m.id))continue;if(activeFolder==='inbox'&&!m.read_at)unread++;const id=activeFolder==='inbox'?m.sender_id:m.recipient_id;if(!latest.has(id))latest.set(id,m)}
+ const labels=new Map((contacts||[]).map(c=>[c.contact_id,c.label]));const latest=new Map();let unread=0;const newSince=tichorInboxNewSince();
+ for(const m of data||[]){if(hiddenSet.has(m.id))continue;if(activeFolder==='inbox'&&!m.read_at&&Date.parse(m.created_at)>newSince)unread++;const id=activeFolder==='inbox'?m.sender_id:m.recipient_id;if(!latest.has(id))latest.set(id,m)}
  $('inboxCount').textContent=activeFolder==='inbox'&&unread?'('+unread+' unread)':'';
  box.replaceChildren();if(!latest.size){box.innerHTML='<div class="folder-empty">'+(activeFolder==='inbox'?'No received messages yet.':'No sent messages yet.')+'</div>';return}
- for(const [id,m] of latest){let preview=m.body||'';if(preview.startsWith('e2ee1.'))preview='🔒 Older encrypted message';addFolderRow(box,id,labels.get(id)||'Tichor user · '+id.slice(0,8),preview,folderTime(m.created_at),activeFolder==='inbox'&&!m.read_at)}
+ for(const [id,m] of latest){let preview=m.body||'';if(preview.startsWith('e2ee1.'))preview='🔒 Older encrypted message';addFolderRow(box,id,labels.get(id)||'Tichor user · '+id.slice(0,8),preview,folderTime(m.created_at),activeFolder==='inbox'&&!m.read_at&&Date.parse(m.created_at)>newSince)}
  }catch(e){status('folderStatus','Could not load '+activeFolder+': '+e.message)}finally{folderBusy=false}}
 function addFolderRow(box,id,label,preview,when,unread){const b=document.createElement('button');b.type='button';b.className='folder-row';const avatar=document.createElement('span');avatar.className='folder-avatar';avatar.textContent=initials(label);const mid=document.createElement('span');mid.className='folder-main';const n=document.createElement('div');n.className='folder-name';n.textContent=label;const p=document.createElement('div');p.className='folder-preview';p.textContent=preview;mid.append(n,p);const meta=document.createElement('span');meta.className='folder-meta';meta.textContent=when;if(unread){const dot=document.createElement('span');dot.className='folder-unread';dot.textContent='New';meta.append(' ',dot)}b.append(avatar,mid,meta);b.onclick=async()=>{peer=id;tichorPrivacyRender();$('recipient').value=label;window.tichorShowTab?.('chat');await load();if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>{load();refreshFolder()}).subscribe();setTimeout(refreshFolder,500)};box.append(b)}
 for(const [id,tab] of [['tabInbox','inbox'],['tabSent','sent'],['tabContacts','contacts']]){const btn=$(id);if(btn)btn.onclick=()=>chooseFolder(tab)}
@@ -1083,7 +1091,7 @@ async function load(){
  if(atBottom)box.scrollTop=box.scrollHeight;
  if(document.visibilityState==='visible'){
   const unread=(data||[]).filter(m=>m.recipient_id===user.id&&!m.read_at).map(m=>m.id);
-  if(unread.length){const {error:markError}=await supa.from('chat_messages').update({read_at:new Date().toISOString(),delivered_at:new Date().toISOString()}).in('id',unread).eq('recipient_id',user.id);if(markError)status('chatStatus','Read receipts: '+markError.message)}
+  if(unread.length){const {error:markError}=await supa.from('chat_messages').update({read_at:new Date().toISOString(),delivered_at:new Date().toISOString()}).in('id',unread).eq('recipient_id',user.id);if(markError)status('chatStatus','Read receipts: '+markError.message);else refreshFolder()}
  }
  }catch(e){status('chatStatus','Messages: '+e.message)}finally{refreshBusy=false}
 }
@@ -1635,4 +1643,13 @@ html[data-tichor-theme="light"] .t12-nav button{--tichor-nav-surface:#f1f8fc}
  .t12-nav .tichor-nav-label{font-size:10px!important}
  .t12-nav .tichor-nav-unread{top:1px!important;right:1px!important}
 }
+</style><style id="tichor-inbox-unread-paint-v1">
+/* Unread conversations have a green paint; read conversations revert to theme surfaces. */
+#folderItems .folder-row{background:transparent!important;color:inherit!important;box-shadow:none!important}
+#folderItems .folder-row:has(.folder-unread){background:#086b4c!important;color:#fff!important;border-color:#2bb78a!important}
+#folderItems .folder-row:has(.folder-unread) .folder-name{color:#fff!important;-webkit-text-fill-color:#fff!important;font-weight:800!important}
+#folderItems .folder-row:has(.folder-unread) .folder-preview,
+#folderItems .folder-row:has(.folder-unread) .folder-meta{color:#e0f7eb!important;-webkit-text-fill-color:#e0f7eb!important;opacity:1!important}
+#folderItems .folder-row:has(.folder-unread) .folder-unread{background:#e4f9e9!important;color:#075a3e!important;-webkit-text-fill-color:#075a3e!important}
+#folderItems .folder-row:not(:has(.folder-unread)) .folder-name{font-weight:650!important}
 </style></body></html>
