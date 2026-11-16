@@ -285,20 +285,6 @@ const showTab=which=>{
  if(which==='inbox'){const btn=get('tabInbox');if(btn)btn.click()}
 };
 for(const [key,ico,label] of tabs){const b=document.createElement('button');b.type='button';b.dataset.tab=key;b.setAttribute('aria-label',label);b.innerHTML='<span class="tichor-nav-icon" aria-hidden="true">'+ico+'</span><span class="tichor-nav-label">'+label+'</span>';b.onclick=()=>showTab(key);
- // Gradient is confined to SVG icon strokes; it never changes app backgrounds or labels.
- const svg=b.querySelector('.tichor-nav-icon svg');
- if(svg){
-  const ns='http://www.w3.org/2000/svg',defs=document.createElementNS(ns,'defs'),grad=document.createElementNS(ns,'linearGradient');
-  const id='tichor-spectrum-'+key;grad.setAttribute('id',id);grad.setAttribute('x1','0%');grad.setAttribute('y1','0%');grad.setAttribute('x2','100%');grad.setAttribute('y2','0%');
-  for(const [offset,color] of [['0%','#064b34'],['25%','#08734d'],['43%','#ef6199'],['53%','#ffd45a'],['64%','#ef6199'],['82%','#08734d'],['100%','#064b34']]){
-   const stop=document.createElementNS(ns,'stop');stop.setAttribute('offset',offset);stop.setAttribute('stop-color',color);grad.append(stop);
-  }
-  defs.append(grad);svg.prepend(defs);
-  for(const shape of svg.querySelectorAll('path,circle,rect,line,polyline,polygon,ellipse')){
-   shape.style.setProperty('stroke','url(#'+id+')','important');
-   shape.style.setProperty('stroke-width','2.5','important');
-  }
- }
  nav.append(b)}
  // Give the navigation cards a visible multicolor frame independent of theme background overrides.
  const paintSpectrumFrames=()=>{
@@ -1724,4 +1710,26 @@ html[data-tichor-theme="dark"] .t12-nav{--tichor-icon-nav-text:#e9f4f2}
  .t12-nav .tichor-nav-icon svg{width:25px!important;height:25px!important}
  .t12-nav .tichor-nav-label,.t12-nav button:not(.active) .tichor-nav-label,.t12-nav button.active .tichor-nav-label{font-size:10px!important}
 }
+</style><style id="tichor-official-monochrome-icons-v1">
+/* Standard outline navigation icons, no gradient, no tile, maximum clarity. */
+.t12-nav .tichor-nav-icon,.t12-nav button.active .tichor-nav-icon{
+ background:transparent!important;background-image:none!important;
+ border:0!important;outline:0!important;box-shadow:none!important;
+ filter:none!important;
+}
+.t12-nav .tichor-nav-icon svg,.t12-nav button.active .tichor-nav-icon svg{
+ stroke:currentColor!important;stroke-width:2.5!important;
+ filter:none!important;opacity:1!important;
+}
+.t12-nav .tichor-nav-icon svg :is(path,circle,rect,line,polyline,polygon,ellipse){
+ stroke:currentColor!important;stroke-width:2.5!important;filter:none!important;
+}
+.t12-nav button:not(.active) .tichor-nav-icon{color:var(--tichor-official-icon,#eaf3f6)!important}
+.t12-nav button.active .tichor-nav-icon{color:#26b58b!important}
+html[data-tichor-theme-preference="crystal"] .t12-nav,
+html[data-tichor-theme-preference="light"] .t12-nav,
+html[data-tichor-theme="light"] .t12-nav{--tichor-official-icon:#173d52}
+html[data-tichor-theme-preference="aurora"] .t12-nav,
+html[data-tichor-theme="dark"] .t12-nav{--tichor-official-icon:#eaf3f6}
+.t12-nav button.active .tichor-nav-label{font-weight:850!important}
 </style></body></html>
