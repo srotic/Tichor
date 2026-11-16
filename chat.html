@@ -2538,4 +2538,27 @@ html body>header>strong::before,html body>header>strong::after{display:none!impo
  html body>header,html[data-tichor-theme] body>header{height:190px!important;min-height:190px!important;padding:14px!important;gap:12px!important;background-size:cover!important;background-position:center!important}
  html body>header #tichorOfficialHeaderIcon,html body>header.tichor-cover-ready #tichorOfficialHeaderIcon{width:76px!important;height:76px!important;flex-basis:76px!important}
 }
+</style><style id="tichor-restore-panorama-20261116">
+/* Restore approved panoramic Earth/DNA banner. Overlay the current official icon on the old baked-in emblem. */
+html body>header,html[data-tichor-theme] body>header,html[data-tichor-theme-preference] body>header,html[data-theme] body>header{
+ background:#020b19 url('tichor-connect-cover.png?v=panorama-restored-20261116') center 12%/100% auto no-repeat!important;
+ background-image:url('tichor-connect-cover.png?v=panorama-restored-20261116')!important;
+ min-height:clamp(310px,22vw,470px)!important;height:clamp(310px,22vw,470px)!important;
+ padding:0!important;position:relative!important;display:block!important;overflow:hidden!important;
+}
+html body>header #tichorOfficialHeaderIcon,html body>header.tichor-cover-ready #tichorOfficialHeaderIcon{
+ display:block!important;visibility:visible!important;opacity:1!important;
+ position:absolute!important;top:50%!important;left:4.5%!important;transform:translateY(-50%)!important;
+ width:clamp(80px,12vw,170px)!important;height:clamp(80px,12vw,170px)!important;min-width:0!important;
+ object-fit:cover!important;border-radius:21%!important;background:#020b19!important;box-shadow:0 0 22px #16baffaa!important;z-index:5!important;
+}
+html body>header>strong,html body>header.tichor-cover-ready>strong{display:none!important;visibility:hidden!important}
+@media(max-width:640px){
+ html body>header,html[data-tichor-theme] body>header,html[data-tichor-theme-preference] body>header,html[data-theme] body>header{
+ height:220px!important;min-height:220px!important;background-size:auto 300px!important;background-position:left top!important;
+ }
+ html body>header #tichorOfficialHeaderIcon,html body>header.tichor-cover-ready #tichorOfficialHeaderIcon{
+ left:16px!important;top:105px!important;width:76px!important;height:76px!important;transform:translateY(-50%)!important;
+ }
+}
 </style></body></html>
