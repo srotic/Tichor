@@ -570,6 +570,13 @@ function tichorLanguageChoice(){
  }
  $('tichorLoginLanguageSelect').value=tichorPreferredLanguage();
 }
+function tichorSwahiliEvidence(value){
+ const words=(value.toLowerCase().match(/[a-zà-ÿ]+/g)||[]);
+ if(words.length<2)return false;
+ const common=new Set(['habari','yako','yangu','yetu','asante','tafadhali','kesho','leo','jana','sasa','sana','karibu','pole','ndiyo','hapana','kwaheri','rafiki','nime','nitaku','nita','tuta','tuna','tuko','uko','niko','nina','una','wako','yeye','sisi','wewe','mimi','lakini','kwamba','kwa','na','ya','hii','hiyo','hapa','pale','sawa','vizuri','shikamoo','marahaba','samahani','chakula','maji','kitabu','ripoti','kazi','mambo','vipi','salama','niletee','lete','leta','tuma','tutakutana','tutafanya','nimefika','nimepokea','nimekutumia','utaleta','utakuja','nakuja','ninakuja','unaweza','naomba']);
+ const hits=words.filter(w=>common.has(w)||/^(?:nita|uta|ata|tuta|mta|wata|nime|ume|ame|tume|mme|wame)[a-z]{3,}$/.test(w)).length;
+ return hits>=2&&(hits/words.length>=0.22||hits>=3);
+}
 async function tichorRouteLanguage(value,contact){
  if(!user||!contact||tichorTranslationMode()==='off'||!value||value.startsWith('[')||value.startsWith('e2ee1.'))return;
  const preferred=tichorPreferredLanguage();
@@ -582,6 +589,7 @@ async function tichorRouteLanguage(value,contact){
   else if(/[\uac00-\ud7af]{2,}/.test(value))detected='ko';
   else if(/[\u4e00-\u9fff]{3,}/.test(value))detected='zh';
  }
+ if(tichorSwahiliEvidence(value))detected='sw';
  if(detected&&detected!==preferred&&TICHOR_LANGUAGES[detected]&&!tichorTranslationThreads()[contact]){
   tichorTranslationMark(contact,true);
   window.tichorRenderTranslateWorkspace?.();
@@ -718,7 +726,7 @@ function tichorAddTranslateButton(parent,content,mine,messageId,autoQueue){
  const mobileFallback=!tichorTranslationSupported();
  if(mode==='automatic'&&mine)return;
  let translated=cached||null;
- const button=null; // Translation is configured in Settings; no per-message chat controls.
+ const button=document.createElement('button');button.type='button';button.className='tichor-translate-button';button.textContent='🌐 Translate';button.setAttribute('aria-label','Translate or show original message');parent.append(button);
  if(button){button.type='button';button.className='tichor-translate-button';button.setAttribute('aria-label',mobileFallback?'Open translation options':'Translate this message');button.textContent=mobileFallback?'🌐':'🌐 Translate';if(translated)button.textContent='Show original';if(mobileFallback)button.title='Open in external translator (requires consent)';parent.append(button)}
  const showOriginal=()=>{content.textContent=original;translated=null;if(button)button.textContent=mobileFallback?'🌐':'🌐 Translate';};
  const showTranslated=(value)=>{translated=value;content.textContent=original+'\n\n🌐 '+value;if(button)button.textContent='Show original';if(automatic){content.title='Translated message — tap to view original';content.style.cursor='pointer';content.setAttribute('role','button');content.tabIndex=0;content.setAttribute('aria-label','Translated message. Activate to switch between translated and original text.')}};
@@ -740,11 +748,12 @@ function tichorAddTranslateButton(parent,content,mine,messageId,autoQueue){
   }catch(e){
    if(button)button.textContent='🌐 Translate';
    if(!silent)alert(e.message);
-   else {const notice=$('tichorTranslationNotice');if(notice)notice.textContent='Automatic translation unavailable: '+e.message}
+   else {const note=document.createElement('small');note.className='muted';note.textContent='Translation unavailable: '+e.message;parent.append(note);const notice=$('tichorTranslationNotice');if(notice)notice.textContent='Automatic translation unavailable: '+e.message}
   }finally{if(button)button.disabled=false}
  };
  if(button)button.onclick=()=>mobileFallback?tichorExternalTranslation(original):translate(false);
  if(automatic&&!cached&&autoQueue&&!mobileFallback)autoQueue.push(()=>translate(true));
+ if(automatic&&mobileFallback){const note=document.createElement('small');note.className='muted';note.textContent='Translation unavailable on this device. Tap 🌐 Translate to open an external translator with your consent.';parent.append(note)}
 }
 // Action Messages v1: interoperable events stored as ordinary chat messages; no new database tables.
 const TICHOR_ACTION_PREFIX='[tichor-action-v1]';
@@ -1229,6 +1238,8 @@ async function load(){
  const {data,error}=await supa.from('chat_messages').select('id,sender_id,recipient_id,body,created_at,delivered_at,read_at').or(`and(sender_id.eq.${user.id},recipient_id.eq.${peer}),and(sender_id.eq.${peer},recipient_id.eq.${user.id})`).order('created_at',{ascending:true}).limit(200);
  if(error)throw error;
  const ids=(data||[]).map(m=>m.id);
+ const incoming=(data||[]).filter(m=>m.sender_id===peer&&m.recipient_id===user.id&&m.body&&!m.body.startsWith('['));
+ if(incoming.length){const newest=incoming[incoming.length-1];tichorRouteLanguage(newest.body,peer).then(changed=>{if(changed){tichorTranslationRoutingControl();window.tichorShowTab?.('translate-chat')}}).catch(()=>{})}
  const [{data:hidden,error:hiddenError},{data:attachments,error:attachmentError}]=await Promise.all([
   ids.length?supa.from('tichor_hidden_messages').select('message_id').eq('user_id',user.id).in('message_id',ids):Promise.resolve({data:[]}),
   ids.length?supa.from('tichor_attachments').select('message_id,file_name,storage_path,byte_size').in('message_id',ids):Promise.resolve({data:[]})
