@@ -642,18 +642,24 @@ async function tichorRefreshRequests(){
  if(error){box.textContent='Unable to load requests: '+error.message;return;}
  box.replaceChildren();
  const pending=(data||[]).filter(r=>r.recipient_id===user.id&&r.status==='pending');
- const badge=$('tichorRequestCount');if(badge){badge.textContent=pending.length?String(pending.length):'';badge.hidden=!pending.length;}
  const outgoing=(data||[]).filter(r=>r.requester_id===user.id&&r.status==='pending');
+ const badge=$('tichorRequestCount');if(badge){badge.textContent=pending.length?String(pending.length):'';badge.hidden=!pending.length;}
  if(!pending.length&&!outgoing.length){box.textContent='No pending contact requests.';return;}
+ // Resolve both sides of each request in one lookup, without exposing emails or phone numbers.
+ const ids=[...new Set([...pending.map(r=>r.requester_id),...outgoing.map(r=>r.recipient_id)])];
+ const {data:profiles,error:profileError}=await supa.from('tichor_profiles').select('user_id,username').in('user_id',ids);
+ const usernames=new Map((profiles||[]).map(p=>[p.user_id,p.username]));
+ const identity=(id)=>usernames.get(id)?'@'+usernames.get(id):'User '+String(id).slice(0,8);
+ if(profileError){const note=document.createElement('p');note.className='muted';note.textContent='Usernames could not be loaded: '+profileError.message;box.append(note);}
  for(const r of pending){
- const row=document.createElement('div');row.className='tichor-request-row';
- const title=document.createElement('span');title.textContent='Incoming contact request · '+tichorLocalDateTime(r.created_at,true);row.append(title);
- for(const [label,decision] of [['Accept','accepted'],['Decline','declined'],['Block','blocked']]){
- const button=document.createElement('button');button.type='button';button.textContent=label;
- button.onclick=async()=>{button.disabled=true;const {error}=await supa.rpc('tichor_respond_contact',{request_id:r.id,decision});if(error){status('chatStatus',error.message);button.disabled=false;return;}if(decision==='accepted')await saveContact(r.requester_id,'Approved contact');await tichorRefreshRequests();};row.append(button);
- }box.append(row);
+  const row=document.createElement('div');row.className='tichor-request-row';
+  const title=document.createElement('span');title.textContent=identity(r.requester_id)+' · Incoming contact request · '+tichorLocalDateTime(r.created_at,true);row.append(title);
+  for(const [label,decision] of [['Accept','accepted'],['Decline','declined'],['Block','blocked']]){
+   const button=document.createElement('button');button.type='button';button.textContent=label;
+   button.onclick=async()=>{button.disabled=true;const {error}=await supa.rpc('tichor_respond_contact',{request_id:r.id,decision});if(error){status('chatStatus',error.message);button.disabled=false;return;}if(decision==='accepted')await saveContact(r.requester_id,'Approved contact');await tichorRefreshRequests();};row.append(button);
+  }box.append(row);
  }
- for(const r of outgoing){const line=document.createElement('p');line.textContent='Request pending approval · '+tichorLocalDateTime(r.created_at,true);box.append(line);}
+ for(const r of outgoing){const line=document.createElement('p');line.className='tichor-request-row';line.textContent='To '+identity(r.recipient_id)+' · Request pending approval · '+tichorLocalDateTime(r.created_at,true);box.append(line);}
 }
 async function tichorEnsureContactAllowed(other){
  if(!user||!other)return false;
