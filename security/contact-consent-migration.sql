@@ -1,4 +1,4 @@
--- Tichor consent-based messaging, v2. REVIEW AND TEST IN STAGING FIRST.
+-- Tichor consent-based messaging, v3. Production activation requires SQL Editor execution and post-deploy checks.
 -- Uses existing verified table columns. Preserves message history.
 -- IMPORTANT: Does not itself require verified email; Supabase Auth settings must enforce that.
 BEGIN;
