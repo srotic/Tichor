@@ -495,6 +495,20 @@ async function refreshFolder(){if(!user||folderBusy)return;folderBusy=true;try{
    :{data:[],error:null};
  if(hiddenError)throw hiddenError;
  const hiddenSet=new Set((hiddenRows||[]).map(x=>x.message_id));
+ // Scan newly received/sent inbox messages even when the conversation is not open.
+ // All detection stays on this device; no automatic assignment or sending.
+ if(localStorage.getItem('tichor-auto-enabled')==='yes'){
+  const grouped=new Map();
+  for(const m of data||[]){
+   if(hiddenSet.has(m.id))continue;
+   const contact=m.sender_id===user.id?m.recipient_id:m.sender_id;
+   if(!contact||contact===user.id)continue;
+   if(!grouped.has(contact))grouped.set(contact,[]);
+   grouped.get(contact).push(m);
+  }
+  for(const [contact,messages] of grouped)tichorAutoScan(messages,hiddenSet,contact);
+  tichorAutoPanel(tichorAutoAll());
+ }
  const labels=new Map((contacts||[]).map(c=>[c.contact_id,c.label]));const latest=new Map();let unread=0;const newSince=tichorInboxNewSince(),readMarks=tichorReadWatermarks();const isNew=m=>activeFolder==='inbox'&&!m.read_at&&Date.parse(m.created_at)>Math.max(newSince,Date.parse(readMarks[m.sender_id]||'')||0);
  for(const m of data||[]){if(hiddenSet.has(m.id))continue;if(isNew(m))unread++;const id=activeFolder==='inbox'?m.sender_id:m.recipient_id;if(!latest.has(id))latest.set(id,m)}
  $('inboxCount').textContent=activeFolder==='inbox'&&unread?'('+unread+' unread)':'';
@@ -855,29 +869,29 @@ function tichorActionFromMessage(messageText){
  fields.hidden=false;title.value=messageText;panel.scrollIntoView({behavior:'smooth',block:'center'});title.focus();
 }
 // Autonomous Action Intelligence v1: device-local provisional tasks; never auto-send.
-function tichorAutoKey(){return 'tichor-auto-actions-v1:'+user.id+':'+peer}
-function tichorAutoRead(){try{const a=JSON.parse(localStorage.getItem(tichorAutoKey())||'[]');return Array.isArray(a)?a:[]}catch{return []}}
-function tichorAutoSave(items){try{localStorage.setItem(tichorAutoKey(),JSON.stringify(items.slice(-150)))}catch(e){status('chatStatus','Local action storage unavailable: '+e.message)}}
+function tichorAutoKey(contact=peer){return 'tichor-auto-actions-v1:'+user.id+':'+contact}
+function tichorAutoRead(contact=peer){try{const a=JSON.parse(localStorage.getItem(tichorAutoKey(contact))||'[]');return Array.isArray(a)?a:[]}catch{return []}}
+function tichorAutoSave(items,contact=peer){try{localStorage.setItem(tichorAutoKey(contact),JSON.stringify(items.slice(-150)))}catch(e){status('chatStatus','Local action storage unavailable: '+e.message)}}
 function tichorAutoDue(text,created){
  const lower=text.toLowerCase(),base=new Date(created),d=new Date(base);
- if(/\\btomorrow\\b/.test(lower))d.setDate(d.getDate()+1);
- else if(/\\btoday\\b/.test(lower)){}
- else {const days=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];const match=lower.match(/\\b(?:by|on|before)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\b/);if(!match)return null;let delta=(days.indexOf(match[1])-d.getDay()+7)%7;if(delta===0)delta=7;d.setDate(d.getDate()+delta)}
+ if(/\btomorrow\b/.test(lower))d.setDate(d.getDate()+1);
+ else if(/\btoday\b/.test(lower)){}
+ else {const days=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];const match=lower.match(/\b(?:by|on|before)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/);if(!match)return null;let delta=(days.indexOf(match[1])-d.getDay()+7)%7;if(delta===0)delta=7;d.setDate(d.getDate()+delta)}
  d.setHours(17,0,0,0);return d.toISOString();
 }
 function tichorAutoClassify(body,mine){
  const t=body.trim();
- const own=/\\b(i will|i'll|i can|i shall|let me|i promise|i need to|i have to)\\b/i.test(t);
- const request=/\\b(please|could you|can you|would you|send me|remember to|you need to|you should)\\b/i.test(t);
- const work=/\\b(send|submit|deliver|review|prepare|call|complete|follow up|share|upload|finish|provide|schedule|report|check)\\b/i.test(t);
+ const own=/\b(i will|i'll|i can|i shall|let me|i promise|i need to|i have to)\b/i.test(t);
+ const request=/\b(please|could you|can you|would you|send me|remember to|you need to|you should)\b/i.test(t);
+ const work=/\b(send|submit|deliver|review|prepare|call|complete|follow up|share|upload|finish|provide|schedule|report|check)\b/i.test(t);
  if(!work||(!own&&!request))return null;
  // Requests from me are others' actions; promises from me are my actions.
  // Requests to me are my actions; promises from the other party are others' actions.
  const category=own?(mine?'mine':'others'):(mine?'others':'mine');
  return {category,title:t.slice(0,500)};
 }
-function tichorAutoScan(messages,hidden){
- const items=tichorAutoRead(),known=new Set(items.map(x=>x.source));
+function tichorAutoScan(messages,hidden,contact=peer){
+ const items=tichorAutoRead(contact),known=new Set(items.map(x=>x.source));
  let changed=false;
  for(const m of messages||[]){
   if(hidden.has(m.id)||known.has(m.id)||!m.body||m.body.startsWith('[')||m.body.startsWith('e2ee1.'))continue;
@@ -886,8 +900,17 @@ function tichorAutoScan(messages,hidden){
   items.push({source:m.id,title:classification.title,category:classification.category,due:tichorAutoDue(m.body,m.created_at),created:m.created_at,state:'provisional'});
   known.add(m.id);changed=true;
  }
- if(changed)tichorAutoSave(items);
+ if(changed)tichorAutoSave(items,contact);
  return items;
+}
+function tichorAutoAll(){
+ const prefix='tichor-auto-actions-v1:'+user.id+':',items=[];
+ for(let i=0;i<localStorage.length;i++){
+  const key=localStorage.key(i);if(!key?.startsWith(prefix))continue;
+  const contact=key.slice(prefix.length);
+  for(const item of tichorAutoRead(contact))items.push({...item,contact});
+ }
+ return items.sort((a,b)=>Date.parse(a.created||0)-Date.parse(b.created||0));
 }
 function tichorAutoSettings(){
  const settings=$('t12Settings');if(!settings)return;
@@ -1019,7 +1042,7 @@ async function load(){
  if(hiddenError||attachmentError)throw (hiddenError||attachmentError);
  const hiddenIds=new Set((hidden||[]).map(h=>h.message_id));
  const autoItems=localStorage.getItem('tichor-auto-enabled')==='yes'?tichorAutoScan(data,hiddenIds):tichorAutoRead();
- tichorAutoPanel(autoItems);
+ tichorAutoPanel(localStorage.getItem('tichor-auto-enabled')==='yes'?tichorAutoAll():autoItems);
  const attached=new Map((attachments||[]).map(a=>[a.message_id,a]));
  const box=$('messages'),atBottom=box.scrollHeight-box.scrollTop-box.clientHeight<90;box.replaceChildren();
  const actionCreates=new Map(),actionStates=new Map(),pollCreates=new Map(),pollVotes=new Map();
