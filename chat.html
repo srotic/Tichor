@@ -876,7 +876,7 @@ function tichorAutoDue(text,created){
  const lower=text.toLowerCase(),base=new Date(created),d=new Date(base);
  if(/\btomorrow\b/.test(lower))d.setDate(d.getDate()+1);
  else if(/\btoday\b/.test(lower)){}
- else {const days=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];const match=lower.match(/\b(?:by|on|before)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/);if(!match)return null;let delta=(days.indexOf(match[1])-d.getDay()+7)%7;if(delta===0)delta=7;d.setDate(d.getDate()+delta)}
+ else {const days=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];const match=lower.match(/\b(?:by|on|before)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/);if(!match)return null;let delta=(days.indexOf(match[1])-d.getDay()+7)%7;if(delta===0)delta=7;d.setDate(d.getDate()+delta)}
  d.setHours(17,0,0,0);return d.toISOString();
 }
 function tichorAutoClassify(body,mine){
@@ -954,7 +954,7 @@ function tichorAutoPanel(items){
   const approve=document.createElement('button');approve.type='button';approve.textContent=category==='mine'?'Review task':'Review & send';
   approve.onclick=()=>{window.tichorShowTab?.('actions');tichorActionFromMessage(task.title);const date=$('tichorActionComposer')?.querySelector('input[type="datetime-local"]');if(date&&task.due){const d=new Date(task.due);const local=new Date(d.getTime()-d.getTimezoneOffset()*60000);date.value=local.toISOString().slice(0,16)}};
   const dismiss=document.createElement('button');dismiss.type='button';dismiss.textContent='Dismiss';
-  dismiss.onclick=()=>{task.state='dismissed';tichorAutoSave(items);tichorAutoPanel(items)};
+  dismiss.onclick=()=>{task.state='dismissed';const own=tichorAutoRead(task.contact);const found=own.find(x=>x.source===task.source);if(found){found.state='dismissed';tichorAutoSave(own,task.contact)}tichorAutoPanel(tichorAutoAll())};
   buttons.append(approve,dismiss);row.append(title,due,buttons);panel.append(row);
   }
  }
