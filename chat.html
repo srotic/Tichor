@@ -332,7 +332,13 @@ for(const [key,ico,label] of tabs){const b=document.createElement('button');b.ty
  const folderItems=inbox.querySelector('#folderItems');
  if(folderItems)new MutationObserver(syncUnreadBadge).observe(folderItems,{childList:true,subtree:true});
  syncUnreadBadge();
-shell.append(profile,nav,inbox,notifications,contacts,settings,conversation,calls,actions);
+// One compact utility/navigation toolbar: Dashboard, Guest, sections and Sign out.
+const toolbar=document.createElement('div');toolbar.className='tichor-unified-toolbar';
+const utilityRow=document.querySelector('main > p:has(.tichor-dashboard-icon-link)');
+if(utilityRow){utilityRow.classList.add('tichor-toolbar-utilities');toolbar.append(utilityRow)}
+toolbar.append(nav);
+const signout=get('signout');if(signout){signout.classList.add('tichor-toolbar-signout');toolbar.append(signout)}
+shell.append(toolbar,profile,inbox,notifications,contacts,settings,conversation,calls,actions);
 chat.replaceChildren(shell);chat.classList.remove('card');
 // Called after the module attaches its folder handlers.
 window.tichorShowTab=showTab;
@@ -1765,5 +1771,51 @@ html[data-tichor-theme="dark"] .t12-nav{--tichor-official-icon:#eaf3f6}
  .t12-nav .tichor-nav-icon,.t12-nav button.active .tichor-nav-icon{width:32px!important;height:32px!important;flex-basis:32px!important}
  .t12-nav .tichor-nav-icon svg{width:26px!important;height:26px!important}
  .t12-nav .tichor-nav-label{font-size:11px!important}
+}
+</style><style id="tichor-unified-toolbar-v1">
+/* Single row for Dashboard, Guest, Chats, Calls, Actions, Contacts, Settings, Sign out. */
+.tichor-unified-toolbar{
+ display:flex!important;align-items:center!important;justify-content:flex-start!important;
+ flex-wrap:nowrap!important;gap:clamp(5px,1vw,14px)!important;
+ width:100%!important;min-width:0!important;max-width:100%!important;
+ padding:8px 10px!important;overflow-x:auto!important;overscroll-behavior-x:contain;
+ scrollbar-width:thin;
+}
+.tichor-unified-toolbar .tichor-toolbar-utilities{
+ display:flex!important;align-items:center!important;flex:0 0 auto!important;
+ gap:8px!important;margin:0!important;padding:0!important;white-space:nowrap!important;
+}
+.tichor-unified-toolbar .t12-nav{
+ display:flex!important;align-items:center!important;justify-content:flex-start!important;
+ flex:0 0 auto!important;width:auto!important;min-width:0!important;
+ gap:clamp(5px,1vw,14px)!important;margin:0!important;padding:0!important;
+ background:transparent!important;
+}
+.tichor-unified-toolbar .t12-nav button,
+.tichor-unified-toolbar .t12-nav button.active,
+.tichor-unified-toolbar .t12-nav button:not(.active){
+ flex:0 0 auto!important;width:clamp(49px,5vw,72px)!important;min-height:56px!important;
+ padding:3px 1px!important;
+}
+.tichor-unified-toolbar .t12-nav .tichor-nav-icon{
+ width:29px!important;height:29px!important;flex-basis:29px!important;
+}
+.tichor-unified-toolbar .t12-nav .tichor-nav-icon svg{width:25px!important;height:25px!important}
+.tichor-unified-toolbar .t12-nav .tichor-nav-label{font-size:11px!important}
+.tichor-unified-toolbar .tichor-toolbar-signout{
+ flex:0 0 auto!important;margin-left:auto!important;min-width:44px!important;
+ max-width:110px!important;min-height:42px!important;padding:7px 10px!important;
+ border-radius:12px!important;white-space:nowrap!important;
+}
+.t12-profile{margin-top:0!important}
+@media(max-width:700px){
+ .tichor-unified-toolbar{gap:5px!important;padding:6px 4px!important}
+ .tichor-unified-toolbar .tichor-toolbar-utilities{gap:3px!important}
+ .tichor-unified-toolbar .tichor-dashboard-icon-link,
+ .tichor-unified-toolbar .tichor-guest-link{width:35px!important;height:35px!important}
+ .tichor-unified-toolbar .t12-nav{gap:4px!important}
+ .tichor-unified-toolbar .t12-nav button,
+ .tichor-unified-toolbar .t12-nav button.active,
+ .tichor-unified-toolbar .t12-nav button:not(.active){width:49px!important}
 }
 </style></body></html>
