@@ -717,7 +717,7 @@ setMenuOpen(false);
 const translateTitle=document.createElement('h2');translateTitle.textContent='🌐 Translate';
 const translateNote=document.createElement('p');translateNote.className='muted';translateNote.textContent='Cross-language conversations. Replies are sent exactly as written; translations are for reading only.';
 const translateList=document.createElement('div');translateList.id='tichorTranslateThreads';translateWorkspace.append(translateTitle,translateNote,translateList);
-nav.parentElement?.after(translateWorkspace);
+// Translate workspace is attached to the application shell below.
 const signout=profile.querySelector('#signout');
 if(signout){
  const account=document.createElement('div');account.className='tichor-menu-user-tile';
@@ -738,7 +738,7 @@ if(signout){
  document.addEventListener('keydown',e=>{if(e.key==='Escape')setOpen(false)});
  signout.addEventListener('click',()=>setOpen(false));
 }
-shell.append(toolbar,inbox,notifications,contacts,settings,conversation,calls,actions,tasksPanel,vaultPanel);
+shell.append(toolbar,inbox,translateWorkspace,notifications,contacts,settings,conversation,calls,actions,tasksPanel,vaultPanel);
 chat.replaceChildren(shell);chat.classList.remove('card');
 // Called after the module attaches its folder handlers.
 window.tichorShowTab=showTab;
