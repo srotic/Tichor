@@ -689,7 +689,7 @@ async function tichorRefreshRequests(){
   const title=document.createElement('span');title.className='tichor-request-identity';title.textContent=identity(r.requester_id);const detail=document.createElement('small');detail.textContent='Incoming contact request · '+tichorLocalDateTime(r.created_at,true);title.append(detail);row.append(title);
   for(const [label,decision] of [['Accept','accepted'],['Decline','declined'],['Block','blocked']]){
    const button=document.createElement('button');button.type='button';button.textContent=label;
-   button.onclick=async()=>{button.disabled=true;const {error}=await supa.rpc('tichor_respond_contact',{request_id:r.id,decision});if(error){status('chatStatus',error.message);button.disabled=false;return;}if(decision==='accepted')await saveContact(r.requester_id,'Approved contact');await tichorRefreshRequests();};row.append(button);
+   button.onclick=async()=>{button.disabled=true;const {error}=await supa.rpc('tichor_respond_contact',{request_id:r.id,decision});if(error){status('chatStatus',error.message);button.disabled=false;return;}if(decision==='accepted')await saveContact(r.requester_id,usernames.get(r.requester_id)||identity(r.requester_id));await tichorRefreshRequests();};row.append(button);
   }box.append(row);
  }
  for(const r of outgoing){const line=document.createElement('p');line.className='tichor-request-row';line.textContent='To '+identity(r.recipient_id)+' · Request pending approval · '+tichorLocalDateTime(r.created_at,true);box.append(line);}
@@ -1377,17 +1377,23 @@ async function tichorUpdateChatHeader(){
  const contact=[...document.querySelectorAll('#contactsList [data-contact-id]')].find(b=>b.dataset.contactId===current);
  const cached=contact?.textContent?.trim();
  const typed=recipient?.value?.trim();
- let label=cached||tichorHeaderLabel;
+ const genericName=v=>!v||/^(approved contact|tichor contact|loading contact…|approved contact\s*·.*)$/i.test(v.trim());
+ let label=(!genericName(cached)?cached:null)||(!genericName(tichorHeaderLabel)?tichorHeaderLabel:null);
  if(!label){label='Loading contact…'}
  $('tichorChatPeerName').textContent=label;
  $('tichorChatAvatar').textContent=label==='Loading contact…'?'◌':label.slice(0,1).toUpperCase();
- if(cached){tichorHeaderLabel=cached;return}
- if(tichorHeaderLabel)return;
+ if(cached&&!genericName(cached)){tichorHeaderLabel=cached;return}
+ if(tichorHeaderLabel&&!genericName(tichorHeaderLabel))return;
  try{const {data,error}=await supa.from('tichor_contacts').select('label').eq('owner_id',user.id).eq('contact_id',current).maybeSingle();
  if(current!==peer)return;
- if(!error&&data?.label?.trim())tichorHeaderLabel=data.label.trim();
- else if(typed&&typed!=='Loading contact…')tichorHeaderLabel=typed;
- else tichorHeaderLabel='Tichor contact';
+ if(!error&&data?.label?.trim()&&!genericName(data.label))tichorHeaderLabel=data.label.trim();
+ else {
+  const {data:profile}=await supa.from('tichor_profiles').select('username').eq('user_id',current).maybeSingle();
+  if(current!==peer)return;
+  if(profile?.username){tichorHeaderLabel='@'+profile.username;
+   if(data?.label&&genericName(data.label))await supa.from('tichor_contacts').update({label:tichorHeaderLabel}).eq('owner_id',user.id).eq('contact_id',current);
+  }else tichorHeaderLabel=typed&&!genericName(typed)?typed:'Tichor contact';
+ }
  $('tichorChatPeerName').textContent=tichorHeaderLabel;$('tichorChatAvatar').textContent=tichorHeaderLabel.slice(0,1).toUpperCase()
  }catch{if(current===peer){tichorHeaderLabel=typed||'Tichor contact';$('tichorChatPeerName').textContent=tichorHeaderLabel;$('tichorChatAvatar').textContent=tichorHeaderLabel.slice(0,1).toUpperCase()}}
 }
