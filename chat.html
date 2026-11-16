@@ -312,6 +312,16 @@ for(const [key,ico,label] of tabs){const b=document.createElement('button');b.ty
    b.style.setProperty('border','4px solid transparent','important');
    b.style.setProperty('background-clip','padding-box,border-box','important');
    b.style.setProperty('box-shadow',active?'0 0 0 1px #fbdc7b,0 0 12px #f26b9f55':'0 2px 8px #071d2733','important');
+   // Labels must contrast with the actual tile surface, independently of theme text rules.
+   const label=b.querySelector('.tichor-nav-label');
+   if(label){
+    const ink=active?'#ffffff':'#12394a';
+    label.style.setProperty('color',ink,'important');
+    label.style.setProperty('-webkit-text-fill-color',ink,'important');
+    label.style.setProperty('text-shadow',active?'0 1px 2px #071e2c':'none','important');
+    label.style.setProperty('font-weight','800','important');
+    label.style.setProperty('opacity','1','important');
+   }
   }
  };
  const oldShowTab=showTab;
@@ -1674,4 +1684,15 @@ html[data-tichor-theme="light"] .t12-nav button{--tichor-nav-surface:#f1f8fc}
 #folderItems .folder-row:has(.folder-unread) .folder-meta{color:#e0f7eb!important;-webkit-text-fill-color:#e0f7eb!important;opacity:1!important}
 #folderItems .folder-row:has(.folder-unread) .folder-unread{background:#e4f9e9!important;color:#075a3e!important;-webkit-text-fill-color:#075a3e!important}
 #folderItems .folder-row:not(:has(.folder-unread)) .folder-name{font-weight:650!important}
+</style><style id="tichor-nav-label-contrast-v4">
+/* Explicit high-contrast labels: light inactive cards, dark selected card. */
+.t12-nav button:not(.active) .tichor-nav-label,
+html[data-tichor-theme-preference="crystal"] .t12-nav button:not(.active) .tichor-nav-label{
+ color:#12394a!important;-webkit-text-fill-color:#12394a!important;
+ text-shadow:none!important;filter:none!important;opacity:1!important;font-weight:800!important;
+}
+.t12-nav button.active .tichor-nav-label{
+ color:#fff!important;-webkit-text-fill-color:#fff!important;
+ text-shadow:0 1px 2px #071e2c!important;filter:none!important;opacity:1!important;font-weight:800!important;
+}
 </style></body></html>
