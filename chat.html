@@ -652,7 +652,7 @@ async function refreshFolder(){if(!user||folderBusy||activeFolder==='requests')r
  let visibleCount=0;for(const [id,m] of latest){visibleCount++;let preview=m.body||'';if(preview.startsWith('e2ee1.'))preview='🔒 Older encrypted message';addFolderRow(box,id,labels.get(id)||'Tichor user · '+id.slice(0,8),preview,folderTime(m.created_at),isNew(m))}
  if(!visibleCount)box.innerHTML='<div class="folder-empty">No conversations to display.</div>';
  }catch(e){status('folderStatus','Could not load '+activeFolder+': '+e.message)}finally{folderBusy=false}}
-function addFolderRow(box,id,label,preview,when,unread){const b=document.createElement('button');b.type='button';b.className='folder-row';b.dataset.contactId=id;const avatar=document.createElement('span');avatar.className='folder-avatar';avatar.textContent=initials(label);const mid=document.createElement('span');mid.className='folder-main';const n=document.createElement('div');n.className='folder-name';n.textContent=label;const p=document.createElement('div');p.className='folder-preview';p.textContent=preview;mid.append(n,p);const meta=document.createElement('span');meta.className='folder-meta';meta.textContent=when;if(unread){const dot=document.createElement('span');dot.className='folder-unread';dot.textContent='New';meta.append(' ',dot)}b.append(avatar,mid,meta);b.onclick=async()=>{peer=id;tichorMarkConversationViewed(id);tichorPrivacyRender();$('recipient').value=label;window.tichorShowTab?.(tichorTranslationThreads()[id]?'translate-chat':'chat');await load();if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>{load();refreshFolder()}).subscribe();setTimeout(refreshFolder,500)};box.append(b)}
+function addFolderRow(box,id,label,preview,when,unread){const b=document.createElement('button');b.type='button';b.className='folder-row';b.dataset.contactId=id;const avatar=document.createElement('span');avatar.className='folder-avatar';avatar.textContent=initials(label);const mid=document.createElement('span');mid.className='folder-main';const n=document.createElement('div');n.className='folder-name';n.textContent=label;const p=document.createElement('div');p.className='folder-preview';p.textContent=preview;mid.append(n,p);const meta=document.createElement('span');meta.className='folder-meta';meta.textContent=when;if(unread){const dot=document.createElement('span');dot.className='folder-unread';dot.textContent='New';meta.append(' ',dot)}b.append(avatar,mid,meta);b.onclick=async()=>{peer=id;tichorMarkConversationViewed(id);tichorPrivacyRender();$('recipient').value=label;window.tichorShowTab?.(tichorTranslationThreads()[id]?'translate-chat':'chat');$('messages').dataset.openedPeer='';await load();requestAnimationFrame(()=>{const messages=$('messages'),composer=$('sendForm');messages.scrollTop=messages.scrollHeight;composer?.scrollIntoView({block:'end',behavior:'instant'});});if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>{load();refreshFolder()}).subscribe();setTimeout(refreshFolder,500)};box.append(b)}
 for(const [id,tab] of [['tabInbox','inbox'],['tabSent','sent'],['tabContacts','contacts'],['tabRequests','requests']]){const btn=$(id);if(btn)btn.onclick=()=>chooseFolder(tab)}
 
 $('enablePush').onclick=()=>enableNotifications(supa,user,msg=>status('pushStatus',msg));$('disablePush').onclick=()=>disableNotifications(supa,user,msg=>status('pushStatus',msg));
@@ -1420,7 +1420,7 @@ async function load(){
  const autoItems=localStorage.getItem('tichor-auto-enabled')==='yes'?tichorAutoScan(data,hiddenIds):tichorAutoRead();
  tichorAutoPanel(localStorage.getItem('tichor-auto-enabled')==='yes'?tichorAutoAll():autoItems);
  const attached=new Map((attachments||[]).map(a=>[a.message_id,a]));
- const box=$('messages'),atBottom=box.scrollHeight-box.scrollTop-box.clientHeight<90;box.replaceChildren();
+ const box=$('messages'),atBottom=box.scrollHeight-box.scrollTop-box.clientHeight<90;const forceBottom=box.dataset.openedPeer!==peer;box.dataset.openedPeer=peer;box.replaceChildren();
  const actionCreates=new Map(),actionStates=new Map(),pollCreates=new Map(),pollVotes=new Map();
  for(const entry of data||[]){const p=parseTichorPoll(entry.body);if(p?.type==='create')pollCreates.set(entry.id,entry)}
  for(const entry of data||[]){const p=parseTichorPoll(entry.body);if(p?.type!=='vote')continue;const original=pollCreates.get(p.id);if(!original||![original.sender_id,original.recipient_id].includes(entry.sender_id)||p.choice>=parseTichorPoll(original.body).options.length)continue;if(!pollVotes.has(p.id))pollVotes.set(p.id,new Map());pollVotes.get(p.id).set(entry.sender_id,p.choice)}
@@ -1527,7 +1527,7 @@ async function load(){
  // Translate recent incoming messages sequentially, without blocking the conversation UI.
  if(autoQueue.length){(async()=>{for(const task of autoQueue){if(!box.isConnected||tichorTranslationMode()!=='automatic')break;await task()}})()}
 
- if(atBottom)box.scrollTop=box.scrollHeight;
+ if(atBottom||forceBottom){box.scrollTop=box.scrollHeight;requestAnimationFrame(()=>{if(box.dataset.openedPeer===peer)box.scrollTop=box.scrollHeight;});}
  if(document.visibilityState==='visible'&&!$('t12Conversation')?.hidden&&peer){
   // Opening the conversation marks every received unread message from this contact as read.
   const viewedPeer=peer;
@@ -1659,20 +1659,24 @@ const tichorSendGuard={recent:[],last:0};
 function tichorCheckSendGuard(){
  const now=Date.now();
  tichorSendGuard.recent=tichorSendGuard.recent.filter(t=>now-t<60000);
- if(now-tichorSendGuard.last<1500)throw Error('Please wait a moment before sending another message.');
+ if(now-tichorSendGuard.last<250)throw Error('Please wait a moment before sending another message.');
  if(tichorSendGuard.recent.length>=15)throw Error('Too many messages in a short time. Please wait up to one minute.');
 }
 function tichorRecordSend(){const now=Date.now();tichorSendGuard.last=now;tichorSendGuard.recent.push(now)}
-$('sendForm').onsubmit=async e=>{e.preventDefault();if(!peer)return status('chatStatus','Open a conversation first');const button=$('sendForm').querySelector('button[type=submit]');button.disabled=true;try{
+$('sendForm').onsubmit=async e=>{e.preventDefault();if(!peer)return status('chatStatus','Open a conversation first');const button=$('sendForm').querySelector('button[type=submit]');if(button.disabled)return;button.disabled=true;try{
  const body=$('body').value.trim(),file=$('tichorFile').files[0];
  if(!body&&!file)return;
  if(tichorIsBlocked(peer))throw Error('This contact is blocked on this device. Unblock in Settings before sending.');
  if(!await tichorEnsureContactAllowed(peer))throw Error('Contact approval required before messaging.');
  tichorCheckSendGuard();
+ status('chatStatus','Sending…');
  const allowed=['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','image/png','image/jpeg','image/webp','text/plain'];
  if(file&&(file.size>10485760||!allowed.includes(file.type)))throw Error('Choose a supported file under 10 MB.');
  const {data:msg,error:insertError}=await supa.from('chat_messages').insert({sender_id:user.id,recipient_id:peer,body:body||(file?'📎 Attachment':'')}).select('id').single();if(insertError)throw insertError;
  tichorRecordSend();
+ status('chatStatus',file?'Message sent · uploading attachment…':'Sent');
+ $('body').value='';
+ if(!file){$('body').focus({preventScroll:true});}
  if(file){
   const ext=(file.name.split('.').pop()||'file').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,10);
   const path=user.id+'/'+msg.id+'/'+crypto.randomUUID()+'.'+ext;
@@ -1680,7 +1684,7 @@ $('sendForm').onsubmit=async e=>{e.preventDefault();if(!peer)return status('chat
   const {error:uploadError}=await supa.storage.from('tichor-attachments').upload(path,file,{contentType:file.type,upsert:false});if(uploadError)throw uploadError;
   const {error:metadataError}=await supa.from('tichor_attachments').insert({message_id:msg.id,sender_id:user.id,recipient_id:peer,storage_path:path,file_name:file.name.slice(0,200),mime_type:file.type,byte_size:file.size});if(metadataError){await supa.storage.from('tichor-attachments').remove([path]);await supa.from('chat_messages').delete().eq('id',msg.id).eq('sender_id',user.id);throw metadataError}
  }
- $('body').value='';$('tichorFile').value='';$('tichorAttachmentStatus').textContent='';
+ $('tichorFile').value='';$('tichorAttachmentStatus').textContent='';
  await load();await loadContacts();await refreshFolder();
  }catch(err){status('chatStatus','Send failed: '+err.message)}finally{button.disabled=false}};$('refresh').onclick=load;$('secret').addEventListener('change',()=>{if(peer)load()});
 async function loadProfile(){const {data,error}=await supa.from('tichor_profiles').select('username,phone,phone_discoverable').eq('user_id',user.id).maybeSingle();if(error){status('profileStatus',error.message);return}if(data){$('myUsername').value=data.username||'';$('myPhone').value=data.phone||'';$('phoneDiscoverable').checked=!!data.phone_discoverable;}}
