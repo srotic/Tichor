@@ -302,24 +302,16 @@ for(const [key,ico,label] of tabs){const b=document.createElement('button');b.ty
  nav.append(b)}
  // Give the navigation cards a visible multicolor frame independent of theme background overrides.
  const paintSpectrumFrames=()=>{
-  const pref=document.documentElement.getAttribute('data-tichor-theme-preference')||'';
-  const theme=document.documentElement.getAttribute('data-tichor-theme')||'';
-  const light=pref==='crystal'||pref==='light'||(pref==='system'&&theme==='light')||(!pref&&theme==='light');
   for(const b of nav.querySelectorAll('button')){
-   const active=b.classList.contains('active');
-   const fill=active?'#173e59':light?'#f2f8fb':'#0b2033';
-   b.style.setProperty('background',`linear-gradient(${fill},${fill}) padding-box,linear-gradient(110deg,#064b34 0%,#08734d 23%,#f26b9f 43%,#ffd45a 52%,#f26b9f 62%,#08734d 82%,#064b34 100%) border-box`,'important');
-   b.style.setProperty('border','4px solid transparent','important');
-   b.style.setProperty('background-clip','padding-box,border-box','important');
-   b.style.setProperty('box-shadow',active?'0 0 0 1px #fbdc7b,0 0 12px #f26b9f55':'0 2px 8px #071d2733','important');
-   // Labels must contrast with the actual tile surface, independently of theme text rules.
+   b.style.setProperty('background','transparent','important');
+   b.style.setProperty('border','0','important');
+   b.style.setProperty('box-shadow','none','important');
+   b.style.setProperty('background-image','none','important');
    const label=b.querySelector('.tichor-nav-label');
    if(label){
-    const ink=active?'#ffffff':'#12394a';
-    label.style.setProperty('color',ink,'important');
-    label.style.setProperty('-webkit-text-fill-color',ink,'important');
-    label.style.setProperty('text-shadow',active?'0 1px 2px #071e2c':'none','important');
-    label.style.setProperty('font-weight','800','important');
+    label.style.removeProperty('color');
+    label.style.removeProperty('-webkit-text-fill-color');
+    label.style.setProperty('text-shadow','none','important');
     label.style.setProperty('opacity','1','important');
    }
   }
@@ -1694,5 +1686,42 @@ html[data-tichor-theme-preference="crystal"] .t12-nav button:not(.active) .ticho
 .t12-nav button.active .tichor-nav-label{
  color:#fff!important;-webkit-text-fill-color:#fff!important;
  text-shadow:0 1px 2px #071e2c!important;filter:none!important;opacity:1!important;font-weight:800!important;
+}
+</style><style id="tichor-icon-only-nav-v1">
+/* Icon-only navigation: no card frames, fills, borders or oversized hit-area decoration. */
+.t12-nav{display:flex!important;align-items:center!important;justify-content:space-around!important;gap:clamp(6px,2vw,22px)!important;padding:6px 4px!important;background:transparent!important}
+.t12-nav button,.t12-nav button.active,.t12-nav button:not(.active){
+ flex:1 1 0!important;min-width:0!important;min-height:58px!important;
+ padding:5px 3px!important;margin:0!important;border:0!important;border-radius:0!important;
+ background:transparent!important;background-image:none!important;box-shadow:none!important;
+ display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:4px!important;
+}
+.t12-nav button:hover,.t12-nav button:focus-visible{background:transparent!important;box-shadow:none!important}
+.t12-nav .tichor-nav-icon{
+ width:36px!important;height:36px!important;flex:0 0 36px!important;border-radius:11px!important;
+ background:transparent!important;background-image:none!important;border:0!important;box-shadow:none!important;
+ display:grid!important;place-items:center!important;
+}
+.t12-nav .tichor-nav-icon svg{width:29px!important;height:29px!important;filter:none!important}
+.t12-nav button.active .tichor-nav-icon{
+ background:rgba(27,130,100,.13)!important;outline:2px solid #118966!important;outline-offset:1px!important;
+ box-shadow:0 0 9px #1eb18b55!important;
+}
+.t12-nav .tichor-nav-label,.t12-nav button:not(.active) .tichor-nav-label,.t12-nav button.active .tichor-nav-label{
+ color:var(--tichor-icon-nav-text,#e9f4f2)!important;
+ -webkit-text-fill-color:var(--tichor-icon-nav-text,#e9f4f2)!important;
+ text-shadow:none!important;font-size:12px!important;line-height:1.2!important;font-weight:750!important;
+}
+html[data-tichor-theme-preference="crystal"] .t12-nav,
+html[data-tichor-theme="light"] .t12-nav,
+html[data-tichor-theme-preference="light"] .t12-nav{--tichor-icon-nav-text:#16394b}
+html[data-tichor-theme-preference="aurora"] .t12-nav,
+html[data-tichor-theme="dark"] .t12-nav{--tichor-icon-nav-text:#e9f4f2}
+.t12-nav .tichor-nav-unread{top:0!important;right:calc(50% - 27px)!important}
+@media(max-width:700px){
+ .t12-nav button,.t12-nav button.active,.t12-nav button:not(.active){min-height:54px!important;padding:4px 1px!important}
+ .t12-nav .tichor-nav-icon{width:30px!important;height:30px!important;flex-basis:30px!important}
+ .t12-nav .tichor-nav-icon svg{width:25px!important;height:25px!important}
+ .t12-nav .tichor-nav-label,.t12-nav button:not(.active) .tichor-nav-label,.t12-nav button.active .tichor-nav-label{font-size:10px!important}
 }
 </style></body></html>
