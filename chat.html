@@ -31,6 +31,21 @@ button{cursor:pointer}button:focus-visible,a:focus-visible{outline:3px solid #e8
 html[data-tichor-theme="dark"] #messages .msg:not(.mine){background:#253c50!important;color:#fff!important;border-color:#537186!important}
 html[data-tichor-theme="dark"] #messages .msg:not(.mine) .tichor-sender-line small{color:#e3f2ff!important}
 @media(max-width:600px){#messages .msg{max-width:87%!important;padding:10px 12px!important}}
+
+/* WhatsApp-like conversation header actions and compact message menus. */
+#tichorActiveChatHeader .tichor-chat-header-text{flex:1;min-width:0}
+.tichor-chat-header-actions{display:flex;align-items:center;gap:5px;margin-left:auto}
+.tichor-chat-icon-button{display:inline-grid!important;place-items:center;min-width:38px!important;width:38px;height:38px;padding:8px!important;border-radius:50%!important;background:#d7f4ec!important;color:#064f3c!important;border:1px solid #9edbc9!important}
+.tichor-chat-icon-button svg{width:21px;height:21px;display:block}
+.tichor-chat-more,.tichor-message-more{position:relative;flex-shrink:0}
+.tichor-chat-more summary,.tichor-message-more summary{list-style:none;cursor:pointer;border-radius:12px;padding:6px 10px;font-size:24px;line-height:1;color:inherit}
+.tichor-chat-more summary::-webkit-details-marker,.tichor-message-more summary::-webkit-details-marker{display:none}
+.tichor-chat-more[open],.tichor-message-more[open]{z-index:30}
+.tichor-chat-more button,.tichor-message-more button{display:block;min-width:150px;text-align:left;padding:10px;border-radius:8px;margin:4px 0;background:#eaf7f4!important;color:#093b35!important;border:1px solid #95c7bb!important}
+.tichor-chat-more button,.tichor-chat-more small{position:relative}
+.tichor-chat-more[open],.tichor-message-more[open]{background:#153c43;color:white;border-radius:10px;padding:3px}
+#messages .msg .tichor-message-more{display:flex;justify-content:flex-end;margin-top:4px}
+@media(max-width:600px){#tichorActiveChatHeader{gap:6px!important;padding:8px!important}.tichor-chat-header-actions{gap:2px}.tichor-chat-icon-button{width:34px;min-width:34px!important;height:34px;padding:6px!important}}
 </style><link rel="stylesheet" href="tichor-modern.css"><style id="t12-design">
 body{background:#f1f6f2!important}header{min-height:110px!important;height:auto!important;background:radial-gradient(ellipse at 75% 5%,#0c6b4b,#003526 70%)!important;border-bottom:5px solid #e3b73f!important;justify-content:flex-start!important;gap:14px!important}header strong{font-size:clamp(20px,3vw,34px)!important}header strong::before{display:none!important}header:before{width:72px!important;height:72px!important;background:url('icon-192.png') center/contain no-repeat!important}
 main{max-width:1100px!important}.t12-shell{display:flex;flex-direction:column;gap:18px}.t12-profile{background:white;border:1px solid #e1eae4;border-radius:26px;box-shadow:0 5px 17px #063c2915;padding:20px;display:flex;align-items:center;gap:20px}.t12-initials{width:76px;height:76px;border-radius:50%;background:#06442f;color:white;border:5px solid #f3d17b;display:grid;place-items:center;font-size:34px;font-weight:800}.t12-identity{flex:1;min-width:0}.t12-identity strong{display:block;color:#141d19;font-size:25px}.t12-identity #who{overflow-wrap:anywhere;margin:4px 0}.t12-profile #signout{background:white;color:#074b34;border:2px solid #074b34;font-weight:700;border-radius:16px}.t12-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.t12-nav button{min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px;border-radius:20px!important;background:white!important;color:#073c2c!important;border:1px solid #e1eae4!important;box-shadow:0 5px 13px #063c2913;font-weight:750;padding:15px 5px!important;margin:0!important}.t12-nav button span:first-child{font-size:29px}.t12-nav button.active{background:linear-gradient(150deg,#00744e,#003a29)!important;color:white!important;border-bottom:5px solid #edc248!important}.t12-section{background:white;border-radius:25px;padding:20px;box-shadow:0 6px 20px #063c2913}.t12-section[hidden]{display:none!important}.t12-section .tichor-mailbox{border:0;box-shadow:none;padding:0;margin:0}.t12-section .tichor-tabs{display:none}.t12-section .folder-row{padding:16px 5px}.t12-section .folder-avatar{width:54px;height:54px;font-size:19px;background:#d7f0e2}.t12-section .folder-name{font-size:18px}.t12-section .folder-preview{font-size:15px}.t12-section #notificationSettings{margin:0;border:0;box-shadow:none}.t12-section #notificationSettings h3{font-size:23px}.t12-section #notificationSettings button{border-radius:15px;padding:13px}.t12-extras{font-size:14px}.t12-extras>h2:first-child{display:none}.t12-extras .muted{line-height:1.45}
@@ -1212,6 +1227,16 @@ async function tichorUpdateChatHeader(){
  content.append(label,subtitle);
  const back=document.createElement('button');back.type='button';back.className='tichor-chat-back';back.textContent='‹';back.title='Back to chats';back.setAttribute('aria-label','Back to chats');back.onclick=()=>window.tichorShowTab?.('inbox');
  header.append(back,avatar,content);host.prepend(header)}
+ if(!$('tichorChatHeaderActions')){
+  const actions=document.createElement('div');actions.id='tichorChatHeaderActions';actions.className='tichor-chat-header-actions';
+  const make=(id,title,svg,handler)=>{const b=document.createElement('button');b.type='button';b.id=id;b.className='tichor-chat-icon-button';b.title=title;b.setAttribute('aria-label',title);b.innerHTML=svg;b.onclick=handler;actions.append(b);return b};
+  make('tichorChatVoiceCall','Voice call','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 3a2 2 0 0 0 .6 1.7L7.1 10a16 16 0 0 0 6.9 6.9l1.6-1.9a2 2 0 0 1 1.7-.6l3 .5a2 2 0 0 1 1.7 2Z"/></svg>',()=>$('voiceCall')?.click());
+  make('tichorChatVideoCall','Video call','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="13" height="14" rx="2"/><path d="m16 10 5-3v10l-5-3"/></svg>',()=>$('videoCall')?.click());
+  const menu=document.createElement('details');menu.className='tichor-chat-more';const summary=document.createElement('summary');summary.textContent='⋮';summary.title='Conversation options';summary.setAttribute('aria-label','Conversation options');menu.append(summary);
+  const block=document.createElement('button');block.type='button';block.id='tichorHeaderBlock';block.onclick=()=>{$('tichorQuickBlock')?.click();menu.open=false};menu.append(block);
+  const help=document.createElement('small');help.textContent='To delete a message, use its ⋮ menu below.';menu.append(help);actions.append(menu);header.append(actions)
+ }
+ const blockOption=$('tichorHeaderBlock');if(blockOption)blockOption.textContent=tichorIsBlocked(peer)?'Unblock contact':'Block contact';
  const current=peer;
  if(tichorHeaderPeer!==current){tichorHeaderPeer=current;tichorHeaderLabel='';}
  const recipient=$('recipient');
@@ -1358,11 +1383,10 @@ async function load(){
    if(err)throw err;const url=URL.createObjectURL(blob);const anchor=document.createElement('a');anchor.href=url;anchor.download=a.file_name;document.body.append(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)
   }catch(e){status('chatStatus','Download failed: '+e.message)}};d.append(link)}
   if(content.parentElement===d){
-   content.setAttribute('role','button');content.setAttribute('tabindex','0');
-   content.setAttribute('aria-label','Open delete options for this message');
-   content.title='Tap to delete this message';
-   content.addEventListener('click',()=>deleteTichorMessage(m,a,mine));
-   content.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();deleteTichorMessage(m,a,mine)}});
+   const options=document.createElement('details');options.className='tichor-message-more';
+   const trigger=document.createElement('summary');trigger.textContent='⋮';trigger.title='Message options';trigger.setAttribute('aria-label','Message options');options.append(trigger);
+   const remove=document.createElement('button');remove.type='button';remove.textContent='Delete message';remove.onclick=()=>{options.open=false;deleteTichorMessage(m,a,mine)};options.append(remove);
+   const block=document.createElement('button');block.type='button';block.textContent=tichorIsBlocked(peer)?'Unblock contact':'Block contact';block.onclick=()=>{options.open=false;$('tichorQuickBlock')?.click()};options.append(block);d.append(options);
   }
   box.append(d);
  }
