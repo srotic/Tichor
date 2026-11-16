@@ -920,18 +920,22 @@ function tichorAutoUpdateStatus(items,messages,hidden){
  const ordered=[...(messages||[])].sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at));
  for(const task of items){
   if(task.state!=='provisional'||task.status==='complete'||!task.source)continue;
-  const words=tichorAutoWords(task.title),source=ordered.find(m=>m.id===task.source);
-  if(!source||!words.size)continue;
+  const source=ordered.find(m=>m.id===task.source);
+  if(!source)continue;
+  const taskWords=tichorAutoWords(task.title);
+  const responsible=task.responsible||(task.category==='mine'?user.id:(source.sender_id===user.id?source.recipient_id:source.sender_id));
+  const other=responsible===user.id?task.contact:user.id;
   for(const m of ordered){
    if(hidden.has(m.id)||m.id===task.source||Date.parse(m.created_at)<=Date.parse(source.created_at)||!m.body||m.body.startsWith('e2ee1.')||m.body.startsWith('['))continue;
    const body=m.body.trim();
-   // Require an explicit statement of completion AND at least one distinctive task term.
-   if(!/\b(i (?:have |already )?(?:sent|submitted|delivered|finished|completed|uploaded|shared)|i've (?:sent|submitted|delivered|finished|completed|uploaded|shared)|(?:task|work|document|file|report) (?:is |has been )?(?:done|completed|finished|sent|delivered)|(?:sent|submitted|delivered|finished|completed|uploaded|shared) (?:the|your|that|it))\b/i.test(body))continue;
-   const overlap=[...tichorAutoWords(body)].filter(w=>words.has(w)).length;
-   if(overlap<1)continue;
-   // For a Follow-Up the other party must report completion; for a To-Do, I must.
-   const responsible=task.category==='mine'?user.id:source.sender_id===user.id?source.recipient_id:source.sender_id;
-   if(m.sender_id!==responsible)continue;
+   const done=/\b(?:i(?:'ve| have| already| just)?\s+(?:sent|submitted|delivered|finished|completed|uploaded|shared|brought|collected|picked up|dropped off|returned|paid|fixed|booked|confirmed|emailed|forwarded|printed|signed|done)|(?:it|that|the (?:task|work|document|file|report|tablet))\s+(?:is|has been|was)\s+(?:done|completed|finished|sent|delivered|brought|returned|fixed)|(?:sent|submitted|delivered|finished|completed|uploaded|shared|brought|returned|done)\s+(?:the|your|that|it)\b)/i.test(body);
+   if(!done)continue;
+   const overlap=[...tichorAutoWords(body)].filter(w=>taskWords.has(w)).length;
+   const shortAck=/^(?:done|completed|finished|sent|delivered|brought|returned|all done)[.! ]*$/i.test(body);
+   // Explicit acknowledgements from the responsible person can confirm the latest request;
+   // otherwise require a matching distinctive task term to avoid unrelated completions.
+   const latestRequest=ordered.filter(x=>Date.parse(x.created_at)<Date.parse(m.created_at)&&x.id!==m.id&&x.sender_id!==responsible&&tichorAutoClassify(x.body||'',x.sender_id===user.id)).at(-1);
+   if(m.sender_id!==responsible||(!overlap&&!(shortAck&&latestRequest?.id===task.source)))continue;
    task.status='complete';task.evidence=m.id;task.evidenceAt=m.created_at;changed=true;break;
   }
  }
@@ -1029,9 +1033,11 @@ function tichorAutoPanel(items){
   const buttons=document.createElement('div');
   const approve=document.createElement('button');approve.type='button';approve.textContent=category==='mine'?'Review task':'Review & send';
   approve.onclick=()=>{window.tichorShowTab?.('actions');tichorActionFromMessage(task.title);const date=$('tichorActionComposer')?.querySelector('input[type="datetime-local"]');if(date&&task.due){const d=new Date(task.due);const local=new Date(d.getTime()-d.getTimezoneOffset()*60000);date.value=local.toISOString().slice(0,16)}};
+  const mark=document.createElement('button');mark.type='button';mark.textContent=task.status==='complete'?'Reopen':'Mark complete';mark.title='Update this local action status';
+  mark.onclick=()=>{const own=tichorAutoRead(task.contact);const found=own.find(x=>x.source===task.source);if(found){found.status=found.status==='complete'?'awaiting':'complete';found.evidence=found.status==='complete'?'manual':null;found.evidenceAt=found.status==='complete'?new Date().toISOString():null;tichorAutoSave(own,task.contact)}tichorAutoPanel(tichorAutoAll())};
   const dismiss=document.createElement('button');dismiss.type='button';dismiss.textContent='Dismiss';
   dismiss.onclick=()=>{task.state='dismissed';const own=tichorAutoRead(task.contact);const found=own.find(x=>x.source===task.source);if(found){found.state='dismissed';tichorAutoSave(own,task.contact)}tichorAutoPanel(tichorAutoAll())};
-  buttons.append(approve,dismiss);row.append(title,parties,badge,due,buttons);panel.append(row);
+  buttons.append(approve,mark,dismiss);row.append(title,parties,badge,due,buttons);panel.append(row);
   }
  }
 }
