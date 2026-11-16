@@ -2395,8 +2395,6 @@ html[data-tichor-theme-preference="crystal"] .t12-profile :is(.muted,small,p){
    trigger.dataset.tichorWired='true';
    const toggle=state=>{pop.hidden=!state;trigger.setAttribute('aria-expanded',String(state))};
    trigger.addEventListener('click',e=>{e.stopPropagation();toggle(pop.hidden)});
-   account.addEventListener('mouseenter',()=>{if(matchMedia('(hover:hover)').matches)toggle(true)});
-   account.addEventListener('mouseleave',()=>{if(matchMedia('(hover:hover)').matches)toggle(false)});
    document.addEventListener('click',e=>{if(!account.contains(e.target))toggle(false)});
    document.addEventListener('keydown',e=>{if(e.key==='Escape')toggle(false)});
   }
