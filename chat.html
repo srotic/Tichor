@@ -277,8 +277,9 @@ if(callDescription){const callPrefs=document.createElement('section');callPrefs.
 const moved=new Set([profileStart,...profileNodes,...contactNodes,...convNodes,mailbox,notification,saved,get('who'),get('signout'),passStart,secretInput,secretNote]);
 const extras=document.createElement('div');extras.className='t12-extras';
 [...chat.children].forEach(n=>{if(!moved.has(n))extras.append(n)});settings.append(extras);
-const tabs=[["translate","<svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m5 8 6 6m-7 0 6-6 2-3H3m5-2v3m5 15 5-11 5 11m-8-4h6\"/></svg>","Translate"],["inbox","<svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"3\" y=\"5\" width=\"18\" height=\"14\" rx=\"2\"/><path d=\"m3 7 9 7 9-7\"/></svg>","Chats"],["calls","<svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 3a2 2 0 0 1-.6 1.7L7.1 10a16 16 0 0 0 6.9 6.9l1.6-1.9a2 2 0 0 1 1.7-.6l3 .5a2 2 0 0 1 1.7 2Z\"/></svg>","Calls"],["actions","<svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m5 12 4 4L19 6\"/></svg>","Actions"],["contacts","<svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"9\" cy=\"8\" r=\"3\"/><path d=\"M3 20v-2a6 6 0 0 1 12 0v2M17 8a3 3 0 0 1 0 6m1 2a5 5 0 0 1 3 4\"/></svg>","Contacts"],["profile","<svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21h-4v-.2a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1-2.8-2.8.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3v-4h.2a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1L7.2 4l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V3h4v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L20 7.2l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4h-.2a1.7 1.7 0 0 0-1.8.8Z\"/></svg>","Settings"]];
+const tabs=[["language","<svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m5 8 6 6m-7 0 6-6 2-3H3m5-2v3m5 15 5-11 5 11m-8-4h6\"/></svg>","Language"],["translate","<svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m5 8 6 6m-7 0 6-6 2-3H3m5-2v3m5 15 5-11 5 11m-8-4h6\"/></svg>","Translate"],["inbox","<svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"3\" y=\"5\" width=\"18\" height=\"14\" rx=\"2\"/><path d=\"m3 7 9 7 9-7\"/></svg>","Chats"],["calls","<svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 3a2 2 0 0 1-.6 1.7L7.1 10a16 16 0 0 0 6.9 6.9l1.6-1.9a2 2 0 0 1 1.7-.6l3 .5a2 2 0 0 1 1.7 2Z\"/></svg>","Calls"],["actions","<svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m5 12 4 4L19 6\"/></svg>","Actions"],["contacts","<svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"9\" cy=\"8\" r=\"3\"/><path d=\"M3 20v-2a6 6 0 0 1 12 0v2M17 8a3 3 0 0 1 0 6m1 2a5 5 0 0 1 3 4\"/></svg>","Contacts"],["profile","<svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21h-4v-.2a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1-2.8-2.8.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3v-4h.2a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1L7.2 4l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V3h4v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L20 7.2l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4h-.2a1.7 1.7 0 0 0-1.8.8Z\"/></svg>","Settings"]];
 const showTab=which=>{
+ if(which==='language'){window.tichorQuickLanguage?.();return}
  for(const b of nav.querySelectorAll('button[data-tab]')){const active=b.dataset.tab===(which==='chat'?'inbox':which==='translate-chat'?'translate':which);b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active))}
  inbox.hidden=which!=='inbox';translateWorkspace.hidden=which!=='translate';notifications.hidden=true;contacts.hidden=which!=='contacts';settings.hidden=which!=='profile';conversation.hidden=which!=='chat'&&which!=='translate-chat';calls.hidden=which!=='calls';actions.hidden=which!=='actions';
  if(which==='calls')window.tichorLoadCallHistory?.();
@@ -591,6 +592,32 @@ function tichorRouteIncomingBatch(messages){
  }
  for(const [contact,m] of byContact)tichorRouteLanguage(m.body,contact).then(changed=>{if(changed)refreshFolder()}).catch(()=>{});
 }
+function tichorSetPreferredLanguage(code){
+ if(!TICHOR_LANGUAGES[code])return;
+ localStorage.setItem(TICHOR_LANG_KEY,code);
+ if(user)localStorage.setItem('tichor-preferred-language:'+user.id,code);
+ const target=$('tichorTranslationTarget');if(target)target.value=code;
+ const login=$('tichorLoginLanguageSelect');if(login)login.value=code;
+ tichorTranslationCache.clear();tichorTranslatorSession=null;tichorTranslatorPair='';
+ const nav=$('tichorQuickLanguage');if(nav)nav.title='Language: '+TICHOR_LANGUAGES[code];
+ if(peer)load();
+}
+function tichorQuickLanguage(){
+ const existing=$('tichorQuickLanguage');if(existing){existing.remove();return}
+ const overlay=document.createElement('div');overlay.id='tichorQuickLanguage';
+ Object.assign(overlay.style,{position:'fixed',inset:'0',zIndex:'2147483646',background:'rgba(3,12,23,.83)',display:'grid',placeItems:'center',padding:'20px'});
+ const panel=document.createElement('section');Object.assign(panel.style,{background:'#142536',color:'#fff',border:'1px solid #55d6ab',borderRadius:'16px',padding:'24px',width:'min(420px,100%)'});
+ const heading=document.createElement('h2');heading.textContent='🌐 Preferred language';
+ const description=document.createElement('p');description.textContent='Choose the language you want to read. Your outgoing messages are always sent as originally written.';
+ const select=document.createElement('select');select.style.width='100%';select.style.padding='12px';select.setAttribute('aria-label','Preferred language');
+ for(const [code,name] of Object.entries(TICHOR_LANGUAGES)){const option=document.createElement('option');option.value=code;option.textContent=name;select.append(option)}
+ select.value=tichorPreferredLanguage();
+ const save=document.createElement('button');save.type='button';save.textContent='Save language';save.style.margin='16px 10px 0 0';save.onclick=()=>{tichorSetPreferredLanguage(select.value);overlay.remove()};
+ const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';cancel.onclick=()=>overlay.remove();
+ overlay.onclick=e=>{if(e.target===overlay)overlay.remove()};
+ panel.append(heading,description,select,save,cancel);overlay.append(panel);document.body.append(overlay);select.focus();
+}
+window.tichorQuickLanguage=tichorQuickLanguage;
 function tichorTranslationThreadKey(){return 'tichor-translation-threads-v1:'+user?.id}
 function tichorTranslationThreads(){try{return JSON.parse(localStorage.getItem(tichorTranslationThreadKey())||'{}')}catch{return {}}}
 function tichorTranslationMark(contact,on=true){
@@ -641,7 +668,7 @@ function tichorTranslatorControls(){
  mode.onchange=()=>{localStorage.setItem('tichor-translation-mode',mode.value);changed()};
  detect.onchange=()=>{localStorage.setItem(TICHOR_DETECT_KEY,detect.checked?'on':'off');changed()};
  source.onchange=()=>{localStorage.setItem(TICHOR_SOURCE_KEY,source.value);tichorTranslatorSession=null;tichorTranslatorPair='';changed()};
- target.onchange=()=>{localStorage.setItem(TICHOR_LANG_KEY,target.value);if(user)localStorage.setItem('tichor-preferred-language:'+user.id,target.value);tichorTranslatorSession=null;tichorTranslatorPair='';changed()};
+ target.onchange=()=>{tichorSetPreferredLanguage(target.value);changed()};
  bar.append(title,desc,modeLabel,detectLabel,labels,info);settings.append(bar);refresh();
 }
 async function tichorDetectLanguage(value){
