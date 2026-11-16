@@ -58,7 +58,7 @@ END $$;
 
 -- A participant may block an existing relationship in either direction.
 CREATE OR REPLACE FUNCTION public.tichor_block_contact(other_id uuid)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 BEGIN
  IF auth.uid() IS NULL OR auth.role()<>'authenticated' OR other_id IS NULL OR other_id=auth.uid() THEN
   RAISE EXCEPTION 'Invalid contact';
@@ -66,7 +66,7 @@ BEGIN
  INSERT INTO public.tichor_contact_requests(requester_id,recipient_id,status)
  VALUES(auth.uid(),other_id,'blocked')
  ON CONFLICT(requester_id,recipient_id) DO UPDATE SET status='blocked',updated_at=now();
-END $;
+END $$;
 
 CREATE OR REPLACE FUNCTION public.tichor_contact_allowed(other_id uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $$
