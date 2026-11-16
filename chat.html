@@ -547,7 +547,16 @@ async function loggedIn(u){user=u;const chosen=localStorage.getItem(TICHOR_LANG_
 
 // Inbox and Sent are derived from existing messages; no new database tables needed.
 let activeFolder='inbox',folderBusy=false;
-function folderTime(v){try{return new Date(v).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}catch{return ''}}
+/* Times are stored as absolute instants and displayed in the viewer's device timezone.
+   Intl automatically applies DST and updates when the device timezone changes. */
+function tichorLocalDateTime(value,compact=false){
+ const date=value instanceof Date?value:new Date(value);
+ if(!Number.isFinite(date.getTime()))return '';
+ const opts=compact?{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}:{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'};
+ try{return new Intl.DateTimeFormat(undefined,opts).format(date)}catch{return date.toLocaleString()}
+}
+function tichorLocalZone(){try{return Intl.DateTimeFormat().resolvedOptions().timeZone||'Local time'}catch{return 'Local time'}}
+function folderTime(v){return tichorLocalDateTime(v,true)}
 function initials(v){return (v||'?').split(/[\s@._-]+/).filter(Boolean).slice(0,2).map(x=>x[0].toUpperCase()).join('')}
 function chooseFolder(which){activeFolder=which;for(const [key,id] of [['inbox','tabInbox'],['sent','tabSent'],['contacts','tabContacts']]){const b=$(id);if(b){b.classList.toggle('active',key===which);b.setAttribute('aria-pressed',String(key===which))}}$('folderHeading').textContent=which==='inbox'?'Inbox':which==='sent'?'Sent messages':'Saved contacts';$('folderHint').textContent=which==='inbox'?'Latest messages from your contacts':which==='sent'?'Messages you have sent':'Contacts you have saved';refreshFolder()}
 // Establish a one-time local baseline so legacy messages without read receipts
@@ -915,7 +924,7 @@ async function tichorLoadActions(){
     if(!include)continue;count++;
     const card=document.createElement('article');card.className='t12-preference tichor-action-item';
     const heading=document.createElement('strong');heading.textContent=a.title;
-    const meta=document.createElement('p');meta.className='muted';meta.textContent=(m.recipient_id===user.id?'Assigned to me':'Assigned by me')+' · '+state+(a.due?' · Due '+new Date(a.due).toLocaleString():'');
+    const meta=document.createElement('p');meta.className='muted';meta.textContent=(m.recipient_id===user.id?'Assigned to me':'Assigned by me')+' · '+state+(a.due?' · Due '+tichorLocalDateTime(a.due):'');
     card.append(heading,meta);
     if(overdue||dueSoon||state==='completed'){
       const flag=document.createElement('span');flag.className='tichor-action-flag '+(overdue?'overdue':dueSoon?'soon':'done');
@@ -1224,7 +1233,7 @@ function tichorAutoPanel(items){
   const recipient=document.createElement('span');recipient.textContent='Expecting: '+tichorAutoContactName(expecting);
   people.append(owner,recipient);parties.append(summary,people);
   const badge=document.createElement('span');badge.className='tichor-auto-status '+(task.status==='complete'?'is-complete':'is-awaiting');badge.textContent=task.status==='complete'?(task.completionKind==='acknowledged'?'Complete · acknowledged':task.evidence==='manual'?'Complete · confirmed':'Complete · reported'):'Awaiting';badge.title=task.status==='complete'?'Completion inferred or confirmed; review the underlying message if needed':'No matching completion message found';
-  const due=document.createElement('small');due.className='muted';due.textContent=task.due?('Due '+new Date(task.due).toLocaleString()+(new Date(task.due).getTime()<now?' · Overdue':'')):'No deadline detected';
+  const due=document.createElement('small');due.className='muted';due.textContent=task.due?('Due '+tichorLocalDateTime(task.due)+(new Date(task.due).getTime()<now?' · Overdue':'')):'No deadline detected';
   const buttons=document.createElement('div');
   const approve=document.createElement('button');approve.type='button';approve.textContent=category==='mine'?'Review task':'Review & send';
   approve.onclick=()=>{window.tichorShowTab?.('actions');tichorActionFromMessage(task.title);const date=$('tichorActionComposer')?.querySelector('input[type="datetime-local"]');if(date&&task.due){const d=new Date(task.due);const local=new Date(d.getTime()-d.getTimezoneOffset()*60000);date.value=local.toISOString().slice(0,16)}};
@@ -1257,7 +1266,7 @@ function tichorActionCard(m,action,state){
  const description=document.createElement('p');description.textContent=action.title;
  const status=document.createElement('p');status.className='muted';status.textContent='Status: '+state;
  card.append(heading,description,status);
- if(action.due){const due=document.createElement('small');due.className='muted';const date=new Date(action.due);due.textContent=Number.isNaN(date.getTime())?'':('Due: '+date.toLocaleString());card.append(due)}
+ if(action.due){const due=document.createElement('small');due.className='muted';const date=new Date(action.due);due.textContent=Number.isNaN(date.getTime())?'':('Due: '+tichorLocalDateTime(date));card.append(due)}
  const recipient=m.recipient_id===user.id;
  const allowed=recipient?(state==='pending'?['accepted','declined','more-time']:state==='accepted'||state==='in-progress'?['in-progress','completed','more-time']:[]):(state==='more-time'?['accepted','declined']:[]);
  for(const next of allowed){const button=document.createElement('button');button.type='button';button.textContent=({'accepted':'Accept','declined':'Decline','more-time':'Request more time','in-progress':'In progress','completed':'Mark completed'})[next];button.style.margin='4px';button.onclick=async()=>{button.disabled=true;try{await tichorSendAction({type:'status',id:m.id,status:next})}catch(e){alert(e.message)}finally{button.disabled=false}};card.append(button)}
@@ -1361,7 +1370,7 @@ async function load(){
   const small=document.createElement('small');small.className='muted';
   const check=mine?(m.read_at?' ✓✓ Read':m.delivered_at?' ✓✓ Delivered':' ✓ Sent'):'';
   const senderName=mine?($('myUsername')?.value?.trim()||'You'):(window.tichorAutoContactLabels?.get(m.sender_id)||$('tichorChatPeerName')?.textContent?.trim()||$('recipient')?.value?.trim()||'Contact');
-  small.textContent=senderName+' · '+new Date(m.created_at).toLocaleString()+check;
+  small.textContent=senderName+' · '+tichorLocalDateTime(m.created_at)+check;
   const senderLine=document.createElement('div');senderLine.className='tichor-sender-line';
   const senderAvatar=document.createElement('span');senderAvatar.className='tichor-sender-avatar';senderAvatar.textContent=(senderName.trim().charAt(0)||'?').toUpperCase();senderAvatar.setAttribute('aria-label',senderName);
   senderLine.append(senderAvatar,small);
@@ -1698,7 +1707,7 @@ async function tichorLoadCallHistory(){
  symbol.textContent=({received:'↙',outgoing:'↗',missed:'↙',declined:'✕',cancelled:'↗',unanswered:'↗',ringing:'◌'})[r.state]||'☎';
  const summary=document.createElement('div');summary.className='tichor-call-summary';
  const label=document.createElement('strong');label.textContent=names.get(r.other)||('Unknown contact · '+String(r.other||'').slice(0,8));
- const detail=document.createElement('small');detail.textContent=({received:'Received',outgoing:'Outgoing',missed:'Missed',declined:'Declined',cancelled:'Cancelled',unanswered:'Unanswered',ringing:'Ringing'})[r.state]+' · '+(r.offer.payload?.video?'Video':'Voice')+' · '+new Date(r.offer.created_at).toLocaleString();
+ const detail=document.createElement('small');detail.textContent=({received:'Received',outgoing:'Outgoing',missed:'Missed',declined:'Declined',cancelled:'Cancelled',unanswered:'Unanswered',ringing:'Ringing'})[r.state]+' · '+(r.offer.payload?.video?'Video':'Voice')+' · '+tichorLocalDateTime(r.offer.created_at);
  summary.append(label,detail);
  const again=document.createElement('button');again.type='button';again.innerHTML='&#9742;';again.className='tichor-call-again-icon';again.title='Call again';again.setAttribute('aria-label','Call again '+r.other);again.onclick=()=>{peer=r.other;startCall(!!r.offer.payload?.video)};
  item.append(symbol,summary,again);
