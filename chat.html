@@ -293,17 +293,29 @@ for(const [key,ico,label] of tabs){const b=document.createElement('button');b.ty
    b.style.setProperty('border','0','important');
    b.style.setProperty('box-shadow','none','important');
    b.style.setProperty('background-image','none','important');
+   const pref=document.documentElement.getAttribute('data-tichor-theme-preference')||'';
+   const actual=document.documentElement.getAttribute('data-tichor-theme')||'';
+   const isLight=pref==='crystal'||pref==='light'||(pref==='system'&&actual==='light')||(!pref&&actual==='light');
+   const ink=b.classList.contains('active')?(isLight?'#087554':'#45efb3'):(isLight?'#17394b':'#f2f7fa');
    const label=b.querySelector('.tichor-nav-label');
-   if(label){
-    label.style.removeProperty('color');
-    label.style.removeProperty('-webkit-text-fill-color');
-    label.style.setProperty('text-shadow','none','important');
-    label.style.setProperty('opacity','1','important');
+   const icon=b.querySelector('.tichor-nav-icon');
+   for(const el of [label,icon]){
+    if(!el)continue;
+    el.style.setProperty('color',ink,'important');
+    el.style.setProperty('-webkit-text-fill-color',ink,'important');
+    el.style.setProperty('text-shadow','none','important');
+    el.style.setProperty('opacity','1','important');
+    el.style.setProperty('filter','none','important');
+   }
+   const svg=icon?.querySelector('svg');
+   if(svg){svg.style.setProperty('stroke',ink,'important');svg.style.setProperty('filter','none','important');
+    for(const part of svg.querySelectorAll('path,circle,rect,line,polyline,polygon,ellipse'))part.style.setProperty('stroke',ink,'important');
    }
   }
  };
  const oldShowTab=showTab;
  nav.addEventListener('click',()=>requestAnimationFrame(paintSpectrumFrames));
+ const tabStateObserver=new MutationObserver(paintSpectrumFrames);tabStateObserver.observe(nav,{attributes:true,attributeFilter:['class'],subtree:true});
  new MutationObserver(paintSpectrumFrames).observe(document.documentElement,{attributes:true,attributeFilter:['data-tichor-theme','data-tichor-theme-preference']});
  paintSpectrumFrames();
  // Reflect existing unread-message markers in the Chats navigation tile.
@@ -1732,4 +1744,26 @@ html[data-tichor-theme="light"] .t12-nav{--tichor-official-icon:#173d52}
 html[data-tichor-theme-preference="aurora"] .t12-nav,
 html[data-tichor-theme="dark"] .t12-nav{--tichor-official-icon:#eaf3f6}
 .t12-nav button.active .tichor-nav-label{font-weight:850!important}
+</style><style id="tichor-left-aligned-nav-contrast-v2">
+/* Compact left aligned icon navigation with accessible contrast. */
+.t12-nav{display:flex!important;justify-content:flex-start!important;align-items:center!important;gap:clamp(12px,2.2vw,32px)!important;padding:8px 10px!important;width:100%!important}
+.t12-nav button,.t12-nav button.active,.t12-nav button:not(.active){
+ flex:0 0 auto!important;width:clamp(62px,7vw,88px)!important;min-width:0!important;
+ min-height:62px!important;padding:6px 3px!important;
+ background:transparent!important;background-image:none!important;border:0!important;box-shadow:none!important;
+}
+.t12-nav .tichor-nav-icon,.t12-nav button.active .tichor-nav-icon{
+ background:transparent!important;outline:0!important;border:0!important;box-shadow:none!important;
+ width:38px!important;height:38px!important;flex-basis:38px!important;
+}
+.t12-nav .tichor-nav-icon svg{width:30px!important;height:30px!important;stroke-width:2.8!important}
+.t12-nav .tichor-nav-label{font-size:13px!important;font-weight:750!important;text-shadow:none!important}
+.t12-nav button:focus-visible{outline:2px solid #31cfa0!important;outline-offset:2px!important;border-radius:8px!important}
+@media(max-width:520px){
+ .t12-nav{gap:clamp(3px,1.6vw,12px)!important;padding:6px 3px!important}
+ .t12-nav button,.t12-nav button.active,.t12-nav button:not(.active){width:clamp(53px,16vw,72px)!important;min-height:56px!important}
+ .t12-nav .tichor-nav-icon,.t12-nav button.active .tichor-nav-icon{width:32px!important;height:32px!important;flex-basis:32px!important}
+ .t12-nav .tichor-nav-icon svg{width:26px!important;height:26px!important}
+ .t12-nav .tichor-nav-label{font-size:11px!important}
+}
 </style></body></html>
