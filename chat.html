@@ -284,7 +284,22 @@ const showTab=which=>{
  if(which==='actions')window.tichorLoadActions?.();
  if(which==='inbox'){const btn=get('tabInbox');if(btn)btn.click()}
 };
-for(const [key,ico,label] of tabs){const b=document.createElement('button');b.type='button';b.dataset.tab=key;b.setAttribute('aria-label',label);b.innerHTML='<span class="tichor-nav-icon" aria-hidden="true">'+ico+'</span><span class="tichor-nav-label">'+label+'</span>';b.onclick=()=>showTab(key);nav.append(b)}
+for(const [key,ico,label] of tabs){const b=document.createElement('button');b.type='button';b.dataset.tab=key;b.setAttribute('aria-label',label);b.innerHTML='<span class="tichor-nav-icon" aria-hidden="true">'+ico+'</span><span class="tichor-nav-label">'+label+'</span>';b.onclick=()=>showTab(key);
+ // Gradient is confined to SVG icon strokes; it never changes app backgrounds or labels.
+ const svg=b.querySelector('.tichor-nav-icon svg');
+ if(svg){
+  const ns='http://www.w3.org/2000/svg',defs=document.createElementNS(ns,'defs'),grad=document.createElementNS(ns,'linearGradient');
+  const id='tichor-spectrum-'+key;grad.setAttribute('id',id);grad.setAttribute('x1','0%');grad.setAttribute('y1','0%');grad.setAttribute('x2','100%');grad.setAttribute('y2','0%');
+  for(const [offset,color] of [['0%','#064b34'],['25%','#08734d'],['43%','#ef6199'],['53%','#ffd45a'],['64%','#ef6199'],['82%','#08734d'],['100%','#064b34']]){
+   const stop=document.createElementNS(ns,'stop');stop.setAttribute('offset',offset);stop.setAttribute('stop-color',color);grad.append(stop);
+  }
+  defs.append(grad);svg.prepend(defs);
+  for(const shape of svg.querySelectorAll('path,circle,rect,line,polyline,polygon,ellipse')){
+   shape.style.setProperty('stroke','url(#'+id+')','important');
+   shape.style.setProperty('stroke-width','2.5','important');
+  }
+ }
+ nav.append(b)}
 shell.append(profile,nav,inbox,notifications,contacts,settings,conversation,calls,actions);
 chat.replaceChildren(shell);chat.classList.remove('card');
 // Called after the module attaches its folder handlers.
