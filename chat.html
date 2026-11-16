@@ -2516,4 +2516,26 @@ html[data-tichor-theme="light"] .tichor-unified-toolbar .tichor-account-trigger{
 .tichor-auto-parties summary{cursor:pointer!important;touch-action:manipulation!important;font-size:12px!important;font-weight:700!important;text-decoration:underline!important;text-underline-offset:3px!important;padding:5px 0!important}
 .tichor-auto-parties summary:focus-visible{outline:2px solid #27b48b!important;outline-offset:3px!important}
 .tichor-auto-people{display:flex!important;flex-wrap:wrap!important;gap:5px 14px!important;padding:7px 0!important;font-size:12px!important;line-height:1.5!important;overflow-wrap:anywhere!important}
-</style><script id="tichor-approved-cover-check">(function(){const img=new Image();img.onload=function(){if(img.naturalWidth>0)document.querySelector('body>header')?.classList.add('tichor-cover-ready')};img.src='tichor-connect-cover.png?v=20261116'})();</script></body></html>
+</style><script id="tichor-approved-cover-check">(function(){const img=new Image();img.onload=function(){if(img.naturalWidth>0)document.querySelector('body>header')?.classList.add('tichor-cover-ready')};img.src='tichor-connect-cover.png?v=20261116'})();</script><style id="tichor-live-banner-brand-20261116">
+/* Build the banner from the actual installed icon instead of the obsolete icon baked into cover artwork. */
+html body>header,html[data-tichor-theme] body>header,html[data-tichor-theme-preference] body>header,html[data-theme] body>header{
+ background:#020b19 url('assets/tichor-space-dna-horizon.svg') center center/cover no-repeat!important;
+ min-height:clamp(170px,18vw,260px)!important;height:clamp(170px,18vw,260px)!important;
+ padding:clamp(18px,4vw,52px)!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:clamp(12px,2.4vw,28px)!important;overflow:hidden!important;
+}
+html body>header #tichorOfficialHeaderIcon,html body>header.tichor-cover-ready #tichorOfficialHeaderIcon{
+ display:block!important;visibility:visible!important;opacity:1!important;
+ flex:0 0 clamp(78px,11vw,144px)!important;width:clamp(78px,11vw,144px)!important;height:clamp(78px,11vw,144px)!important;min-width:0!important;
+ object-fit:cover!important;border-radius:22%!important;filter:drop-shadow(0 0 15px #27c9ff99)!important;
+}
+html body>header>strong,html body>header.tichor-cover-ready>strong{
+ display:block!important;visibility:visible!important;opacity:1!important;
+ font-size:clamp(29px,5vw,72px)!important;font-weight:800!important;font-style:italic!important;letter-spacing:-.04em!important;
+ color:#eaf8ff!important;text-shadow:0 2px 2px #07101c,0 0 18px #6fc8ff99!important;
+}
+html body>header>strong::before,html body>header>strong::after{display:none!important;content:none!important}
+@media(max-width:640px){
+ html body>header,html[data-tichor-theme] body>header{height:190px!important;min-height:190px!important;padding:14px!important;gap:12px!important;background-size:cover!important;background-position:center!important}
+ html body>header #tichorOfficialHeaderIcon,html body>header.tichor-cover-ready #tichorOfficialHeaderIcon{width:76px!important;height:76px!important;flex-basis:76px!important}
+}
+</style></body></html>
