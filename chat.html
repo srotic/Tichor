@@ -522,7 +522,8 @@ async function refreshFolder(){if(!user||folderBusy)return;folderBusy=true;try{
  for(const m of data||[]){if(hiddenSet.has(m.id))continue;if(isNew(m))unread++;const id=activeFolder==='inbox'?m.sender_id:m.recipient_id;if(!latest.has(id))latest.set(id,m)}
  $('inboxCount').textContent=activeFolder==='inbox'&&unread?'('+unread+' unread)':'';
  box.replaceChildren();if(!latest.size){box.innerHTML='<div class="folder-empty">'+(activeFolder==='inbox'?'No received messages yet.':'No sent messages yet.')+'</div>';return}
- for(const [id,m] of latest){if(tichorTranslationThreads()[id])continue;let preview=m.body||'';if(preview.startsWith('e2ee1.'))preview='🔒 Older encrypted message';addFolderRow(box,id,labels.get(id)||'Tichor user · '+id.slice(0,8),preview,folderTime(m.created_at),isNew(m))}
+ let visibleCount=0;for(const [id,m] of latest){if(tichorTranslationThreads()[id])continue;visibleCount++;let preview=m.body||'';if(preview.startsWith('e2ee1.'))preview='🔒 Older encrypted message';addFolderRow(box,id,labels.get(id)||'Tichor user · '+id.slice(0,8),preview,folderTime(m.created_at),isNew(m))}
+ if(!visibleCount)box.innerHTML='<div class="folder-empty">Cross-language conversations appear under Translate.</div>';
  }catch(e){status('folderStatus','Could not load '+activeFolder+': '+e.message)}finally{folderBusy=false}}
 function addFolderRow(box,id,label,preview,when,unread){const b=document.createElement('button');b.type='button';b.className='folder-row';b.dataset.contactId=id;const avatar=document.createElement('span');avatar.className='folder-avatar';avatar.textContent=initials(label);const mid=document.createElement('span');mid.className='folder-main';const n=document.createElement('div');n.className='folder-name';n.textContent=label;const p=document.createElement('div');p.className='folder-preview';p.textContent=preview;mid.append(n,p);const meta=document.createElement('span');meta.className='folder-meta';meta.textContent=when;if(unread){const dot=document.createElement('span');dot.className='folder-unread';dot.textContent='New';meta.append(' ',dot)}b.append(avatar,mid,meta);b.onclick=async()=>{peer=id;tichorMarkConversationViewed(id);tichorPrivacyRender();$('recipient').value=label;window.tichorShowTab?.(tichorTranslationThreads()[id]?'translate-chat':'chat');await load();if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>{load();refreshFolder()}).subscribe();setTimeout(refreshFolder,500)};box.append(b)}
 for(const [id,tab] of [['tabInbox','inbox'],['tabSent','sent'],['tabContacts','contacts']]){const btn=$(id);if(btn)btn.onclick=()=>chooseFolder(tab)}
@@ -573,10 +574,12 @@ async function tichorRouteLanguage(value,contact){
   else if(/[\uac00-\ud7af]{2,}/.test(value))detected='ko';
   else if(/[\u4e00-\u9fff]{3,}/.test(value))detected='zh';
  }
- if(detected&&detected!==preferred&&TICHOR_LANGUAGES[detected]){
+ if(detected&&detected!==preferred&&TICHOR_LANGUAGES[detected]&&!tichorTranslationThreads()[contact]){
   tichorTranslationMark(contact,true);
   window.tichorRenderTranslateWorkspace?.();
+  return true;
  }
+ return false;
 }
 function tichorRouteIncomingBatch(messages){
  if(!user||tichorTranslationMode()==='off')return;
@@ -586,7 +589,7 @@ function tichorRouteIncomingBatch(messages){
   const prev=byContact.get(m.sender_id);
   if(!prev||Date.parse(m.created_at)>Date.parse(prev.created_at))byContact.set(m.sender_id,m);
  }
- for(const [contact,m] of byContact)tichorRouteLanguage(m.body,contact).then(()=>{if(!folderBusy)refreshFolder()}).catch(()=>{});
+ for(const [contact,m] of byContact)tichorRouteLanguage(m.body,contact).then(changed=>{if(changed)refreshFolder()}).catch(()=>{});
 }
 function tichorTranslationThreadKey(){return 'tichor-translation-threads-v1:'+user?.id}
 function tichorTranslationThreads(){try{return JSON.parse(localStorage.getItem(tichorTranslationThreadKey())||'{}')}catch{return {}}}
