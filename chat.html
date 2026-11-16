@@ -563,6 +563,88 @@ html #messages .msg .tichor-sender-line small{font-size:calc(11px * var(--tichor
  .tichor-unified-toolbar>nav.t12-nav.tichor-menu-open{grid-column:1/-1!important;grid-row:3!important;min-width:0!important;width:100%!important;max-width:100%!important;box-sizing:border-box!important;position:relative!important}
  .tichor-unified-toolbar>div.tichor-account-menu>.tichor-account-popover{position:absolute!important;top:calc(100% + 6px)!important;right:0!important;left:auto!important}
 }
+</style><style id="tichor-toolbar-clean-v5">
+/* Isolated toolbar: no legacy .tichor-unified-toolbar rules can position these controls. */
+.tichor-toolbar-clean{
+ display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+ gap:10px!important;align-items:stretch!important;justify-items:stretch!important;
+ position:relative!important;isolation:isolate!important;overflow:visible!important;
+ width:100%!important;max-width:100%!important;min-width:0!important;
+ box-sizing:border-box!important;padding:11px!important;margin:8px 0 16px!important;
+ border:1px solid #90b8c7!important;border-radius:16px!important;
+ background:linear-gradient(125deg,#0c1c29,#314a5b 42%,#0e2230 85%)!important;
+ box-shadow:inset 0 1px 2px #fff7,0 6px 16px #0006!important
+}
+.tichor-toolbar-clean>a.tichor-dashboard-icon-link,
+.tichor-toolbar-clean>a.tichor-guest-link,
+.tichor-toolbar-clean>button.tichor-main-menu-toggle,
+.tichor-toolbar-clean>.tichor-account-menu>.tichor-account-trigger{
+ position:static!important;float:none!important;transform:none!important;
+ display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:center!important;
+ gap:7px!important;box-sizing:border-box!important;width:100%!important;max-width:100%!important;
+ min-width:0!important;height:48px!important;min-height:48px!important;padding:6px 8px!important;
+ margin:0!important;border:1px solid #d0e1eb!important;border-radius:12px!important;
+ background:linear-gradient(160deg,#f7fbff 0%,#9ab1bf 37%,#e2ebf1 65%,#698594 100%)!important;
+ box-shadow:inset 0 2px 2px #fff,inset 0 -2px 2px #334958,0 3px 8px #0007!important;
+ color:#092331!important;-webkit-text-fill-color:#092331!important;
+ font-size:13px!important;font-weight:750!important;text-shadow:none!important;
+ white-space:nowrap!important;overflow:hidden!important;line-height:1.15!important;text-decoration:none!important;
+ flex:none!important;z-index:auto!important
+}
+.tichor-toolbar-clean>a.tichor-dashboard-icon-link::after{content:"Dashboard"!important}
+.tichor-toolbar-clean>a.tichor-guest-link::after{content:"Guest"!important}
+.tichor-toolbar-clean>.tichor-account-menu>.tichor-account-trigger::after{content:"User"!important}
+.tichor-toolbar-clean>a.tichor-dashboard-icon-link::after,
+.tichor-toolbar-clean>a.tichor-guest-link::after,
+.tichor-toolbar-clean>.tichor-account-menu>.tichor-account-trigger::after{
+ display:inline!important;position:static!important;float:none!important;transform:none!important;
+ font-size:13px!important;color:#092331!important;white-space:nowrap!important;
+ -webkit-text-fill-color:#092331!important
+}
+.tichor-toolbar-clean>a svg,.tichor-toolbar-clean>button svg,.tichor-toolbar-clean>.tichor-account-menu>.tichor-account-trigger svg{
+ display:block!important;position:static!important;flex:0 0 19px!important;
+ width:19px!important;height:19px!important;stroke:#092331!important;filter:none!important
+}
+.tichor-toolbar-clean>button.tichor-main-menu-toggle{
+ background:linear-gradient(160deg,#e2ffff,#75bec7 32%,#2d7180 68%,#9be0e1)!important;
+ color:#092331!important;-webkit-text-fill-color:#092331!important
+}
+.tichor-toolbar-clean>.tichor-account-menu{
+ display:block!important;position:relative!important;float:none!important;transform:none!important;
+ width:100%!important;min-width:0!important;max-width:100%!important;
+ margin:0!important;padding:0!important;box-sizing:border-box!important;grid-column:auto!important;grid-row:auto!important
+}
+.tichor-toolbar-clean>.tichor-account-menu>.tichor-account-popover{
+ position:absolute!important;top:calc(100% + 7px)!important;right:0!important;left:auto!important;
+ z-index:200!important;max-width:min(300px,85vw)!important
+}
+.tichor-toolbar-clean>.t12-nav:not(.tichor-menu-open){display:none!important}
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open{
+ grid-column:1/-1!important;grid-row:auto!important;display:grid!important;
+ grid-template-columns:repeat(4,minmax(0,1fr))!important;position:relative!important;
+ width:100%!important;min-width:0!important;max-width:100%!important;
+ box-sizing:border-box!important;overflow:visible!important;gap:9px!important;
+ padding:12px!important;margin:0!important;border:1px solid #6babb9!important;
+ border-radius:13px!important;background:#102d3d!important
+}
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open>button[data-tab]{
+ width:100%!important;min-width:0!important;max-width:100%!important;min-height:65px!important;
+ padding:7px 3px!important;box-sizing:border-box!important;border-radius:10px!important;
+ background:linear-gradient(150deg,#eaf3f8,#8ca6b6 48%,#d9e7ed)!important;
+ border:1px solid #a7c6d1!important;box-shadow:inset 0 1px 1px #fff,0 2px 6px #0006!important
+}
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open .tichor-nav-label,
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open .tichor-nav-icon{color:#092331!important;-webkit-text-fill-color:#092331!important}
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open svg,
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open svg *{stroke:#092331!important}
+@media(max-width:700px){
+ .tichor-toolbar-clean{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important;padding:9px!important}
+ .tichor-toolbar-clean>a.tichor-dashboard-icon-link{grid-column:1!important;grid-row:1!important}
+ .tichor-toolbar-clean>a.tichor-guest-link{grid-column:2!important;grid-row:1!important}
+ .tichor-toolbar-clean>button.tichor-main-menu-toggle{grid-column:1!important;grid-row:2!important}
+ .tichor-toolbar-clean>.tichor-account-menu{grid-column:2!important;grid-row:2!important}
+ .tichor-toolbar-clean>.t12-nav.tichor-menu-open{grid-column:1/-1!important;grid-row:3!important;grid-template-columns:repeat(3,minmax(0,1fr))!important}
+}
 </style></head><body><header><img id="tichorOfficialHeaderIcon" src="icon-192.png?v=metallic-20261116-v2" alt="Tichor official app icon" width="76" height="76" decoding="async"><strong>Tichor Connect</strong></header><main><p><a href="index.html" class="tichor-dashboard-icon-link" aria-label="Dashboard" title="Dashboard"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></a> · <a href="guest.html" class="tichor-glass-utility tichor-guest-link" aria-label="Create or join a guest room" title="Guest chat (no account required)"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6m-3-3h6"/></svg></a></p><section class="card hide" id="setup"><h2>Connection status</h2><p id="setupStatus" role="status">Connecting to Tichor…</p></section><section class="card hide" id="auth"><h2>Sign in or create account</h2><div class="two" role="group" aria-label="Choose sign-in method"><button type="button" id="emailMode" class="gold">Email</button><button type="button" id="phoneMode">Phone number</button></div><div id="emailAuth"><label for="email">Email address</label><input id="email" type="email" autocomplete="email" placeholder="Email"><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" placeholder="Password (at least 6 characters)"><button type="button" id="signin">Sign in</button><button type="button" id="signup">Create account</button><p class="muted">Existing email accounts continue to work. Email confirmation may be required.</p></div><div id="phoneAuth" class="hide"><label for="authPhone">Phone number (international format)</label><input id="authPhone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+17805550123"><button type="button" id="sendPhoneCode">Send SMS code</button><div id="phoneCodeArea" class="hide"><label for="authPhoneCode">Verification code</label><input id="authPhoneCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="SMS code"><button type="button" id="verifyPhoneCode" class="gold">Verify code & sign in</button></div><p class="muted">New phone numbers can create an account after SMS verification. Requires phone sign-in and an SMS provider configured in Supabase. SMS may cost money. If you already have an email account, sign in by email and link your phone under My profile first to keep the same messages and contacts.</p></div><p id="authStatus" role="status"></p></section><section class="card hide" id="chat"><h2>Messages</h2><p class="muted">Internet messaging: recipients do not need to have Tichor open. Messages are saved to Supabase and appear when they reconnect. Push alerts require notification permission and working server setup. Messages are not end-to-end encrypted in this version.</p><p id="who" class="muted"></p><button id="signout" type="button" class="tichor-glass-utility tichor-signout-icon" aria-label="Sign out" title="Sign out"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"/><path d="m15 16 4-4-4-4M19 12H9"/></svg></button><section class="card" id="notificationSettings"><h3>Background notifications</h3><p class="muted">Receive new-message and incoming-call alerts even when this app is closed. Enable separately on each device. On iPhone, add Tichor to your Home Screen first.</p><button type="button" id="enablePush" class="gold">Enable notifications</button><button type="button" id="disablePush">Disable notifications</button><p id="pushStatus" role="status" class="muted"></p></section><h3>Your profile</h3><p class="muted">Choose a unique username. A phone number is optional and searchable only if you enable discovery. Profile phone numbers are not verified. To use a phone for sign-in, link and verify it below.</p><div class="two"><input id="myUsername" placeholder="Username (3–24 letters/numbers/_)" maxlength="24"><input id="myPhone" type="tel" placeholder="Optional phone, e.g. +17805550123"></div><label><input id="phoneDiscoverable" type="checkbox" style="width:auto"> Let other registered users find me by phone number</label><p><button id="saveProfile">Save profile</button></p><div id="linkPhonePanel"><h4>Link a verified phone to this account</h4><p class="muted">For existing email users: link your phone here before using phone sign-in. This keeps your existing account ID, messages and contacts. Saving an optional profile phone number alone does not link it for login.</p><input id="linkAuthPhone" type="tel" inputmode="tel" placeholder="+17805550123"><button id="sendLinkCode" type="button">Send phone linking code</button><div id="linkCodeArea" class="hide"><input id="linkAuthCode" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="SMS verification code"><button id="verifyLinkCode" type="button">Verify & link phone</button></div><p id="linkPhoneStatus" role="status" class="muted"></p></div><p id="profileStatus" role="status"></p><hr><section class="tichor-mailbox" id="tichorMailbox" aria-label="Message folders">
  <div class="tichor-tabs" role="group" aria-label="Message folders">
  <button type="button" id="tabInbox" class="active">📥 Inbox <span id="inboxCount"></span></button>
@@ -775,7 +857,7 @@ for(const [key,ico,label] of tabs){const b=document.createElement('button');b.ty
  if(folderItems)new MutationObserver(syncUnreadBadge).observe(folderItems,{childList:true,subtree:true});
  syncUnreadBadge();
 // One compact utility/navigation toolbar: Dashboard, Guest, sections and Sign out.
-const toolbar=document.createElement('div');toolbar.className='tichor-unified-toolbar';
+const toolbar=document.createElement('div');toolbar.className='tichor-toolbar-clean';
 const utilityRow=document.querySelector('main > p:has(.tichor-dashboard-icon-link)');
 if(utilityRow){for(const link of [...utilityRow.querySelectorAll('a.tichor-dashboard-icon-link,a.tichor-guest-link')])toolbar.append(link);utilityRow.remove()}
 // Compact, accessible single-menu navigation across all appearance themes.
