@@ -701,10 +701,16 @@ async function tichorRefreshRequests(){
  if(!pending.length&&!outgoing.length){box.textContent='No pending contact requests.';return;}
  // Resolve both sides of each request in one lookup, without exposing emails or phone numbers.
  const ids=[...new Set([...pending.map(r=>r.requester_id),...outgoing.map(r=>r.recipient_id)])];
- const {data:profiles,error:profileError}=await supa.from('tichor_profiles').select('user_id,username').in('user_id',ids);
- const usernames=new Map((profiles||[]).map(p=>[p.user_id,p.username]));
- const identity=(id)=>usernames.get(id)?'@'+usernames.get(id):'User '+String(id).slice(0,8);
- if(profileError){const note=document.createElement('p');note.className='muted';note.textContent='Usernames could not be loaded: '+profileError.message;box.append(note);}
+ // The security-definer RPC resolves only usernames for requests involving the signed-in user.
+ // A direct profiles query may be blocked by RLS, so never present UUID fragments as names.
+ const {data:resolved,error:resolveError}=await supa.rpc('tichor_request_usernames');
+ const usernames=new Map((resolved||[]).filter(p=>p.username).map(p=>[p.user_id,p.username]));
+ if(resolveError||!resolved){
+  const {data:profiles}=await supa.from('tichor_profiles').select('user_id,username').in('user_id',ids);
+  for(const p of profiles||[])if(p.username)usernames.set(p.user_id,p.username);
+ }
+ const identity=(id)=>usernames.get(id)?'@'+usernames.get(id):'Username unavailable';
+ if(resolveError){const note=document.createElement('p');note.className='muted';note.textContent='Username lookup needs the database migration tichor-request-usernames.sql. Request actions remain available.';box.append(note);}
  for(const r of pending){
   const row=document.createElement('div');row.className='tichor-request-row';
   const title=document.createElement('span');title.className='tichor-request-identity';title.textContent=identity(r.requester_id);const detail=document.createElement('small');detail.textContent='Incoming contact request · '+tichorLocalDateTime(r.created_at,true);title.append(detail);row.append(title);
