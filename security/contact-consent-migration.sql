@@ -2,6 +2,10 @@
 -- Uses existing verified table columns. Preserves message history.
 -- IMPORTANT: Does not itself require verified email; Supabase Auth settings must enforce that.
 BEGIN;
+-- RLS does not govern TRUNCATE. Remove unnecessary broad privileges.
+REVOKE TRUNCATE, TRIGGER, REFERENCES ON public.chat_messages, public.tichor_call_events FROM authenticated;
+REVOKE ALL ON public.tichor_contacts FROM anon;
+REVOKE TRUNCATE, TRIGGER, REFERENCES ON public.tichor_contacts, public.tichor_profiles FROM authenticated;
 CREATE TABLE IF NOT EXISTS public.tichor_contact_requests (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
  requester_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -52,6 +56,18 @@ BEGIN
  IF NOT FOUND THEN RAISE EXCEPTION 'Pending request not found'; END IF;
 END $$;
 
+-- A participant may block an existing relationship in either direction.
+CREATE OR REPLACE FUNCTION public.tichor_block_contact(other_id uuid)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $
+BEGIN
+ IF auth.uid() IS NULL OR auth.role()<>'authenticated' OR other_id IS NULL OR other_id=auth.uid() THEN
+  RAISE EXCEPTION 'Invalid contact';
+ END IF;
+ INSERT INTO public.tichor_contact_requests(requester_id,recipient_id,status)
+ VALUES(auth.uid(),other_id,'blocked')
+ ON CONFLICT(requester_id,recipient_id) DO UPDATE SET status='blocked',updated_at=now();
+END $;
+
 CREATE OR REPLACE FUNCTION public.tichor_contact_allowed(other_id uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $$
  SELECT auth.uid() IS NOT NULL AND auth.role()='authenticated' AND other_id IS NOT NULL AND
@@ -66,7 +82,8 @@ REVOKE ALL ON FUNCTION public.find_tichor_user(text) FROM PUBLIC, anon, authenti
 REVOKE ALL ON FUNCTION public.tichor_request_contact(text) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.tichor_respond_contact(uuid,text) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.tichor_contact_allowed(uuid) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.tichor_request_contact(text),public.tichor_respond_contact(uuid,text),public.tichor_contact_allowed(uuid) TO authenticated;
+REVOKE ALL ON FUNCTION public.tichor_block_contact(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.tichor_request_contact(text),public.tichor_respond_contact(uuid,text),public.tichor_contact_allowed(uuid),public.tichor_block_contact(uuid) TO authenticated;
 
 -- PostgreSQL combines permissive policies with OR; old sender policies MUST be removed.
 DROP POLICY IF EXISTS "sender inserts" ON public.chat_messages;
