@@ -932,6 +932,19 @@ function tichorAutoScan(messages,hidden,contact=peer){
  if(changed)tichorAutoSave(items,contact);
  return items;
 }
+function tichorAutoActionBadge(){
+ const button=document.querySelector('.t12-nav button[data-tab="actions"]');
+ if(!button||!user)return;
+ const enabled=localStorage.getItem('tichor-auto-enabled')==='yes';
+ const pending=enabled?tichorAutoAll().filter(x=>x.state==='provisional'&&x.status!=='complete'):[];
+ const count=pending.length;
+ let badge=button.querySelector('.tichor-action-alert');
+ if(!count){badge?.remove();button.removeAttribute('data-has-action-alert');button.removeAttribute('aria-description');return}
+ if(!badge){badge=document.createElement('span');badge.className='tichor-action-alert';badge.setAttribute('aria-hidden','true');button.append(badge)}
+ badge.textContent=count>9?'9+':String(count);
+ button.dataset.hasActionAlert='true';
+ button.setAttribute('aria-description',count+' awaiting action suggestion'+(count===1?'':'s'));
+}
 function tichorAutoAll(){
  const prefix='tichor-auto-actions-v1:'+user.id+':',items=[];
  for(let i=0;i<localStorage.length;i++){
@@ -964,9 +977,10 @@ function tichorAutoPanel(items){
  if(!panel){panel=document.createElement('section');panel.id='tichorAutoPanel';panel.className='t12-preference';host.append(panel)}
  else if(panel.parentElement!==host)host.append(panel);
  panel.replaceChildren();
- if(localStorage.getItem('tichor-auto-enabled')!=='yes'){panel.hidden=true;return}
+ if(localStorage.getItem('tichor-auto-enabled')!=='yes'){panel.hidden=true;tichorAutoActionBadge();return}
  panel.hidden=false;
  const pending=items.filter(x=>x.state==='provisional');
+ tichorAutoActionBadge();
  const heading=document.createElement('strong');heading.textContent='✦ Suggested actions ('+pending.length+')';
  const note=document.createElement('p');note.className='muted';note.textContent='Private drafts from conversations. Review before sending.';
  panel.append(heading,note);
@@ -2038,4 +2052,15 @@ html[data-tichor-theme="light"] .tichor-unified-toolbar .tichor-account-trigger{
 .tichor-auto-status{display:inline-flex!important;align-items:center!important;padding:4px 10px!important;border-radius:999px!important;font-size:12px!important;font-weight:800!important;line-height:1.3!important}
 .tichor-auto-status.is-awaiting{background:#fff0c5!important;color:#754400!important;-webkit-text-fill-color:#754400!important;border:1px solid #d49a29!important}
 .tichor-auto-status.is-complete{background:#d5f7e3!important;color:#075e39!important;-webkit-text-fill-color:#075e39!important;border:1px solid #239963!important}
+</style><style id="tichor-action-icon-alert-v1">
+.t12-nav button[data-tab="actions"]{position:relative!important;overflow:visible!important}
+.t12-nav .tichor-action-alert{
+ position:absolute!important;top:0!important;right:calc(50% - 29px)!important;z-index:5!important;
+ display:grid!important;place-items:center!important;min-width:20px!important;height:20px!important;
+ padding:0 4px!important;border-radius:999px!important;
+ background:#e4a529!important;color:#172535!important;-webkit-text-fill-color:#172535!important;
+ border:2px solid #fff!important;box-shadow:0 1px 5px #0007!important;
+ font:800 11px/1 system-ui!important;pointer-events:none!important;
+}
+@media(max-width:700px){.t12-nav .tichor-action-alert{right:calc(50% - 26px)!important;top:-2px!important}}
 </style></body></html>
