@@ -929,7 +929,7 @@ function tichorAddTranslateButton(parent,content,mine,messageId,autoQueue){
  const button=document.createElement('button');button.type='button';button.className='tichor-translate-button';button.textContent='🌐 Translate';button.setAttribute('aria-label','Translate or show original message');parent.append(button);
  if(button){button.type='button';button.className='tichor-translate-button';button.setAttribute('aria-label',mobileFallback?'Open translation options':'Translate this message');button.textContent=mobileFallback?'🌐':'🌐 Translate';if(translated)button.textContent='Show original';if(mobileFallback)button.title='Open in external translator (requires consent)';parent.append(button)}
  const showOriginal=()=>{content.textContent=original;translated=null;if(button)button.textContent=mobileFallback?'🌐':'🌐 Translate';};
- const showTranslated=(value)=>{translated=value;content.textContent=original+'\n\n🌐 '+value;if(button)button.textContent='Show original';if(automatic){content.title='Translated message — tap to view original';content.style.cursor='pointer';content.setAttribute('role','button');content.tabIndex=0;content.setAttribute('aria-label','Translated message. Activate to switch between translated and original text.')}};
+ const showTranslated=(value)=>{if(!value||value.trim()===original.trim()){showOriginal();return;}translated=value;content.textContent=value;if(button)button.textContent='Show original';if(automatic){content.title='Translated message — tap to view original';content.style.cursor='pointer';content.setAttribute('role','button');content.tabIndex=0;content.setAttribute('aria-label','Translated message. Activate to switch between translated and original text.')}};
  const toggle=()=>{if(translated!==null){showOriginal();return}const cachedText=tichorTranslationCache.get(key);if(cachedText)showTranslated(cachedText)};
  if(automatic){
   content.onclick=toggle;
@@ -1494,7 +1494,7 @@ async function load(){
   const senderName=mine?($('myUsername')?.value?.trim()||'You'):(window.tichorAutoContactLabels?.get(m.sender_id)||$('tichorChatPeerName')?.textContent?.trim()||$('recipient')?.value?.trim()||'Contact');
   small.textContent=senderName+' · '+tichorLocalDateTime(m.created_at)+check;
   const senderLine=document.createElement('div');senderLine.className='tichor-sender-line';
-  const senderAvatar=document.createElement('span');senderAvatar.className='tichor-sender-avatar';senderAvatar.textContent=(senderName.trim().charAt(0)||'?').toUpperCase();senderAvatar.setAttribute('aria-label',senderName);
+  const senderAvatar=document.createElement('span');senderAvatar.className='tichor-sender-avatar';senderAvatar.textContent=(senderName.trim().replace(/^@/,'').charAt(0)||'?').toUpperCase();senderAvatar.setAttribute('aria-label',senderName);
   senderLine.append(senderAvatar,small);
   if(mine){small.classList.add('receipt');if(m.read_at)small.classList.add('receipt-read')}
   const content=document.createElement('div');content.classList.add('tichor-message-tap-delete');
