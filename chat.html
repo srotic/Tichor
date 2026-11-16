@@ -648,7 +648,7 @@ const showTab=which=>{
  if(which==='calls')window.tichorLoadCallHistory?.();
  if(which==='actions'){window.tichorRefreshAutonomous?.();window.tichorLoadActions?.();}
  if(which==='inbox'||which==='requests'){const btn=get(which==='requests'?'tabRequests':'tabInbox');if(btn)btn.click();if(which==='requests')window.tichorRefreshRequests?.()}
- if(which==='translate')window.tichorRenderTranslateWorkspace?.();
+ if(which==='translate'){window.tichorEnsureTranslationControls?.();window.tichorRenderTranslateWorkspace?.();}
 };
 for(const [key,ico,label] of tabs){const b=document.createElement('button');b.type='button';b.dataset.tab=key;b.setAttribute('aria-label',label);b.innerHTML='<span class="tichor-nav-icon" aria-hidden="true">'+ico+'</span><span class="tichor-nav-label">'+label+'</span>';b.onclick=()=>showTab(key);
  nav.append(b)}
@@ -1104,6 +1104,7 @@ window.tichorRenderTranslateWorkspace=async()=>{
 function tichorTranslationRoutingControl(){
  const button=$('tichorMoveTranslate');if(button)button.remove();
 }
+window.tichorEnsureTranslationControls=()=>{tichorTranslatorControls();window.tichorMountTranslationWorkspace?.();};
 function tichorTranslatorControls(){
  const settings=$('t12Settings');if(!settings||$('tichorTranslatorBar'))return;
  const bar=document.createElement('section');bar.id='tichorTranslatorBar';bar.className='t12-preference';
@@ -2674,7 +2675,9 @@ const observer=new MutationObserver(sync);const selector=document.getElementById
 const bar=document.getElementById('tichorTranslatorBar');
 if(bar&&bar.parentElement!==workspace)workspace.insertBefore(bar,workspace.querySelector('#tichorTranslateThreads'));
 }
+window.tichorMountTranslationWorkspace=mount;
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mount,200),{once:true});else setTimeout(mount,200);
+window.addEventListener('load',()=>setTimeout(mount,400));
 })();
 </script><style id="tc-autonomous-persistent-v2">
 #t12Actions .tc-auto-entry{margin:12px 0;padding:16px;border-radius:15px;border:1px solid #559e8d;background:rgba(38,136,112,.1);display:grid;gap:10px}
