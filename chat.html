@@ -1559,4 +1559,21 @@ html[data-tichor-theme-preference="crystal"] .t12-nav button.active .tichor-nav-
 html[data-tichor-theme-preference="crystal"] .t12-profile :is(.muted,small,p){
  color:#25475a!important;-webkit-text-fill-color:#25475a!important;opacity:1!important;text-shadow:none!important;
 }
+</style><style id="tichor-spectrum-nav-boxes-v1">
+/* Gradient frame around the five navigation tiles; preserve theme's own tile surface. */
+.t12-nav button{
+ border:2px solid transparent!important;
+ background-image:linear-gradient(var(--tichor-nav-surface,#f4f9fc),var(--tichor-nav-surface,#f4f9fc)),linear-gradient(110deg,#064b34 0%,#08734d 26%,#f26b9f 45%,#ffd45a 53%,#f26b9f 61%,#08734d 80%,#064b34 100%)!important;
+ background-origin:padding-box,border-box!important;
+ background-clip:padding-box,border-box!important;
+}
+html[data-tichor-theme="dark"] .t12-nav button,
+html[data-tichor-theme-preference="aurora"] .t12-nav button{--tichor-nav-surface:#102c38}
+html[data-tichor-theme-preference="crystal"] .t12-nav button,
+html[data-tichor-theme="light"] .t12-nav button{--tichor-nav-surface:#f1f8fc}
+.t12-nav button.active{
+ --tichor-nav-surface:#164968!important;
+ box-shadow:0 0 0 1px #ffd45a70,0 3px 12px #072b3950!important;
+}
+.t12-nav button:not(.active){box-shadow:0 2px 8px #062b281e!important}
 </style></body></html>
