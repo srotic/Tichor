@@ -644,7 +644,7 @@ const tabs=[["language","<svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" f
 const showTab=which=>{
  if(which==='language'){window.tichorQuickLanguage?.();return}
  for(const b of nav.querySelectorAll('button[data-tab]')){const active=b.dataset.tab===(which==='chat'?'inbox':which==='translate-chat'?'translate':which);b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active))}
- vaultPanel.hidden=which!=='vault';if(which==='vault')vaultRender();tasksPanel.hidden=which!=='tasks';if(which==='tasks')renderTasks();inbox.hidden=which!=='inbox'&&which!=='requests';translateWorkspace.hidden=which!=='translate';notifications.hidden=true;contacts.hidden=which!=='contacts';settings.hidden=which!=='profile';conversation.hidden=which!=='chat'&&which!=='translate-chat';calls.hidden=which!=='calls';actions.hidden=which!=='actions';
+ vaultPanel.hidden=which!=='vault';if(which==='vault')vaultRender();tasksPanel.hidden=which!=='tasks';if(which==='tasks')renderTasks();inbox.hidden=which!=='inbox'&&which!=='requests';translateWorkspace.hidden=which!=='translate';notifications.hidden=true;contacts.hidden=which!=='contacts';settings.hidden=which!=='profile'&&which!=='settings';conversation.hidden=which!=='chat'&&which!=='translate-chat';calls.hidden=which!=='calls';actions.hidden=which!=='actions';
  if(which==='calls')window.tichorLoadCallHistory?.();
  if(which==='actions')window.tichorLoadActions?.();
  if(which==='inbox'||which==='requests'){const btn=get(which==='requests'?'tabRequests':'tabInbox');if(btn)btn.click();if(which==='requests')window.tichorRefreshRequests?.()}
