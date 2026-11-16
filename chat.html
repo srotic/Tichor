@@ -769,6 +769,43 @@ html #messages .msg .tichor-sender-line small{font-size:calc(11px * var(--tichor
  .tichor-toolbar-clean>.tichor-account-menu>.tichor-account-trigger{width:auto!important;min-width:96px!important;max-width:100%!important}
  .tichor-toolbar-clean>.t12-nav.tichor-menu-open{grid-column:1/-1!important;grid-row:2!important;grid-template-columns:repeat(3,minmax(0,1fr))!important}
 }
+</style><style id="tichor-menu-final-clean-v8">
+/* Reset previous conflicting nav layouts and eliminate visible category headings. */
+.tichor-toolbar-clean{display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:0!important;position:relative!important;isolation:auto!important;overflow:visible!important;padding:12px!important;width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important}
+.tichor-toolbar-clean>.tichor-main-menu-toggle{position:relative!important;display:flex!important;align-items:center!important;justify-content:center!important;align-self:stretch!important;width:100%!important;max-width:100%!important;min-width:0!important;height:50px!important;min-height:50px!important;box-sizing:border-box!important;margin:0!important;padding:9px 14px!important;flex:none!important;transform:none!important;grid-area:auto!important;background:linear-gradient(150deg,#e6f8fc,#8cb9ca 45%,#345d71 75%,#d3e7ef)!important;color:#082a3c!important;-webkit-text-fill-color:#082a3c!important;border:1px solid #bad9e5!important;border-radius:12px!important;font:800 15px/1.2 system-ui,sans-serif!important}
+.tichor-toolbar-clean>.t12-nav:not(.tichor-menu-open){display:none!important}
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;grid-auto-flow:row!important;align-items:stretch!important;justify-items:stretch!important;gap:10px!important;position:relative!important;grid-area:auto!important;flex:none!important;width:100%!important;max-width:100%!important;min-width:0!important;margin:10px 0 0!important;padding:12px!important;box-sizing:border-box!important;overflow:visible!important;border:1px solid #8abfcc!important;border-radius:14px!important;background:linear-gradient(145deg,#122e40e8,#112735ed)!important;z-index:auto!important}
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open>.tichor-menu-group-heading{display:none!important}
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open>button[data-tab],
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open>a.tichor-menu-guest-link,
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open>.tichor-account-menu>.tichor-account-trigger{
+ display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:6px!important;
+ position:relative!important;float:none!important;transform:none!important;grid-area:auto!important;flex:none!important;
+ width:100%!important;min-width:0!important;max-width:100%!important;min-height:80px!important;height:auto!important;
+ box-sizing:border-box!important;margin:0!important;padding:10px 5px!important;overflow:hidden!important;
+ background:linear-gradient(155deg,#f3f9fc 0%,#a9c1ce 45%,#e3edf3 78%,#87a5b6 100%)!important;
+ border:1px solid #c6dce6!important;border-radius:12px!important;box-shadow:inset 0 1px 1px #fff,0 3px 8px #0007!important;
+ color:#08283a!important;-webkit-text-fill-color:#08283a!important;text-align:center!important;
+ font:800 13px/1.2 system-ui,-apple-system,sans-serif!important;text-decoration:none!important;text-shadow:none!important
+}
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open>button[data-tab].active{outline:2px solid #27dbc7!important;outline-offset:-2px!important;background:linear-gradient(145deg,#d8fff8,#86d2ce 45%,#c5f5ee)!important}
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open>button[data-tab] .tichor-nav-label,
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open>button[data-tab] .tichor-nav-icon,
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open>.tichor-account-menu>.tichor-account-trigger .tichor-user-word{color:#08283a!important;-webkit-text-fill-color:#08283a!important;text-shadow:none!important;opacity:1!important;filter:none!important;font:800 13px/1.2 system-ui,sans-serif!important}
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open>button[data-tab] svg,
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open>button[data-tab] svg *,
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open>.tichor-account-menu>.tichor-account-trigger svg,
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open>.tichor-account-menu>.tichor-account-trigger svg *{stroke:#08283a!important;filter:none!important;opacity:1!important}
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open>.tichor-account-menu{display:block!important;position:relative!important;grid-area:auto!important;float:none!important;transform:none!important;align-self:stretch!important;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;padding:0!important;z-index:2!important}
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open>.tichor-account-menu>.tichor-account-trigger{min-width:0!important;max-width:100%!important;width:100%!important;min-height:80px!important;height:100%!important;white-space:normal!important}
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open>.tichor-account-menu>.tichor-account-trigger::after{display:none!important;content:none!important}
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open>.tichor-account-menu>.tichor-account-popover{position:absolute!important;top:calc(100% + 5px)!important;right:0!important;left:auto!important;z-index:50!important;min-width:190px!important;max-width:min(280px,85vw)!important}
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open>button[data-tab] .tichor-nav-icon svg{display:block!important;width:25px!important;height:25px!important}
+.tichor-toolbar-clean>.t12-nav.tichor-menu-open>a.tichor-menu-guest-link svg{width:25px!important;height:25px!important}
+@media(max-width:400px){.tichor-toolbar-clean>.t12-nav.tichor-menu-open{gap:7px!important;padding:8px!important}.tichor-toolbar-clean>.t12-nav.tichor-menu-open>button[data-tab],.tichor-toolbar-clean>.t12-nav.tichor-menu-open>a.tichor-menu-guest-link{font-size:12px!important;padding:8px 3px!important}}
+/* Decorative DNA helix behind the workspace; unobtrusive for text readability. */
+#chat .t12-shell{position:relative!important;isolation:isolate!important}
+#chat .t12-shell::before{content:"";position:absolute;inset:90px 0 0;z-index:-1;pointer-events:none;opacity:.28;background-repeat:repeat-y;background-position:center top;background-size:min(90vw,620px) 520px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 620 520'%3E%3Cdefs%3E%3ClinearGradient id='d' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop stop-color='%2300cfff'/%3E%3Cstop offset='.5' stop-color='%237c83ff'/%3E%3Cstop offset='1' stop-color='%23ff42cb'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M120 0 C550 120 70 260 500 390 S150 530 120 520' fill='none' stroke='url(%23d)' stroke-width='9'/%3E%3Cpath d='M500 0 C70 120 550 260 120 390 S470 530 500 520' fill='none' stroke='%2349dfff' stroke-width='9'/%3E%3Cg stroke='%2379cde8' stroke-width='4' opacity='.9'%3E%3Cpath d='M120 0H500M195 35H425M260 70H360M290 105H330M245 140H375M185 175H435M130 210H490M120 245H500M170 280H450M235 315H385M285 350H335M270 385H350M205 420H415M145 455H475M120 490H500'/%3E%3C/g%3E%3C/svg%3E")}
 </style></head><body><header><img id="tichorOfficialHeaderIcon" src="icon-192.png?v=metallic-20261116-v2" alt="Tichor official app icon" width="76" height="76" decoding="async"><strong>Tichor Connect</strong></header><main><p><a href="index.html" class="tichor-dashboard-icon-link" aria-label="Dashboard" title="Dashboard"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></a> · <a href="guest.html" class="tichor-glass-utility tichor-guest-link" aria-label="Create or join a guest room" title="Guest chat (no account required)"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6m-3-3h6"/></svg></a></p><section class="card hide" id="setup"><h2>Connection status</h2><p id="setupStatus" role="status">Connecting to Tichor…</p></section><section class="card hide" id="auth"><div class="tichor-entry-intro"><h1>Welcome to <span>Tichor</span></h1><p>Connect freely. Chat, call, translate and organize.</p></div><h2>Sign in or create account</h2><div class="two" role="group" aria-label="Choose sign-in method"><button type="button" id="emailMode" class="gold">Email</button><button type="button" id="phoneMode">Phone number</button></div><div id="emailAuth"><label for="email">Email address</label><input id="email" type="email" autocomplete="email" placeholder="Email"><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" placeholder="Password (at least 6 characters)"><button type="button" id="signin">Sign in</button><button type="button" id="signup">Create account</button><p class="muted">Existing email accounts continue to work. Email confirmation may be required.</p></div><div id="phoneAuth" class="hide"><label for="authPhone">Phone number (international format)</label><input id="authPhone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+17805550123"><button type="button" id="sendPhoneCode">Send SMS code</button><div id="phoneCodeArea" class="hide"><label for="authPhoneCode">Verification code</label><input id="authPhoneCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="SMS code"><button type="button" id="verifyPhoneCode" class="gold">Verify code & sign in</button></div><p class="muted">New phone numbers can create an account after SMS verification. Requires phone sign-in and an SMS provider configured in Supabase. SMS may cost money. If you already have an email account, sign in by email and link your phone under My profile first to keep the same messages and contacts.</p></div><p id="authStatus" role="status"></p><div class="tichor-entry-divider"><span>or</span></div><a class="tichor-entry-guest" href="guest.html">Continue as Guest — no account required</a></section><section class="card hide" id="chat"><h2>Messages</h2><p class="muted">Internet messaging: recipients do not need to have Tichor open. Messages are saved to Supabase and appear when they reconnect. Push alerts require notification permission and working server setup. Messages are not end-to-end encrypted in this version.</p><p id="who" class="muted"></p><button id="signout" type="button" class="tichor-glass-utility tichor-signout-icon" aria-label="Sign out" title="Sign out"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"/><path d="m15 16 4-4-4-4M19 12H9"/></svg></button><section class="card" id="notificationSettings"><h3>Background notifications</h3><p class="muted">Receive new-message and incoming-call alerts even when this app is closed. Enable separately on each device. On iPhone, add Tichor to your Home Screen first.</p><button type="button" id="enablePush" class="gold">Enable notifications</button><button type="button" id="disablePush">Disable notifications</button><p id="pushStatus" role="status" class="muted"></p></section><h3>Your profile</h3><p class="muted">Choose a unique username. A phone number is optional and searchable only if you enable discovery. Profile phone numbers are not verified. To use a phone for sign-in, link and verify it below.</p><div class="two"><input id="myUsername" placeholder="Username (3–24 letters/numbers/_)" maxlength="24"><input id="myPhone" type="tel" placeholder="Optional phone, e.g. +17805550123"></div><label><input id="phoneDiscoverable" type="checkbox" style="width:auto"> Let other registered users find me by phone number</label><p><button id="saveProfile">Save profile</button></p><div id="linkPhonePanel"><h4>Link a verified phone to this account</h4><p class="muted">For existing email users: link your phone here before using phone sign-in. This keeps your existing account ID, messages and contacts. Saving an optional profile phone number alone does not link it for login.</p><input id="linkAuthPhone" type="tel" inputmode="tel" placeholder="+17805550123"><button id="sendLinkCode" type="button">Send phone linking code</button><div id="linkCodeArea" class="hide"><input id="linkAuthCode" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="SMS verification code"><button id="verifyLinkCode" type="button">Verify & link phone</button></div><p id="linkPhoneStatus" role="status" class="muted"></p></div><p id="profileStatus" role="status"></p><hr><section class="tichor-mailbox" id="tichorMailbox" aria-label="Message folders">
  <div class="tichor-tabs" role="group" aria-label="Message folders">
  <button type="button" id="tabInbox" class="active">📥 Inbox <span id="inboxCount"></span></button>
@@ -949,37 +986,6 @@ for(const [label,keys] of menuGroupOrder){
 }
 const guestMenuLink=nav.querySelector('.tichor-menu-guest-link');if(guestMenuLink)nav.append(guestMenuLink);
 // Give the navigation cards a visible multicolor frame independent of theme background overrides.
- const paintSpectrumFrames=()=>{
-  for(const b of nav.querySelectorAll('button[data-tab]')){
-   b.style.setProperty('background','transparent','important');
-   b.style.setProperty('border','0','important');
-   b.style.setProperty('box-shadow','none','important');
-   b.style.setProperty('background-image','none','important');
-   const pref=document.documentElement.getAttribute('data-tichor-theme-preference')||'';
-   const actual=document.documentElement.getAttribute('data-tichor-theme')||'';
-   const isLight=pref==='crystal'||pref==='light'||(pref==='system'&&actual==='light')||(!pref&&actual==='light');
-   const ink=b.classList.contains('active')?(isLight?'#087554':'#45efb3'):(isLight?'#17394b':'#f2f7fa');
-   const label=b.querySelector('.tichor-nav-label');
-   const icon=b.querySelector('.tichor-nav-icon');
-   for(const el of [label,icon]){
-    if(!el)continue;
-    el.style.setProperty('color',ink,'important');
-    el.style.setProperty('-webkit-text-fill-color',ink,'important');
-    el.style.setProperty('text-shadow','none','important');
-    el.style.setProperty('opacity','1','important');
-    el.style.setProperty('filter','none','important');
-   }
-   const svg=icon?.querySelector('svg');
-   if(svg){svg.style.setProperty('stroke',ink,'important');svg.style.setProperty('filter','none','important');
-    for(const part of svg.querySelectorAll('path,circle,rect,line,polyline,polygon,ellipse'))part.style.setProperty('stroke',ink,'important');
-   }
-  }
- };
- const oldShowTab=showTab;
- nav.addEventListener('click',()=>requestAnimationFrame(paintSpectrumFrames));
- const tabStateObserver=new MutationObserver(paintSpectrumFrames);tabStateObserver.observe(nav,{attributes:true,attributeFilter:['class'],subtree:true});
- new MutationObserver(paintSpectrumFrames).observe(document.documentElement,{attributes:true,attributeFilter:['data-tichor-theme','data-tichor-theme-preference']});
- paintSpectrumFrames();
  // Reflect existing unread-message markers in the Chats navigation tile.
  const chatsButton=nav.querySelector('[data-tab="inbox"]');
  const requestsButton=nav.querySelector('[data-tab="requests"]');
@@ -1045,7 +1051,7 @@ if(signout){
  const username=get('who');if(username){username.classList.add('tichor-account-username');menu.append(username)}
  signout.classList.add('tichor-toolbar-signout');signout.setAttribute('aria-label','Sign out');signout.title='Sign out';
  const label=document.createElement('span');label.textContent='Sign out';label.className='tichor-signout-label';signout.append(label);
- menu.append(signout);account.append(trigger,menu);toolbar.append(account);
+ menu.append(signout);account.append(trigger,menu);nav.append(account);
  const setOpen=open=>{menu.hidden=!open;trigger.setAttribute('aria-expanded',String(open))};
  trigger.dataset.tichorWired='true';
  trigger.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();setOpen(menu.hidden)});
