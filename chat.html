@@ -318,6 +318,20 @@ for(const [key,ico,label] of tabs){const b=document.createElement('button');b.ty
  nav.addEventListener('click',()=>requestAnimationFrame(paintSpectrumFrames));
  new MutationObserver(paintSpectrumFrames).observe(document.documentElement,{attributes:true,attributeFilter:['data-tichor-theme','data-tichor-theme-preference']});
  paintSpectrumFrames();
+ // Reflect existing unread-message markers in the Chats navigation tile.
+ const chatsButton=nav.querySelector('[data-tab="inbox"]');
+ const syncUnreadBadge=()=>{
+  if(!chatsButton)return;
+  const count=inbox.querySelectorAll('#folderItems .folder-unread').length;
+  let badge=chatsButton.querySelector('.tichor-nav-unread');
+  if(!count){badge?.remove();chatsButton.removeAttribute('data-has-unread');return}
+  if(!badge){badge=document.createElement('span');badge.className='tichor-nav-unread';badge.setAttribute('aria-label','Unread messages');chatsButton.append(badge)}
+  badge.textContent=count>9?'9+':String(count);
+  chatsButton.dataset.hasUnread='true';
+ };
+ const folderItems=inbox.querySelector('#folderItems');
+ if(folderItems)new MutationObserver(syncUnreadBadge).observe(folderItems,{childList:true,subtree:true});
+ syncUnreadBadge();
 shell.append(profile,nav,inbox,notifications,contacts,settings,conversation,calls,actions);
 chat.replaceChildren(shell);chat.classList.remove('card');
 // Called after the module attaches its folder handlers.
@@ -1594,4 +1608,31 @@ html[data-tichor-theme="light"] .t12-nav button{--tichor-nav-surface:#f1f8fc}
  box-shadow:0 0 0 1px #ffd45a70,0 3px 12px #072b3950!important;
 }
 .t12-nav button:not(.active){box-shadow:0 2px 8px #062b281e!important}
+</style><style id="tichor-compact-navigation-v1">
+/* Compact navigation tiles; leave the user's selected background untouched. */
+.t12-nav{gap:clamp(4px,1vw,10px)!important}
+.t12-nav button,.t12-nav button:not(.active),html[data-tichor-theme="dark"] .t12-nav button:not(.active){
+ min-height:72px!important;padding:7px 4px!important;gap:3px!important;border-radius:15px!important;
+ position:relative!important;
+}
+.t12-nav .tichor-nav-icon{width:30px!important;height:30px!important;flex:0 0 30px!important;border-radius:9px!important}
+.t12-nav .tichor-nav-icon svg{width:22px!important;height:22px!important}
+.t12-nav .tichor-nav-label{font-size:clamp(11px,1vw,13px)!important;line-height:1.15!important}
+.t12-nav .tichor-nav-unread{
+ position:absolute!important;top:3px!important;right:5px!important;z-index:2!important;
+ display:grid!important;place-items:center!important;min-width:19px!important;height:19px!important;
+ padding:0 4px!important;border-radius:999px!important;background:#e74466!important;
+ color:#fff!important;-webkit-text-fill-color:#fff!important;font:800 11px/1 system-ui!important;
+ border:2px solid #fff!important;box-shadow:0 1px 5px #0006!important;
+}
+.t12-nav button[data-has-unread="true"] .tichor-nav-label{font-weight:850!important}
+@media(max-width:700px){
+ .t12-nav button,.t12-nav button:not(.active),html[data-tichor-theme="dark"] .t12-nav button:not(.active){
+ min-height:57px!important;padding:5px 1px!important;gap:2px!important;border-radius:11px!important;
+ }
+ .t12-nav .tichor-nav-icon{width:25px!important;height:25px!important;flex-basis:25px!important}
+ .t12-nav .tichor-nav-icon svg{width:20px!important;height:20px!important}
+ .t12-nav .tichor-nav-label{font-size:10px!important}
+ .t12-nav .tichor-nav-unread{top:1px!important;right:1px!important}
+}
 </style></body></html>
