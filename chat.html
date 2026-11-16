@@ -920,44 +920,56 @@ async function tichorTranslateOnDevice(value){
  return {text:await tichorTranslatorSession.translate(value),language:from};
 }
 function tichorAddTranslateButton(parent,content,mine,messageId,autoQueue){
- if(!content.textContent||content.textContent.startsWith('🔒'))return;
+ if(mine||!content.textContent||content.textContent.startsWith('🔒'))return;
  const mode=tichorTranslationMode();
  if(mode==='off')return;
  const original=content.textContent;
- const key=messageId+'|'+($('tichorTranslationDetect')?.checked?'detect':$('tichorTranslationSource').value)+'|'+$('tichorTranslationTarget').value;
+ const preferred=tichorPreferredLanguage();
+ const key=messageId+'|auto|'+preferred;
  const cached=tichorTranslationCache.get(key);
- const automatic=mode==='automatic'&&!mine;
- const mobileFallback=!tichorTranslationSupported();
- if(mode==='automatic'&&mine)return;
- let translated=cached||null;
- const button=document.createElement('button');button.type='button';button.className='tichor-translate-button';button.textContent='🌐 Translate';button.setAttribute('aria-label','Translate or show original message');
- if(button){button.type='button';button.className='tichor-translate-button';button.setAttribute('aria-label',mobileFallback?'Open translation options':'Translate this message');button.textContent='🌐';button.title='Translate message';if(translated)button.textContent='↩';if(mobileFallback)button.title='Open in external translator (requires consent)';parent.append(button)}
- const showOriginal=()=>{content.textContent=original;translated=null;if(button)button.textContent='🌐';};
- const showTranslated=(value)=>{if(!value||value.trim()===original.trim()){showOriginal();return;}translated=value;content.textContent=value;if(button){button.textContent='↩';button.title='Show original';}if(automatic){content.title='Translated message — tap to view original';content.style.cursor='pointer';content.setAttribute('role','button');content.tabIndex=0;content.setAttribute('aria-label','Translated message. Activate to switch between translated and original text.')}};
- const toggle=()=>{if(translated!==null){showOriginal();return}const cachedText=tichorTranslationCache.get(key);if(cachedText)showTranslated(cachedText)};
- if(automatic){
+ let translated=null;
+ const toggle=()=>{
+  if(translated!==null){content.textContent=original;translated=null;content.title='';content.removeAttribute('role');content.removeAttribute('tabindex');return;}
+  const value=tichorTranslationCache.get(key);
+  if(value&&value.trim()!==original.trim())show(value);
+ };
+ const show=value=>{
+  if(!value||value.trim()===original.trim())return;
+  translated=value;content.textContent=value;
+  content.title='Automatically translated · Click to view original';
+  content.setAttribute('role','button');content.tabIndex=0;
+ };
+ if(mode==='automatic'){
   content.onclick=toggle;
   content.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle()}};
+  if(cached)show(cached);
+  else if(autoQueue&&tichorTranslationSupported())autoQueue.push(async()=>{
+   try{
+    let source;
+    try{source=await tichorDetectLanguage(original)}catch{return;}
+    if(source===preferred)return;
+    const api=globalThis.Translator;
+    if(!api||typeof api.create!=='function')return;
+    if(typeof api.availability==='function'&&await api.availability({sourceLanguage:source,targetLanguage:preferred})==='unavailable')return;
+    const translator=await api.create({sourceLanguage:source,targetLanguage:preferred});
+    const value=await translator.translate(original);
+    if(value&&value.trim()!==original.trim()){
+     tichorTranslationCache.set(key,value);
+     if(parent.isConnected&&tichorTranslationMode()==='automatic')show(value);
+    }
+   }catch(e){console.warn('Automatic translation unavailable',e)}
+  });
+  return;
  }
- if(cached){if(automatic)showTranslated(cached);else showTranslated(cached)}
- const translate=async(silent=false)=>{
-  if(translated!==null){showOriginal();return}
-  if(button){button.disabled=true;button.textContent='Translating…'}
-  try{
-   const result=tichorTranslationCache.get(key)||await tichorTranslateOnDevice(original);
-   const translatedText=typeof result==='string'?result:result.text;
-   tichorTranslationCache.set(key,translatedText);
-   if(!parent.isConnected||tichorTranslationMode()!==mode)return;
-   showTranslated(translatedText);
-  }catch(e){
-   if(button)button.textContent='🌐';
-   if(!silent)alert(e.message);
-   else {const note=document.createElement('small');note.className='muted';note.textContent='Translation unavailable: '+e.message;parent.append(note);const notice=$('tichorTranslationNotice');if(notice)notice.textContent='Automatic translation unavailable: '+e.message}
-  }finally{if(button)button.disabled=false}
+ // Manual mode: use a compact translation icon only when explicitly selected.
+ const button=document.createElement('button');button.type='button';button.className='tichor-translate-button';button.textContent='🌐';button.title='Translate message';button.setAttribute('aria-label','Translate message');parent.append(button);
+ button.onclick=async()=>{
+  if(translated!==null){toggle();button.textContent='🌐';return;}
+  button.disabled=true;
+  try{const result=await tichorTranslateOnDevice(original);const value=result.text;if(value.trim()!==original.trim()){tichorTranslationCache.set(key,value);show(value);button.textContent='↩';}}
+  catch(e){alert(e.message)}
+  finally{button.disabled=false}
  };
- if(button)button.onclick=()=>mobileFallback?tichorExternalTranslation(original):translate(false);
- if(automatic&&!cached&&autoQueue&&!mobileFallback)autoQueue.push(()=>translate(true));
- if(automatic&&mobileFallback)button.title='Translate externally (requires confirmation)'
 }
 // Action Messages v1: interoperable events stored as ordinary chat messages; no new database tables.
 const TICHOR_ACTION_PREFIX='[tichor-action-v1]';
@@ -1512,7 +1524,7 @@ async function load(){
   else if(content.textContent.startsWith(TICHOR_POLL_PREFIX)){d.append(senderLine);const notice=document.createElement('p');notice.textContent='Update Tichor to view this decision poll.';d.append(notice)}
   else if(displayedAction?.type==='create'){d.append(senderLine,tichorActionCard(m,displayedAction,actionStates.get(m.id)||'pending'))}
   else if(content.textContent.trim().startsWith(TICHOR_ACTION_PREFIX)){d.append(senderLine);const notice=document.createElement('p');notice.textContent='Action message received. Update Tichor to view its controls.';d.append(notice)}
-  else {d.append(senderLine,content);if(tichorTranslationMode()==='automatic')tichorAddTranslateButton(d,content,mine,m.id,recentIds.has(m.id)?autoQueue:null);
+  else {d.append(senderLine,content);if(tichorTranslationMode()!=='off')tichorAddTranslateButton(d,content,mine,m.id,recentIds.has(m.id)?autoQueue:null);
 
   }
   const a=attached.get(m.id);
