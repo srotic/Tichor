@@ -505,7 +505,7 @@ function tichorAddTranslateButton(parent,content,mine,messageId,autoQueue){
  const mobileFallback=!tichorTranslationSupported();
  if(mode==='automatic'&&mine)return;
  let translated=cached||null;
- const button=(automatic&&!mobileFallback)?null:document.createElement('button');
+ const button=null; // Translation is configured in Settings; no per-message chat controls.
  if(button){button.type='button';button.className='tichor-translate-button';button.setAttribute('aria-label',mobileFallback?'Open translation options':'Translate this message');button.textContent=mobileFallback?'🌐':'🌐 Translate';if(translated)button.textContent='Show original';if(mobileFallback)button.title='Open in external translator (requires consent)';parent.append(button)}
  const showOriginal=()=>{content.textContent=original;translated=null;if(button)button.textContent=mobileFallback?'🌐':'🌐 Translate';};
  const showTranslated=(value)=>{translated=value;content.textContent=value;if(button)button.textContent='Show original';if(automatic){content.title='Translated message — tap to view original';content.style.cursor='pointer';content.setAttribute('role','button');content.tabIndex=0;content.setAttribute('aria-label','Translated message. Activate to switch between translated and original text.')}};
@@ -837,7 +837,7 @@ function tichorAutoPanel(items){
   const due=document.createElement('small');due.className='muted';due.textContent=task.due?('Due '+new Date(task.due).toLocaleString()+(new Date(task.due).getTime()<now?' · Overdue':'')):'No deadline detected';
   const buttons=document.createElement('div');
   const approve=document.createElement('button');approve.type='button';approve.textContent=category==='mine'?'Review task':'Review & send';
-  approve.onclick=()=>{window.tichorShowTab?.('chat');tichorActionFromMessage(task.title);const date=$('tichorActionComposer')?.querySelector('input[type="datetime-local"]');if(date&&task.due){const d=new Date(task.due);const local=new Date(d.getTime()-d.getTimezoneOffset()*60000);date.value=local.toISOString().slice(0,16)}};
+  approve.onclick=()=>{window.tichorShowTab?.('actions');tichorActionFromMessage(task.title);const date=$('tichorActionComposer')?.querySelector('input[type="datetime-local"]');if(date&&task.due){const d=new Date(task.due);const local=new Date(d.getTime()-d.getTimezoneOffset()*60000);date.value=local.toISOString().slice(0,16)}};
   const dismiss=document.createElement('button');dismiss.type='button';dismiss.textContent='Dismiss';
   dismiss.onclick=()=>{task.state='dismissed';tichorAutoSave(items);tichorAutoPanel(items)};
   buttons.append(approve,dismiss);row.append(title,due,buttons);panel.append(row);
@@ -845,7 +845,7 @@ function tichorAutoPanel(items){
  }
 }
 function tichorActionComposer(){
- const form=$('sendForm');if(!form||$('tichorActionComposer'))return;
+ const form=$('sendForm');const host=$('t12Actions');if(!host||$('tichorActionComposer'))return;
  const panel=document.createElement('section');panel.id='tichorActionComposer';panel.className='t12-preference';
  const toggle=document.createElement('button');toggle.type='button';toggle.textContent='✓ Action';
  const fields=document.createElement('div');fields.hidden=true;
@@ -857,7 +857,7 @@ function tichorActionComposer(){
  submit.onclick=async()=>{if(!title.value.trim())return alert('Enter an action description.');submit.disabled=true;
  try{await tichorSendAction({type:'create',title:title.value.trim(),due:date.value?new Date(date.value).toISOString():null});title.value='';date.value='';fields.hidden=true}
  catch(e){alert('Action not sent: '+e.message)}finally{submit.disabled=false}};
- fields.append(title,date,submit,note);panel.append(toggle,fields);form.before(panel);
+ fields.append(title,date,submit,note);panel.append(toggle,fields);host.append(panel);
 }
 function tichorActionCard(m,action,state){
  const card=document.createElement('section');card.className='t12-preference';card.style.margin='8px 0';
@@ -968,14 +968,8 @@ async function load(){
   else if(content.textContent.startsWith(TICHOR_POLL_PREFIX)){d.append(small);const notice=document.createElement('p');notice.textContent='Update Tichor to view this decision poll.';d.append(notice)}
   else if(displayedAction?.type==='create'){d.append(small,tichorActionCard(m,displayedAction,actionStates.get(m.id)||'pending'))}
   else if(content.textContent.trim().startsWith(TICHOR_ACTION_PREFIX)){d.append(small);const notice=document.createElement('p');notice.textContent='Action message received. Update Tichor to view its controls.';d.append(notice)}
-  else {d.append(small,content);tichorAddTranslateButton(d,content,mine,m.id,recentIds.has(m.id)?autoQueue:null);
-   const suggestion=tichorSuggestAction(content.textContent);
-   if(suggestion&&!mine){
-    const create=document.createElement('button');create.type='button';create.className='tichor-ai-suggest';
-    create.textContent='✦ Create action';create.title='Review a suggested action from this message';
-    create.onclick=event=>{event.stopPropagation();tichorActionFromMessage(suggestion)};
-    d.append(create);
-   }
+  else {d.append(small,content);if(tichorTranslationMode()==='automatic')tichorAddTranslateButton(d,content,mine,m.id,recentIds.has(m.id)?autoQueue:null);
+
   }
   const a=attached.get(m.id);
   if(a&&(/\\.(png|jpe?g|webp|pdf)$/i.test(a.file_name))){
