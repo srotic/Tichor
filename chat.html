@@ -510,7 +510,7 @@ async function refreshFolder(){if(!user||folderBusy)return;folderBusy=true;try{
   for(const [contact,messages] of grouped)tichorAutoScan(messages,hiddenSet,contact);
   tichorAutoPanel(tichorAutoAll());
  }
- const labels=new Map((contacts||[]).map(c=>[c.contact_id,c.label]));const latest=new Map();let unread=0;const newSince=tichorInboxNewSince(),readMarks=tichorReadWatermarks();const isNew=m=>activeFolder==='inbox'&&!m.read_at&&Date.parse(m.created_at)>Math.max(newSince,Date.parse(readMarks[m.sender_id]||'')||0);
+ const labels=new Map((contacts||[]).map(c=>[c.contact_id,c.label]));window.tichorAutoContactLabels=labels;const latest=new Map();let unread=0;const newSince=tichorInboxNewSince(),readMarks=tichorReadWatermarks();const isNew=m=>activeFolder==='inbox'&&!m.read_at&&Date.parse(m.created_at)>Math.max(newSince,Date.parse(readMarks[m.sender_id]||'')||0);
  for(const m of data||[]){if(hiddenSet.has(m.id))continue;if(isNew(m))unread++;const id=activeFolder==='inbox'?m.sender_id:m.recipient_id;if(!latest.has(id))latest.set(id,m)}
  $('inboxCount').textContent=activeFolder==='inbox'&&unread?'('+unread+' unread)':'';
  box.replaceChildren();if(!latest.size){box.innerHTML='<div class="folder-empty">'+(activeFolder==='inbox'?'No received messages yet.':'No sent messages yet.')+'</div>';return}
@@ -925,12 +925,17 @@ function tichorAutoScan(messages,hidden,contact=peer){
   if(hidden.has(m.id)||known.has(m.id)||!m.body||m.body.startsWith('[')||m.body.startsWith('e2ee1.'))continue;
   const classification=tichorAutoClassify(m.body,m.sender_id===user.id);
   if(!classification)continue;
-  items.push({source:m.id,title:classification.title,category:classification.category,due:tichorAutoDue(m.body,m.created_at),created:m.created_at,state:'provisional'});
+  items.push({source:m.id,title:classification.title,category:classification.category,requester:classification.category==='mine'?(m.sender_id===user.id?contact:m.sender_id):user.id,responsible:classification.category==='mine'?user.id:contact,due:tichorAutoDue(m.body,m.created_at),created:m.created_at,state:'provisional'});
   known.add(m.id);changed=true;
  }
  if(tichorAutoUpdateStatus(items,messages,hidden))changed=true;
  if(changed)tichorAutoSave(items,contact);
  return items;
+}
+function tichorAutoContactName(id){
+ if(!id)return 'Unknown';
+ if(id===user?.id)return 'You';
+ return window.tichorAutoContactLabels?.get(id)||'Contact · '+String(id).slice(0,8);
 }
 function tichorAutoActionBadge(){
  const button=document.querySelector('.t12-nav button[data-tab="actions"]');
@@ -992,6 +997,14 @@ function tichorAutoPanel(items){
   for(const task of group.slice(-12).reverse()){
   const row=document.createElement('div');row.className='tichor-auto-task';
   const title=document.createElement('strong');title.textContent=task.title;
+  const parties=document.createElement('details');parties.className='tichor-auto-parties';
+  const summary=document.createElement('summary');summary.textContent='Who is involved?';
+  const people=document.createElement('div');people.className='tichor-auto-people';
+  const responsible=task.responsible||(category==='mine'?user.id:task.contact);
+  const expecting=task.requester||(category==='mine'?task.contact:user.id);
+  const owner=document.createElement('span');owner.textContent='Responsible: '+tichorAutoContactName(responsible);
+  const recipient=document.createElement('span');recipient.textContent='Expecting: '+tichorAutoContactName(expecting);
+  people.append(owner,recipient);parties.append(summary,people);
   const badge=document.createElement('span');badge.className='tichor-auto-status '+(task.status==='complete'?'is-complete':'is-awaiting');badge.textContent=task.status==='complete'?'Complete · reported':'Awaiting';badge.title=task.status==='complete'?'Completion inferred from a later message; verify before closing':'No matching completion message found';
   const due=document.createElement('small');due.className='muted';due.textContent=task.due?('Due '+new Date(task.due).toLocaleString()+(new Date(task.due).getTime()<now?' · Overdue':'')):'No deadline detected';
   const buttons=document.createElement('div');
@@ -999,7 +1012,7 @@ function tichorAutoPanel(items){
   approve.onclick=()=>{window.tichorShowTab?.('actions');tichorActionFromMessage(task.title);const date=$('tichorActionComposer')?.querySelector('input[type="datetime-local"]');if(date&&task.due){const d=new Date(task.due);const local=new Date(d.getTime()-d.getTimezoneOffset()*60000);date.value=local.toISOString().slice(0,16)}};
   const dismiss=document.createElement('button');dismiss.type='button';dismiss.textContent='Dismiss';
   dismiss.onclick=()=>{task.state='dismissed';const own=tichorAutoRead(task.contact);const found=own.find(x=>x.source===task.source);if(found){found.state='dismissed';tichorAutoSave(own,task.contact)}tichorAutoPanel(tichorAutoAll())};
-  buttons.append(approve,dismiss);row.append(title,badge,due,buttons);panel.append(row);
+  buttons.append(approve,dismiss);row.append(title,parties,badge,due,buttons);panel.append(row);
   }
  }
 }
@@ -2063,4 +2076,9 @@ html[data-tichor-theme="light"] .tichor-unified-toolbar .tichor-account-trigger{
  font:800 11px/1 system-ui!important;pointer-events:none!important;
 }
 @media(max-width:700px){.t12-nav .tichor-action-alert{right:calc(50% - 26px)!important;top:-2px!important}}
+</style><style id="tichor-auto-parties-tap-v1">
+.tichor-auto-parties{display:block!important;max-width:100%!important;color:inherit!important}
+.tichor-auto-parties summary{cursor:pointer!important;touch-action:manipulation!important;font-size:12px!important;font-weight:700!important;text-decoration:underline!important;text-underline-offset:3px!important;padding:5px 0!important}
+.tichor-auto-parties summary:focus-visible{outline:2px solid #27b48b!important;outline-offset:3px!important}
+.tichor-auto-people{display:flex!important;flex-wrap:wrap!important;gap:5px 14px!important;padding:7px 0!important;font-size:12px!important;line-height:1.5!important;overflow-wrap:anywhere!important}
 </style></body></html>
