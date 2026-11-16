@@ -351,7 +351,8 @@ if(signout){
  const label=document.createElement('span');label.textContent='Sign out';label.className='tichor-signout-label';signout.append(label);
  menu.append(signout);account.append(trigger,menu);toolbar.append(account);
  const setOpen=open=>{menu.hidden=!open;trigger.setAttribute('aria-expanded',String(open))};
- trigger.addEventListener('click',e=>{e.stopPropagation();setOpen(menu.hidden)});
+ trigger.dataset.tichorWired='true';
+ trigger.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();setOpen(menu.hidden)});
  account.addEventListener('mouseenter',()=>{if(matchMedia('(hover:hover)').matches)setOpen(true)});
  account.addEventListener('mouseleave',()=>{if(matchMedia('(hover:hover)').matches)setOpen(false)});
  document.addEventListener('click',e=>{if(!account.contains(e.target))setOpen(false)});
@@ -1973,4 +1974,34 @@ html[data-tichor-theme="light"] .tichor-unified-toolbar .tichor-account-trigger{
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',repair,{once:true});else repair();
  window.addEventListener('load',repair,{once:true});
 })();
-</script></body></html>
+</script><style id="tichor-mobile-account-fix-v5">
+/* Keep the account control visible and its dropdown tappable on narrow screens. */
+@media(max-width:700px){
+ .t12-shell>.tichor-unified-toolbar{
+  display:flex!important;overflow:visible!important;gap:4px!important;
+  flex-wrap:nowrap!important;align-items:center!important;position:relative!important;
+  padding-right:52px!important;min-height:60px!important;
+ }
+ .t12-shell>.tichor-unified-toolbar>.t12-nav{
+  overflow-x:auto!important;overflow-y:hidden!important;min-width:0!important;
+  flex:1 1 auto!important;scrollbar-width:none!important;
+ }
+ .t12-shell>.tichor-unified-toolbar>.t12-nav::-webkit-scrollbar{display:none!important}
+ .t12-shell>.tichor-unified-toolbar>.tichor-account-menu{
+  position:absolute!important;right:3px!important;top:50%!important;
+  transform:translateY(-50%)!important;margin:0!important;
+  display:block!important;z-index:2000!important;pointer-events:auto!important;
+ }
+ .t12-shell>.tichor-unified-toolbar .tichor-account-trigger{
+  display:grid!important;visibility:visible!important;opacity:1!important;
+  width:44px!important;height:44px!important;min-width:44px!important;
+  touch-action:manipulation!important;pointer-events:auto!important;
+ }
+ .t12-shell>.tichor-unified-toolbar .tichor-account-popover{
+  position:absolute!important;right:0!important;top:calc(100% + 8px)!important;
+  transform:none!important;z-index:3000!important;
+  width:min(270px,calc(100vw - 24px))!important;max-width:calc(100vw - 24px)!important;
+  pointer-events:auto!important;
+ }
+}
+</style></body></html>
