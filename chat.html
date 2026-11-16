@@ -441,6 +441,17 @@ function tichorInboxNewSince(){
  if(!value){value=new Date().toISOString();try{localStorage.setItem(key,value)}catch{}}
  return Date.parse(value)||Date.now();
 }
+function tichorReadWatermarks(){
+ try{return JSON.parse(localStorage.getItem('tichor-read-watermarks-v1:'+user.id)||'{}')||{}}catch{return {}}
+}
+function tichorMarkConversationViewed(contactId){
+ if(!user||!contactId)return;
+ const key='tichor-read-watermarks-v1:'+user.id,marks=tichorReadWatermarks();
+ marks[contactId]=new Date().toISOString();
+ try{localStorage.setItem(key,JSON.stringify(marks))}catch{}
+ const row=[...document.querySelectorAll('#folderItems .folder-row')].find(b=>b.dataset.contactId===contactId);
+ if(row){row.querySelector('.folder-unread')?.remove();row.classList.remove('tichor-unread')}
+}
 async function refreshFolder(){if(!user||folderBusy)return;folderBusy=true;try{
  const box=$('folderItems');if(!box)return;
  if(activeFolder==='contacts'){
@@ -458,18 +469,18 @@ async function refreshFolder(){if(!user||folderBusy)return;folderBusy=true;try{
    :{data:[],error:null};
  if(hiddenError)throw hiddenError;
  const hiddenSet=new Set((hiddenRows||[]).map(x=>x.message_id));
- const labels=new Map((contacts||[]).map(c=>[c.contact_id,c.label]));const latest=new Map();let unread=0;const newSince=tichorInboxNewSince();
- for(const m of data||[]){if(hiddenSet.has(m.id))continue;if(activeFolder==='inbox'&&!m.read_at&&Date.parse(m.created_at)>newSince)unread++;const id=activeFolder==='inbox'?m.sender_id:m.recipient_id;if(!latest.has(id))latest.set(id,m)}
+ const labels=new Map((contacts||[]).map(c=>[c.contact_id,c.label]));const latest=new Map();let unread=0;const newSince=tichorInboxNewSince(),readMarks=tichorReadWatermarks();const isNew=m=>activeFolder==='inbox'&&!m.read_at&&Date.parse(m.created_at)>Math.max(newSince,Date.parse(readMarks[m.sender_id]||'')||0);
+ for(const m of data||[]){if(hiddenSet.has(m.id))continue;if(isNew(m))unread++;const id=activeFolder==='inbox'?m.sender_id:m.recipient_id;if(!latest.has(id))latest.set(id,m)}
  $('inboxCount').textContent=activeFolder==='inbox'&&unread?'('+unread+' unread)':'';
  box.replaceChildren();if(!latest.size){box.innerHTML='<div class="folder-empty">'+(activeFolder==='inbox'?'No received messages yet.':'No sent messages yet.')+'</div>';return}
- for(const [id,m] of latest){let preview=m.body||'';if(preview.startsWith('e2ee1.'))preview='🔒 Older encrypted message';addFolderRow(box,id,labels.get(id)||'Tichor user · '+id.slice(0,8),preview,folderTime(m.created_at),activeFolder==='inbox'&&!m.read_at&&Date.parse(m.created_at)>newSince)}
+ for(const [id,m] of latest){let preview=m.body||'';if(preview.startsWith('e2ee1.'))preview='🔒 Older encrypted message';addFolderRow(box,id,labels.get(id)||'Tichor user · '+id.slice(0,8),preview,folderTime(m.created_at),isNew(m))}
  }catch(e){status('folderStatus','Could not load '+activeFolder+': '+e.message)}finally{folderBusy=false}}
-function addFolderRow(box,id,label,preview,when,unread){const b=document.createElement('button');b.type='button';b.className='folder-row';b.dataset.contactId=id;const avatar=document.createElement('span');avatar.className='folder-avatar';avatar.textContent=initials(label);const mid=document.createElement('span');mid.className='folder-main';const n=document.createElement('div');n.className='folder-name';n.textContent=label;const p=document.createElement('div');p.className='folder-preview';p.textContent=preview;mid.append(n,p);const meta=document.createElement('span');meta.className='folder-meta';meta.textContent=when;if(unread){const dot=document.createElement('span');dot.className='folder-unread';dot.textContent='New';meta.append(' ',dot)}b.append(avatar,mid,meta);b.onclick=async()=>{peer=id;tichorPrivacyRender();$('recipient').value=label;window.tichorShowTab?.('chat');await load();if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>{load();refreshFolder()}).subscribe();setTimeout(refreshFolder,500)};box.append(b)}
+function addFolderRow(box,id,label,preview,when,unread){const b=document.createElement('button');b.type='button';b.className='folder-row';b.dataset.contactId=id;const avatar=document.createElement('span');avatar.className='folder-avatar';avatar.textContent=initials(label);const mid=document.createElement('span');mid.className='folder-main';const n=document.createElement('div');n.className='folder-name';n.textContent=label;const p=document.createElement('div');p.className='folder-preview';p.textContent=preview;mid.append(n,p);const meta=document.createElement('span');meta.className='folder-meta';meta.textContent=when;if(unread){const dot=document.createElement('span');dot.className='folder-unread';dot.textContent='New';meta.append(' ',dot)}b.append(avatar,mid,meta);b.onclick=async()=>{peer=id;tichorMarkConversationViewed(id);tichorPrivacyRender();$('recipient').value=label;window.tichorShowTab?.('chat');await load();if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>{load();refreshFolder()}).subscribe();setTimeout(refreshFolder,500)};box.append(b)}
 for(const [id,tab] of [['tabInbox','inbox'],['tabSent','sent'],['tabContacts','contacts']]){const btn=$(id);if(btn)btn.onclick=()=>chooseFolder(tab)}
 
 $('enablePush').onclick=()=>enableNotifications(supa,user,msg=>status('pushStatus',msg));$('disablePush').onclick=()=>disableNotifications(supa,user,msg=>status('pushStatus',msg));
 $('signout').onclick=async()=>{await stopCalling();stopMessageUpdates();if(subscription)await supa.removeChannel(subscription);await supa.auth.signOut();$('secret').value='';user=null;peer=null;show('chat',false);show('auth',true)};
-$('openConversation').onclick=async()=>{try{if(!user)throw Error('Sign in first');const lookup=$('recipient').value.trim();if(!lookup)throw Error('Enter an email, username, or phone number');const {data,error}=await supa.rpc('find_tichor_user',{lookup});if(error)throw error;if(!data)throw Error('No discoverable Tichor user found');if(data===user.id)throw Error('Choose another user');if(tichorIsBlocked(data))throw Error('This contact is blocked on this device. Unblock in Settings.');peer=data;tichorPrivacyRender();window.tichorShowTab?.('chat');await saveContact(data,lookup);status('chatStatus','Conversation open. New messages do not require a passphrase.');await load();if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>{acknowledgeDelivery();load();loadContacts()}).subscribe();}catch(e){status('chatStatus',e.message)}};
+$('openConversation').onclick=async()=>{try{if(!user)throw Error('Sign in first');const lookup=$('recipient').value.trim();if(!lookup)throw Error('Enter an email, username, or phone number');const {data,error}=await supa.rpc('find_tichor_user',{lookup});if(error)throw error;if(!data)throw Error('No discoverable Tichor user found');if(data===user.id)throw Error('Choose another user');if(tichorIsBlocked(data))throw Error('This contact is blocked on this device. Unblock in Settings.');peer=data;tichorMarkConversationViewed(data);tichorPrivacyRender();window.tichorShowTab?.('chat');await saveContact(data,lookup);status('chatStatus','Conversation open. New messages do not require a passphrase.');await load();if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>{acknowledgeDelivery();load();loadContacts()}).subscribe();}catch(e){status('chatStatus',e.message)}};
 // Tichor Universal Translator (beta): opt-in, on-device when supported.
 const TICHOR_LANGUAGES={en:'English',sw:'Kiswahili',fr:'Français',es:'Español',ar:'العربية',de:'Deutsch',pt:'Português',hi:'हिन्दी',zh:'中文',ja:'日本語',ko:'한국어',it:'Italian',ru:'Русский'};
 const TICHOR_LANG_KEY='tichor-translation-language';
@@ -1096,7 +1107,7 @@ async function load(){
    .update({read_at:new Date().toISOString(),delivered_at:new Date().toISOString()})
    .eq('recipient_id',user.id).eq('sender_id',viewedPeer).is('read_at',null);
   if(markError)status('chatStatus','Read receipts: '+markError.message);
-  else {
+  else {tichorMarkConversationViewed(viewedPeer);
    // Clear the green paint and New badge as soon as the read receipt is saved.
    const row=[...document.querySelectorAll('#folderItems .folder-row')].find(b=>b.dataset.contactId===viewedPeer);
    row?.querySelector('.folder-unread')?.remove();
