@@ -1897,7 +1897,7 @@ async function load(){
 
   }
   const a=attached.get(m.id);
-  if(a&&/\\.(webm|m4a|mp4|ogg|wav)$/i.test(a.file_name)){
+  if(a&&['webm','m4a','mp4','ogg','wav'].includes(String(a.file_name||'').split('.').pop().toLowerCase())){
  const wrap=document.createElement('div');wrap.className='tc-voice-message';
  const label=document.createElement('span');label.textContent='🎙 Voice message';
  const player=document.createElement('audio');player.controls=true;player.preload='none';player.className='tc-voice-player';player.setAttribute('aria-label','Play voice message');
@@ -2016,12 +2016,22 @@ async function deleteTichorMessage(message,attachment,mine){
  if(!confirm(forEveryone?'Delete this message for everyone? This cannot be undone.':'Delete this message from your view?'))return;
  try{
   if(forEveryone){
-   const {error:e}=await supa.from('chat_messages').delete().eq('id',message.id).eq('sender_id',user.id);if(e)throw e;
-   if(attachment){const {error:storageError}=await supa.storage.from('tichor-attachments').remove([attachment.storage_path]);if(storageError)status('chatStatus','Message deleted; attachment cleanup: '+storageError.message)}
+   // Verify the affected row; RLS may silently allow zero deleted rows.
+   const {data:deleted,error:e}=await supa.from('chat_messages').delete().eq('id',message.id).eq('sender_id',user.id).select('id');
+   if(e)throw e;
+   if(!deleted?.some(row=>row.id===message.id))throw Error('The message was not removed. Check message permissions or related records.');
+   if(attachment){
+    // Metadata may be removed by a database cascade; storage cleanup is best-effort.
+    const {error:storageError}=await supa.storage.from('tichor-attachments').remove([attachment.storage_path]);
+    if(storageError)status('chatStatus','Message deleted, but attachment cleanup needs attention: '+storageError.message);
+   }
   }else{
-   const {error:e}=await supa.from('tichor_hidden_messages').upsert({user_id:user.id,message_id:message.id},{onConflict:'user_id,message_id'});if(e)throw e;
+   const {data:hidden,error:e}=await supa.from('tichor_hidden_messages').upsert({user_id:user.id,message_id:message.id},{onConflict:'user_id,message_id'}).select('message_id');
+   if(e)throw e;
+   if(!hidden?.some(row=>row.message_id===message.id))throw Error('Could not confirm deletion from your view.');
   }
   await load();await refreshFolder();
+  status('chatStatus',forEveryone?'Message deleted for everyone.':'Message deleted from your view.');
  }catch(e){status('chatStatus','Delete failed: '+e.message)}
 }
 async function acknowledgeDelivery(){if(!user||deliveryBusy||document.visibilityState!=='visible')return;deliveryBusy=true;try{const {data,error}=await supa.from('chat_messages').select('id').eq('recipient_id',user.id).is('delivered_at',null).order('created_at',{ascending:false}).limit(200);if(error){status('chatStatus','Delivery receipts: '+error.message);return}if(data?.length){const ids=data.map(m=>m.id);const {error:err}=await supa.from('chat_messages').update({delivered_at:new Date().toISOString()}).in('id',ids).eq('recipient_id',user.id).is('delivered_at',null);if(err)status('chatStatus','Delivery receipts: '+err.message)}}finally{deliveryBusy=false}}
