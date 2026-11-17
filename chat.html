@@ -3176,4 +3176,68 @@ body.tc-call-floating>.tc-call-composer.tc-call-active #hangup{background:#d6384
 #t12Translate .tc-translate-original small{font-weight:700;opacity:.8}
 #t12Translate .tc-translate-original p{margin:3px 0 0;overflow-wrap:anywhere}
 #t12Translate .tc-translate-open{margin-top:9px;padding:9px 14px;border-radius:12px;border:1px solid #79b7a9;background:#186b58;color:#fff;font-weight:650}
-</style></body></html>
+</style><!-- tc-actions-compact-redesign-20261117 -->
+<style>
+#t12Actions{--act-border:color-mix(in srgb,currentColor 19%,transparent)}
+#t12Actions #tcAutonomousEntry{order:3;margin:8px 0!important;padding:0!important;border:1px solid var(--act-border)!important;border-radius:14px!important;overflow:hidden}
+#t12Actions #tcAutonomousEntry.tc-collapsed>:not(.tc-auto-heading){display:none!important}
+#t12Actions #tcAutonomousEntry .tc-auto-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;cursor:pointer}
+#t12Actions #tcAutonomousEntry .tc-auto-heading h3{margin:0;font-size:1rem}
+#t12Actions #tcAutonomousEntry .tc-auto-heading button{padding:5px 9px;margin:0;background:transparent;color:inherit;border:1px solid var(--act-border)}
+#t12Actions #tcAutonomousEntry>p,#t12Actions #tcAutonomousEntry>label,#t12Actions #tcAutonomousEntry>small{margin:8px 14px!important}
+#t12Actions #tcAutonomousEntry>button{display:none!important}
+#t12Actions #tichorActionsDashboard{order:1;min-width:0}
+#t12Actions #tichorAutoPanel{order:2;min-width:0}
+#t12Actions{display:flex;flex-direction:column;gap:8px}
+#t12Actions[hidden]{display:none!important}
+#t12Actions>h2{order:0;margin:4px 0 0}
+#t12Actions>p.muted{order:0;margin:0 0 6px}
+#t12Actions .tichor-actions-controls{display:flex!important;align-items:center;gap:8px;flex-wrap:wrap;padding:8px!important;margin:6px 0!important;min-height:0!important}
+#t12Actions .tichor-actions-controls select{display:inline-block!important;appearance:auto!important;flex:1 1 145px!important;width:auto!important;max-width:100%!important;min-width:0!important;height:40px!important;min-height:40px!important;padding:7px 10px!important;margin:0!important;line-height:1.2!important;border-radius:9px!important}
+#t12Actions .tichor-actions-controls button{padding:8px 10px!important;margin:0!important;min-height:40px!important}
+#t12Actions .tichor-action-item{padding:12px!important;margin:7px 0!important;border-radius:12px!important}
+#t12Actions #tichorActionsSummary{margin:5px 0!important}
+#t12Actions .tc-actions-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:8px 0}
+#t12Actions .tc-actions-stat{border:1px solid var(--act-border);border-radius:12px;padding:10px 8px;text-align:center;min-width:0}
+#t12Actions .tc-actions-stat strong{display:block;font-size:1.45rem;line-height:1.3}
+#t12Actions .tc-actions-stat span{font-size:.78rem}
+@media(max-width:520px){#t12Actions{gap:5px}#t12Actions .tichor-actions-controls{gap:6px}#t12Actions .tichor-actions-controls button{font-size:.8rem}}
+</style>
+<script>
+(function(){
+function compact(){
+const host=document.getElementById('t12Actions');if(!host)return;
+const auto=document.getElementById('tcAutonomousEntry');
+if(auto&&!auto.dataset.compactReady){
+ auto.dataset.compactReady='1';auto.classList.add('tc-collapsed');
+ const heading=document.createElement('div');heading.className='tc-auto-heading';
+ const title=auto.querySelector('h3');if(title)heading.append(title);
+ const expand=document.createElement('button');expand.type='button';expand.textContent='Settings ▾';expand.setAttribute('aria-expanded','false');
+ expand.onclick=()=>{const closed=auto.classList.toggle('tc-collapsed');expand.textContent=closed?'Settings ▾':'Settings ▴';expand.setAttribute('aria-expanded',String(!closed))};
+ heading.append(expand);auto.prepend(heading);
+}
+const root=document.getElementById('tichorActionsDashboard');if(!root)return;
+const controls=root.querySelector('.tichor-actions-controls');
+if(controls){
+ const refresh=Array.from(controls.querySelectorAll('button')).find(b=>/refresh/i.test(b.textContent||''));
+ if(refresh)refresh.textContent='↻ Refresh all';
+ if(refresh&&!refresh.dataset.combined){refresh.dataset.combined='1';refresh.onclick=()=>{window.tichorRefreshAutonomous?.();window.tichorLoadActions?.()}}
+ const filter=controls.querySelector('select');if(filter){filter.style.height='40px';filter.style.maxHeight='40px';filter.style.minHeight='40px';filter.style.width='auto';filter.style.display='inline-block';}
+}
+const list=root.querySelector('.tichor-actions-list');if(!list)return;
+let stats=root.querySelector('.tc-actions-stats');
+if(!stats){stats=document.createElement('div');stats.className='tc-actions-stats';const summary=root.querySelector('#tichorActionsSummary');(summary||controls||list).before(stats)}
+const cards=Array.from(list.querySelectorAll('.tichor-action-item'));
+const total=cards.length;
+const soon=cards.filter(c=>c.querySelector('.tichor-action-flag.soon')).length;
+const overdue=cards.filter(c=>c.querySelector('.tichor-action-flag.overdue')).length;
+stats.replaceChildren();
+for(const [value,label] of [[total,'Visible actions'],[soon,'Due soon'],[overdue,'Overdue']]){
+ const cell=document.createElement('div');cell.className='tc-actions-stat';const num=document.createElement('strong');num.textContent=String(value);const caption=document.createElement('span');caption.textContent=label;cell.append(num,caption);stats.append(cell);
+}
+}
+let queued=false;const observer=new MutationObserver(()=>{if(queued)return;queued=true;queueMicrotask(()=>{queued=false;observer.disconnect();compact();observer.observe(document.getElementById('t12Actions')||document.body,{subtree:true,childList:true})})});
+function start(){compact();observer.observe(document.getElementById('t12Actions')||document.body,{subtree:true,childList:true})}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
+})();
+</script></body></html>
