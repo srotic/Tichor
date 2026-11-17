@@ -1162,7 +1162,7 @@ function tichorTranslationRoutingControl(){
 }
 window.tichorEnsureTranslationControls=()=>{tichorTranslatorControls();window.tichorMountTranslationWorkspace?.();};
 function tichorTranslatorControls(){
- const settings=$('t12Settings');if(!settings||$('tichorTranslatorBar'))return;
+ const settings=$('t12Translate');if(!settings||$('tichorTranslatorBar'))return;
  const bar=document.createElement('section');bar.id='tichorTranslatorBar';bar.className='t12-preference';
  const title=document.createElement('h3');title.textContent='🌐 Language & Translation';
  const desc=document.createElement('p');desc.className='muted';desc.textContent='Translation is optional and runs on-device only in compatible browsers. Select your preferred reading language. Original messages remain accessible.';
