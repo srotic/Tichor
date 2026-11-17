@@ -2619,14 +2619,34 @@ function tcGroupMount(){
  const mailbox=$('tichorMailbox');
  if(mailbox)mailbox.before(panel);else $('savedContacts')?.before(panel);
  const tabs=tcGroupNode('div');tabs.className='tc-group-switch';tabs.setAttribute('role','group');tabs.setAttribute('aria-label','Conversation type');
- const personal=tcGroupButton('Personal chats',()=>{panel.hidden=true;mailbox?.scrollIntoView({behavior:'smooth',block:'start'})});
- const groups=tcGroupButton('Group chats',()=>{panel.hidden=false;panel.scrollIntoView({behavior:'smooth',block:'start'});tcGroupRefresh()});
+ const personal=tcGroupButton('Personal chats',()=>tcGroupSwitchView('personal'));
+ const groups=tcGroupButton('Group chats',()=>tcGroupSwitchView('groups'));
+ personal.id='tcPersonalSwitch';groups.id='tcGroupsSwitch';
  tabs.append(personal,groups);
  if(mailbox)mailbox.before(tabs);
  panel.hidden=true;
- const groupTab=tcGroupButton('👥 Groups',()=>{panel.hidden=false;panel.scrollIntoView({behavior:'smooth',block:'start'});tcGroupRefresh()});
+ const groupTab=tcGroupButton('👥 Groups',()=>tcGroupSwitchView('groups'));
+ groupTab.id='tcMailboxGroupsSwitch';
  const existing=$('tabRequests');if(existing)existing.after(groupTab);
+ tcGroupSwitchView('personal',false);
 
+}
+function tcGroupSwitchView(mode,scroll=true){
+ const isGroup=mode==='groups',panel=$('tcGroupPanel'),mailbox=$('tichorMailbox');
+ if(!panel)return;
+ panel.hidden=!isGroup;
+ // Hide the personal messaging surface, not just its Inbox list.
+ const personalElements=[mailbox,$('savedContacts'),$('sendForm'),$('messages')];
+ for(const el of personalElements)if(el)el.hidden=isGroup;
+ // The recipient composer is outside the mailbox; hide its containing section only
+ // when it is a distinct conversation card, preserving group controls.
+ const personalButton=$('tcPersonalSwitch'),groupButton=$('tcGroupsSwitch');
+ for(const [b,selected] of [[personalButton,!isGroup],[groupButton,isGroup]]){
+  if(!b)continue;b.classList.toggle('active',selected);b.setAttribute('aria-pressed',String(selected));
+ }
+ const groupTab=$('tcMailboxGroupsSwitch');if(groupTab)groupTab.setAttribute('aria-pressed',String(isGroup));
+ if(isGroup)tcGroupRefresh().catch(e=>tcGroupStatus(e.message));
+ if(scroll)(isGroup?panel:mailbox)?.scrollIntoView({behavior:'smooth',block:'start'});
 }
 async function tcGroupQuery(query){const {data,error}=await query;if(error)throw error;return data}
 async function tcGroupRpc(fn,args){return tcGroupQuery(supa.rpc(fn,args))}
@@ -2753,6 +2773,9 @@ async function tcGroupAdmins(id,members){
 .tc-group-switch{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
 .tc-group-switch button{flex:1;min-width:130px}
 #tcGroupPanel[hidden]{display:none!important}
+#tichorMailbox[hidden],#savedContacts[hidden],#sendForm[hidden],#messages[hidden]{display:none!important}
+.tc-group-switch button.active{background:#176d5b;color:#fff;border-color:#55baa3}
+.tc-group-switch button[aria-pressed="false"]{opacity:.82}
 #tcGroupPanel{max-width:100%;min-width:0}
 .tc-group-heading{border-bottom:1px solid #8884;padding-bottom:8px}
 .tc-group-heading h3{margin:0}
