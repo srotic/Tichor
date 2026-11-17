@@ -1471,7 +1471,7 @@ function tichorVoiceComposer(toolbar,attach){
     blob=new Blob(parts,{type:recorder.mimeType||mime||'audio/webm'});
     stream?.getTracks().forEach(t=>t.stop());stream=null;
     if(!blob.size||blob.size>10485760){note.textContent='Voice note empty or exceeds 10 MB';blob=null;return}
-    url=URL.createObjectURL(blob);audio.src=url;audio.hidden=false;send.disabled=false;note.textContent='Ready to send';
+    url=URL.createObjectURL(blob);audio.src=url;audio.hidden=false;send.disabled=false;note.textContent='Sending voice note…';send.click();
    };
    recorder.start(250);panel.hidden=false;button.disabled=true;stop.disabled=false;started=Date.now();
    timer=setInterval(()=>{const seconds=Math.floor((Date.now()-started)/1000);note.textContent='● Recording '+Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');if(seconds>=120)stop.click()},500);
@@ -1485,7 +1485,7 @@ function tichorVoiceComposer(toolbar,attach){
   const file=new File([blob],'voice-note-'+Date.now()+'.'+ext,{type});
   const dt=new DataTransfer();dt.items.add(file);$('tichorFile').files=dt.files;
   $('body').value='🎙 Voice message';send.disabled=true;
-  $('sendForm').requestSubmit();reset();
+  $('sendForm').requestSubmit();note.textContent='Sending voice note…';const check=()=>{if($('sendForm').querySelector('button[type=submit]').disabled){setTimeout(check,300);return}if(!$('tichorFile').files.length)reset();else{note.textContent=$('chatStatus').textContent||'Send failed';send.disabled=false}};setTimeout(check,350);
  };
 }
 function tichorGlassComposer(){
@@ -2108,7 +2108,7 @@ $('sendForm').onsubmit=async e=>{e.preventDefault();if(!peer)return status('chat
  if(!await tichorEnsureContactAllowed(peer))throw Error('Contact approval required before messaging.');
  tichorCheckSendGuard();
  status('chatStatus','Sending…');
- const allowed=['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','image/png','image/jpeg','image/webp','text/plain'];
+ const allowed=['audio/webm','audio/mp4','audio/ogg','audio/wav','application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','image/png','image/jpeg','image/webp','text/plain'];
  if(file&&(file.size>10485760||!allowed.includes(file.type)))throw Error('Choose a supported file under 10 MB.');
  const {data:msg,error:insertError}=await supa.from('chat_messages').insert({sender_id:user.id,recipient_id:peer,body:body||(file?'📎 Attachment':'')}).select('id').single();if(insertError)throw insertError;
  tichorRecordSend();
