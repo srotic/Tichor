@@ -1471,17 +1471,23 @@ function tichorVoiceComposer(toolbar,attach){
    const type=blob.type.split(';')[0]||'audio/mp4';
    const ext=type==='audio/mp4'?'m4a':type==='audio/ogg'?'ogg':type==='audio/wav'?'wav':'webm';
    const file=new File([blob],'voice-note-'+Date.now()+'.'+ext,{type});
-   // Upload first: never create an empty "Voice message" chat bubble on failure.
-   const path=user.id+'/voice/'+crypto.randomUUID()+'.'+ext;
-   const {error:uploadError}=await supa.storage.from('tichor-attachments').upload(path,file,{contentType:type,upsert:false});
-   if(uploadError)throw new Error(uploadError.message+(uploadError.message.includes('mime type')?' — storage bucket must allow '+type:''));
-   let msg=null;
+   // Storage RLS requires /<sender-id>/<existing-message-id>/<file>.
+   // Insert a provisional message first, then upload and attach; roll back on failure.
+   const {data:msg,error:insertError}=await supa.from('chat_messages').insert({sender_id:user.id,recipient_id:currentPeer,body:'🎙 Voice message'}).select('id').single();
+   if(insertError)throw new Error('Message authorization: '+insertError.message);
+   const path=user.id+'/'+msg.id+'/'+crypto.randomUUID()+'.'+ext;
+   let uploaded=false;
    try{
-    const {data:inserted,error:insertError}=await supa.from('chat_messages').insert({sender_id:user.id,recipient_id:currentPeer,body:'🎙 Voice message'}).select('id').single();
-    if(insertError)throw insertError;msg=inserted;
+    const {error:uploadError}=await supa.storage.from('tichor-attachments').upload(path,file,{contentType:type,upsert:false});
+    if(uploadError)throw new Error('Storage upload: '+uploadError.message);
+    uploaded=true;
     const {error:metaError}=await supa.from('tichor_attachments').insert({message_id:msg.id,sender_id:user.id,recipient_id:currentPeer,storage_path:path,file_name:file.name,mime_type:type,byte_size:file.size});
-    if(metaError)throw metaError;
-   }catch(e){if(msg)await supa.from('chat_messages').delete().eq('id',msg.id).eq('sender_id',user.id);await supa.storage.from('tichor-attachments').remove([path]);throw e}
+    if(metaError)throw new Error('Attachment record: '+metaError.message);
+   }catch(e){
+    if(uploaded)await supa.storage.from('tichor-attachments').remove([path]);
+    await supa.from('chat_messages').delete().eq('id',msg.id).eq('sender_id',user.id);
+    throw e;
+   }
    tichorRecordSend();status('chatStatus','Voice note sent');
    reset();await load();await loadContacts();await refreshFolder();
   }catch(e){note.textContent='Not sent: '+e.message;status('chatStatus','Voice note failed: '+e.message);send.disabled=false}
