@@ -706,12 +706,12 @@ const showTab=which=>{
  if(which==='inbox'||which==='requests'){const btn=get(which==='requests'?'tabRequests':'tabInbox');if(btn)btn.click();if(which==='requests')window.tichorRefreshRequests?.()}
  if(which==='translate'){window.tichorEnsureTranslationControls?.();window.tichorRenderTranslateWorkspace?.();}
 };
-for(const [key,ico,label] of tabs){const b=document.createElement('button');b.type='button';b.dataset.tab=key;b.setAttribute('aria-label',label);b.innerHTML='<span class="tichor-nav-icon" aria-hidden="true">'+ico+'</span><span class="tichor-nav-label">'+label+'</span>';b.onclick=()=>showTab(key);
+for(const [key,ico,label] of tabs){if(key==='translate'||key==='language')continue;const b=document.createElement('button');b.type='button';b.dataset.tab=key;b.setAttribute('aria-label',label);b.innerHTML='<span class="tichor-nav-icon" aria-hidden="true">'+ico+'</span><span class="tichor-nav-label">'+label+'</span>';b.onclick=()=>showTab(key);
  nav.append(b)}
  // Navigation is a single flat grid: no redundant category headings.
 // Place headings before their own categories, never in a tile column.
 const menuGroupOrder=[
- ['COMMUNICATION',['inbox','calls','contacts','requests','translate','language','actions','notifications']],
+ ['COMMUNICATION',['inbox','calls','contacts','requests','actions','notifications']],
  ['PRODUCTIVITY',['tasks','vault']],
  ['ACCOUNT',['profile','settings']]
 ];
@@ -3198,6 +3198,7 @@ const definitions=[
 ['Typography','Font style and text size','Aa',n=>/font/i.test(n.id+' '+n.className+' '+(n.querySelector('h3')?.textContent||''))],
 ['Privacy & Security','Contact and privacy controls','♢',n=>/privacy|security|block|contact and call controls/i.test(n.id+' '+n.className+' '+(n.querySelector('h3')?.textContent||''))],
 ['Calls & Notifications','Ringtones and call preferences','☎',n=>/ringtone|sound|callinformation|call preferences|notification/i.test(n.id+' '+n.className+' '+(n.querySelector('h3')?.textContent||''))],
+['Language & Translation','Reading language and translation preferences','🌐',n=>n.id==='tichorTranslatorBar'],
 ['Account','Profile and other preferences','◉',n=>false],
 ['About TichorConnect','Our story, founder and vision','ⓘ',n=>n.id==='tichorAbout']
 ];
@@ -3215,8 +3216,8 @@ return {details,body};
 const about=document.getElementById('tichorAbout');if(about)about.open=true;
 const original=[...settings.children].filter(n=>n!==heading&&!n.classList.contains('tc-settings-group'));
 original.forEach(n=>{
-const index=n===about?5:definitions.findIndex((d,i)=>i!==4&&i!==5&&d[3](n));
-groups[index<0?4:index].body.append(n);
+const index=n===about?6:definitions.findIndex((d,i)=>i!==5&&i!==6&&d[3](n));
+groups[index<0?5:index].body.append(n);
 });
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mount,0),{once:true});else setTimeout(mount,0);
@@ -3313,7 +3314,7 @@ panel.append(title,description,label,note);workspace.prepend(panel);sync();
 const observer=new MutationObserver(sync);const selector=document.getElementById('tichorTranslationMode');if(selector)selector.addEventListener('change',sync);
 }
 const bar=document.getElementById('tichorTranslatorBar');
-if(bar&&bar.parentElement!==workspace)workspace.insertBefore(bar,workspace.querySelector('#tichorTranslateThreads'));
+// Language and translation controls now belong in Settings; never move them back to Translate.
 }
 window.tichorMountTranslationWorkspace=mount;
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mount,200),{once:true});else setTimeout(mount,200);
