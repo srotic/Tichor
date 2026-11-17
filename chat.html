@@ -2752,4 +2752,11 @@ html #t12Settings.tc-settings-compact .tc-settings-group>summary:hover{filter:br
 #t12Calls .tc-call-circle:active{transform:scale(.96)}
 #t12Calls #callStatus{font-size:15px!important;line-height:1.4!important}
 #tcVideoStage .tc-video-waiting{font-size:20px!important;font-weight:650!important}
+</style><style id="tc-calls-sticky-header-v1">
+/* Freeze Calls toolbar while the history scrolls underneath. */
+#t12Calls{overflow:visible!important}
+#t12Calls .tc-call-tools{position:sticky!important;top:env(safe-area-inset-top, 0px)!important;z-index:35!important;padding:12px 12px 14px!important;margin:-12px -12px 12px!important;background:#162934!important;background:color-mix(in srgb,var(--tichor-surface,#162934) 94%,#101d25 6%)!important;border-radius:15px!important;box-shadow:0 8px 18px #0003!important;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+#t12Calls .tc-call-tools .tc-call-title{margin-top:0!important}
+#t12Calls .tc-call-tools #tcCallSearch{margin-bottom:0!important}
+@media(max-width:600px){#t12Calls .tc-call-tools{padding:10px!important;margin:-10px -10px 10px!important;border-radius:12px!important}}
 </style></body></html>
