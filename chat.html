@@ -888,7 +888,7 @@ function tichorMountPrivacy(){
 }
 const quickBlockButton=document.getElementById('tichorQuickBlock');if(quickBlockButton)quickBlockButton.addEventListener('click',tichorToggleBlockCurrent);
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',tichorMountPrivacy,{once:true});else tichorMountPrivacy();
-async function loggedIn(u){user=u;const chosen=localStorage.getItem(TICHOR_LANG_KEY);if(!localStorage.getItem('tichor-preferred-language:'+u.id)&&chosen)localStorage.setItem('tichor-preferred-language:'+u.id,chosen);tichorLanguageChoice();tichorPrivacyLoad();await tichorLoadKnownCallers();show('auth',false);show('chat',true);$('who').textContent='Signed in as '+(u.email||u.phone||'Tichor user');await loadProfile();await tichorRefreshRequests();await loadContacts();await refreshFolder();await acknowledgeDelivery();await startCalling();startMessageUpdates();}
+async function loggedIn(u){user=u;const chosen=localStorage.getItem(TICHOR_LANG_KEY);if(!localStorage.getItem('tichor-preferred-language:'+u.id)&&chosen)localStorage.setItem('tichor-preferred-language:'+u.id,chosen);tichorLanguageChoice();tichorPrivacyLoad();await tichorLoadKnownCallers();show('auth',false);show('chat',true);$('who').textContent='Signed in as '+(u.email||u.phone||'Tichor user');await loadProfile();await tichorRefreshRequests();await loadContacts();tcGroupMount();tcGroupRefresh().catch(console.warn);await refreshFolder();await acknowledgeDelivery();await startCalling();startMessageUpdates();}
 
 // Inbox and Sent are derived from existing messages; no new database tables needed.
 let activeFolder='inbox',folderBusy=false;
@@ -2596,6 +2596,124 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('focus',()=>{check();applyUpdate()});
     document.addEventListener('input',()=>{if(updatePending)applyUpdate()});
   }).catch(console.warn);
+}
+
+
+/* Group messaging — requires supabase/migrations/20261117_tichor_groups.sql */
+let tcGroupId=null,tcGroupTimer=null;
+function tcGroupNode(tag,textValue){const n=document.createElement(tag);if(textValue!==undefined)n.textContent=textValue;return n}
+function tcGroupStatus(message){const n=$('tcGroupStatus');if(n)n.textContent=message}
+function tcGroupButton(label,handler){const b=tcGroupNode('button',label);b.type='button';b.addEventListener('click',()=>Promise.resolve(handler()).catch(e=>tcGroupStatus(e.message)));return b}
+function tcGroupMount(){
+ if($('tcGroupPanel'))return;
+ const panel=tcGroupNode('section');panel.id='tcGroupPanel';panel.className='card';
+ panel.style.cssText='margin:12px 0;display:grid;gap:10px';
+ panel.append(tcGroupNode('h3','Group chats'));
+ const toolbar=tcGroupNode('div');toolbar.style.cssText='display:flex;gap:8px;flex-wrap:wrap';
+ toolbar.append(tcGroupButton('Create group',tcGroupCreate),tcGroupButton('Refresh groups',tcGroupRefresh));
+ panel.append(toolbar);
+ const status=tcGroupNode('p');status.id='tcGroupStatus';status.className='muted';status.setAttribute('role','status');panel.append(status);
+ const invites=tcGroupNode('div');invites.id='tcGroupInvites';panel.append(invites);
+ const list=tcGroupNode('div');list.id='tcGroupList';panel.append(list);
+ const thread=tcGroupNode('div');thread.id='tcGroupThread';panel.append(thread);
+ $('savedContacts')?.before(panel);
+}
+async function tcGroupQuery(query){const {data,error}=await query;if(error)throw error;return data}
+async function tcGroupRpc(fn,args){return tcGroupQuery(supa.rpc(fn,args))}
+async function tcGroupCreate(){
+ const name=prompt('Name your new Tichor group (1–80 characters):');if(name===null)return;
+ if(!name.trim()||name.trim().length>80)throw Error('Enter a group name of up to 80 characters.');
+ const id=await tcGroupRpc('tichor_group_create',{group_name:name.trim()});tcGroupStatus('Group created. Invite approved contacts to join.');await tcGroupRefresh();await tcGroupOpen(id);
+}
+async function tcGroupRefresh(){
+ if(!user||!$('tcGroupPanel'))return;
+ try{
+  const [members,invites]=await Promise.all([
+   tcGroupQuery(supa.from('tichor_group_members').select('group_id,role').eq('user_id',user.id)),
+   tcGroupQuery(supa.from('tichor_group_invites').select('id,group_id,invited_by').eq('invited_user',user.id).eq('status','pending'))
+  ]);
+  const list=$('tcGroupList');list.replaceChildren();
+  const ids=(members||[]).map(m=>m.group_id);
+  if(!ids.length)list.append(tcGroupNode('p','No groups yet. Create one to get started.'));
+  else{
+   const groups=await tcGroupQuery(supa.from('tichor_groups').select('id,name,members_can_invite,owner_id').in('id',ids));
+   for(const g of groups||[])list.append(tcGroupButton('👥 '+g.name,()=>tcGroupOpen(g.id)));
+  }
+  const box=$('tcGroupInvites');box.replaceChildren();
+  for(const invite of invites||[]){
+   const row=tcGroupNode('div');row.style.cssText='padding:8px;border:1px solid #8885;border-radius:8px;margin:6px 0';
+   row.append(tcGroupNode('span','Group invitation · '+invite.group_id.slice(0,8)+' '));
+   row.append(tcGroupButton('Accept',async()=>{await tcGroupRpc('tichor_group_respond',{invite_id:invite.id,accept_invite:true});await tcGroupRefresh()}));
+   row.append(tcGroupButton('Decline',async()=>{await tcGroupRpc('tichor_group_respond',{invite_id:invite.id,accept_invite:false});await tcGroupRefresh()}));
+   box.append(row);
+  }
+  tcGroupStatus('');
+ }catch(e){tcGroupStatus('Groups unavailable: '+e.message+'. The group database migration must be installed first.')}
+}
+async function tcGroupOpen(id){
+ tcGroupId=id;
+ const [groups,members]=await Promise.all([
+  tcGroupQuery(supa.from('tichor_groups').select('id,name,owner_id,members_can_invite').eq('id',id).single()),
+  tcGroupQuery(supa.from('tichor_group_members').select('user_id,role').eq('group_id',id))
+ ]);
+ const role=(members||[]).find(m=>m.user_id===user.id)?.role;
+ if(!role)throw Error('You are not a group member.');
+ const admin=role==='owner'||role==='admin',canInvite=admin||groups.members_can_invite;
+ const view=$('tcGroupThread');view.replaceChildren();
+ view.append(tcGroupNode('h3',groups.name));
+ const controls=tcGroupNode('div');controls.style.cssText='display:flex;gap:8px;flex-wrap:wrap';
+ if(canInvite)controls.append(tcGroupButton('Add participants',()=>tcGroupInvite(id)));
+ if(admin){
+  controls.append(tcGroupButton(groups.members_can_invite?'Invites: all members':'Invites: admins only',async()=>{
+   await tcGroupRpc('tichor_group_set_invites',{g:id,allow_members:!groups.members_can_invite});await tcGroupOpen(id);
+  }));
+  controls.append(tcGroupButton('Manage admins',()=>tcGroupAdmins(id,members)));
+ }
+ if(role!=='owner')controls.append(tcGroupButton('Leave group',async()=>{
+  if(!confirm('Leave this group?'))return;
+  await tcGroupRpc('tichor_group_leave',{g:id});tcGroupId=null;view.replaceChildren();await tcGroupRefresh();
+ }));
+ view.append(controls);
+ const messages=tcGroupNode('div');messages.id='tcGroupMessages';messages.style.cssText='max-height:320px;overflow:auto;display:grid;gap:8px;margin:12px 0';view.append(messages);
+ const form=tcGroupNode('form');form.style.cssText='display:flex;gap:8px;flex-wrap:wrap';
+ const input=tcGroupNode('input');input.required=true;input.maxLength=5000;input.placeholder='Message group…';input.style.flex='1';
+ const send=tcGroupNode('button','Send');send.type='submit';form.append(input,send);
+ form.onsubmit=async e=>{e.preventDefault();const body=input.value.trim();if(!body)return;send.disabled=true;try{await tcGroupQuery(supa.from('tichor_group_messages').insert({group_id:id,sender_id:user.id,body}));input.value='';await tcGroupMessages(id)}catch(err){tcGroupStatus(err.message)}finally{send.disabled=false}};
+ view.append(form);
+ await tcGroupMessages(id);
+ clearInterval(tcGroupTimer);tcGroupTimer=setInterval(()=>{if(user&&tcGroupId===id&&!document.hidden)tcGroupMessages(id).catch(console.warn)},4000);
+}
+async function tcGroupMessages(id){
+ const data=await tcGroupQuery(supa.from('tichor_group_messages').select('id,sender_id,body,created_at').eq('group_id',id).order('created_at',{ascending:true}).limit(150));
+ if(tcGroupId!==id)return;
+ const box=$('tcGroupMessages');if(!box)return;
+ const atBottom=box.scrollTop+box.clientHeight>=box.scrollHeight-35;
+ box.replaceChildren();
+ for(const m of data||[]){
+  const line=tcGroupNode('div');line.style.cssText='padding:8px;border:1px solid #8884;border-radius:9px;white-space:pre-wrap;overflow-wrap:anywhere';
+  const label=tcGroupNode('strong',m.sender_id===user.id?'You':m.sender_id.slice(0,8));line.append(label,tcGroupNode('div',m.body));box.append(line);
+ }
+ if(atBottom)box.scrollTop=box.scrollHeight;
+}
+async function tcGroupInvite(id){
+ const contacts=await tcGroupQuery(supa.from('tichor_contacts').select('contact_id,label').eq('owner_id',user.id).limit(100));
+ const approved=[];
+ for(const c of contacts||[]){try{if(await tichorEnsureContactAllowed(c.contact_id))approved.push(c)}catch(e){}}
+ if(!approved.length)throw Error('No approved contacts available to invite.');
+ const choice=prompt('Enter the number of the approved contact to invite:\\n'+approved.map((c,i)=>(i+1)+'. '+c.label).join('\\n'));
+ if(choice===null)return;
+ const idx=Number(choice)-1;if(!Number.isInteger(idx)||idx<0||idx>=approved.length)throw Error('Invalid contact selection.');
+ await tcGroupRpc('tichor_group_invite',{g:id,recipient:approved[idx].contact_id});
+ tcGroupStatus('Invitation sent. The recipient must accept to join.');
+}
+async function tcGroupAdmins(id,members){
+ const eligible=members.filter(m=>m.role!=='owner');
+ if(!eligible.length)throw Error('Invite another member before assigning administrators.');
+ const choice=prompt('Select member to toggle administrator status:\\n'+eligible.map((m,i)=>(i+1)+'. '+m.user_id.slice(0,12)+' ('+m.role+')').join('\\n'));
+ if(choice===null)return;const idx=Number(choice)-1;
+ if(!Number.isInteger(idx)||idx<0||idx>=eligible.length)throw Error('Invalid member selection.');
+ await tcGroupRpc('tichor_group_set_admin',{g:id,target:eligible[idx].user_id,make_admin:eligible[idx].role!=='admin'});
+ await tcGroupOpen(id);
 }
 
 </script><style>
