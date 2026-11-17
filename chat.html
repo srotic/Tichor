@@ -682,7 +682,7 @@ const vaultRender=async()=>{
 vget('tichorVaultSearch').oninput=()=>vaultRender();
 vget('tichorVaultUpload').onchange=async e=>{const files=[...e.target.files];if(!files.length)return;const folder=vget('tichorVaultFolder').value;let saved=0;
  try{for(const file of files){if(file.size>10*1024*1024){vstatus('Files must be 10 MB or smaller: '+file.name);continue}
- const allowed=['application/pdf','image/png','image/jpeg','image/webp','text/plain','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document'];if(!allowed.includes(file.type)){vstatus('Unsupported file type: '+file.name);continue}
+ const allowed=['audio/webm','audio/mp4','audio/ogg','audio/wav','application/pdf','image/png','image/jpeg','image/webp','text/plain','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document'];if(!allowed.includes(file.type)){vstatus('Unsupported file type: '+file.name);continue}
  await vaultOp('readwrite',store=>store.put({id:crypto.randomUUID(),name:file.name,folder,blob:file,added:Date.now()}));saved++}
  await vaultRender();if(saved)vstatus(saved+' file(s) saved locally. Export a backup regularly.');
  }catch(err){vstatus('Could not save file: '+err.message)}finally{e.target.value=''}};
@@ -1446,6 +1446,48 @@ async function sendTichorPoll(payload){if(!user||!peer)throw Error('Open a conve
 function tichorPollComposer(){const form=$('sendForm');if(!form||$('tichorPollComposer'))return;const panel=document.createElement('section');panel.id='tichorPollComposer';panel.className='t12-preference';const toggle=document.createElement('button');toggle.type='button';toggle.textContent='◉ Decision';const fields=document.createElement('div');fields.hidden=true;const question=document.createElement('textarea');question.maxLength=300;question.placeholder='Decision question';question.setAttribute('aria-label','Decision question');const options=document.createElement('textarea');options.rows=4;options.placeholder='2–6 options, one per line';options.setAttribute('aria-label','Decision options');const send=document.createElement('button');send.type='button';send.textContent='Send decision';toggle.onclick=()=>{fields.hidden=!fields.hidden};send.onclick=async()=>{const list=options.value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);if(!question.value.trim()||list.length<2||list.length>6||list.some(x=>x.length>100)||new Set(list.map(x=>x.toLowerCase())).size!==list.length)return alert('Provide a question and 2–6 unique options under 100 characters.');send.disabled=true;try{await sendTichorPoll({type:'create',question:question.value.trim(),options:list});question.value='';options.value='';fields.hidden=true}catch(e){alert(e.message)}finally{send.disabled=false}};fields.append(question,options,send);panel.append(toggle,fields);form.before(panel)}
 function tichorPollCard(m,p,votes){const card=document.createElement('section');card.className='t12-preference';card.style.margin='8px 0';const title=document.createElement('strong');title.textContent='◉ Decision: '+p.question;card.append(title);const selected=votes.get(user.id);p.options.forEach((label,index)=>{const count=[...votes.values()].filter(x=>x===index).length;const b=document.createElement('button');b.type='button';b.style.cssText='display:block;width:100%;text-align:left;margin:8px 0;min-height:44px';b.textContent=(selected===index?'✓ ':'')+label+' · '+count+' vote'+(count===1?'':'s');b.setAttribute('aria-pressed',String(selected===index));b.onclick=async()=>{b.disabled=true;try{await sendTichorPoll({type:'vote',id:m.id,choice:index})}catch(e){alert(e.message)}finally{b.disabled=false}};card.append(b)});const note=document.createElement('small');note.className='muted';note.textContent=votes.size+' participant(s) voted · Tap to '+(selected===undefined?'vote':'change your vote');card.append(note);return card}
 
+
+function tichorVoiceComposer(toolbar,attach){
+ if($('tcVoiceRecord'))return;
+ const button=document.createElement('button');button.id='tcVoiceRecord';button.type='button';button.textContent='🎙';button.title='Record voice message';button.setAttribute('aria-label','Record voice message');button.className='tichor-glass-icon';
+ const panel=document.createElement('div');panel.id='tcVoicePanel';panel.hidden=true;
+ const note=document.createElement('span');note.id='tcVoiceStatus';note.setAttribute('role','status');
+ const audio=document.createElement('audio');audio.controls=true;audio.hidden=true;
+ const stop=document.createElement('button');stop.type='button';stop.textContent='Stop';
+ const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';
+ const send=document.createElement('button');send.type='button';send.textContent='Send voice';send.disabled=true;
+ panel.append(note,audio,stop,cancel,send);toolbar.after(panel);if(attach)attach.before(button);else toolbar.append(button);
+ let recorder=null,stream=null,blob=null,parts=[],url=null,timer=null,started=0;
+ function reset(){if(timer)clearInterval(timer);timer=null;stream?.getTracks().forEach(t=>t.stop());stream=null;if(url)URL.revokeObjectURL(url);url=null;blob=null;parts=[];audio.hidden=true;audio.removeAttribute('src');panel.hidden=true;button.disabled=false;send.disabled=true}
+ button.onclick=async()=>{
+  if(!peer){status('chatStatus','Open a conversation first');return}
+  if(!navigator.mediaDevices?.getUserMedia||typeof MediaRecorder==='undefined'){status('chatStatus','Microphone recording unavailable in this browser');return}
+  try{
+   stream=await navigator.mediaDevices.getUserMedia({audio:true});
+   const mime=['audio/mp4','audio/webm;codecs=opus','audio/webm','audio/ogg'].find(t=>MediaRecorder.isTypeSupported(t));
+   recorder=new MediaRecorder(stream,mime?{mimeType:mime}:undefined);parts=[];
+   recorder.ondataavailable=e=>{if(e.data.size)parts.push(e.data)};
+   recorder.onstop=()=>{
+    blob=new Blob(parts,{type:recorder.mimeType||mime||'audio/webm'});
+    stream?.getTracks().forEach(t=>t.stop());stream=null;
+    if(!blob.size||blob.size>10485760){note.textContent='Voice note empty or exceeds 10 MB';blob=null;return}
+    url=URL.createObjectURL(blob);audio.src=url;audio.hidden=false;send.disabled=false;note.textContent='Ready to send';
+   };
+   recorder.start(250);panel.hidden=false;button.disabled=true;stop.disabled=false;started=Date.now();
+   timer=setInterval(()=>{const seconds=Math.floor((Date.now()-started)/1000);note.textContent='● Recording '+Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');if(seconds>=120)stop.click()},500);
+  }catch(e){reset();status('chatStatus','Microphone unavailable: '+e.message)}
+ };
+ stop.onclick=()=>{if(recorder?.state==='recording'){if(timer)clearInterval(timer);timer=null;recorder.stop();stop.disabled=true;note.textContent='Preparing…'}};
+ cancel.onclick=()=>{if(recorder?.state==='recording'){recorder.onstop=null;recorder.stop()}reset()};
+ send.onclick=async()=>{
+  if(!blob)return;
+  const type=blob.type.split(';')[0]||'audio/webm';const ext=type==='audio/mp4'?'m4a':type==='audio/ogg'?'ogg':'webm';
+  const file=new File([blob],'voice-note-'+Date.now()+'.'+ext,{type});
+  const dt=new DataTransfer();dt.items.add(file);$('tichorFile').files=dt.files;
+  $('body').value='🎙 Voice message';send.disabled=true;
+  $('sendForm').requestSubmit();reset();
+ };
+}
 function tichorGlassComposer(){
  const form=$('sendForm'),toolbar=form?.querySelector('.tichor-compose');
  if(!form||!toolbar||form.dataset.glassReady)return;form.dataset.glassReady='1';
@@ -1462,6 +1504,7 @@ function tichorGlassComposer(){
  const setIcon=(el,key,label)=>{if(!el)return;el.replaceChildren();const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('width','25');svg.setAttribute('height','25');svg.setAttribute('fill','none');svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','1.9');svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round');svg.setAttribute('aria-hidden','true');svg.innerHTML=icons[key];el.append(svg);el.setAttribute('aria-label',label);el.title=label;el.classList.add('tichor-glass-icon','tichor-glass-'+key)};
  setIcon(write,'wand','AI writing assistant');setIcon(emoji,'smile','Choose emoji');
  if(attach){setIcon(attach,'clip','Attach document or image');attach.setAttribute('role','button');attach.tabIndex=0;attach.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();file?.click()}}}
+ tichorVoiceComposer(toolbar,attach);
  setIcon(send,'send','Send message');send.classList.add('tichor-glass-send');
  // Move existing controls without replacing their listeners.
  if(write)toolbar.append(write);if(emoji)toolbar.append(emoji);if(attach)toolbar.append(attach);if(send)toolbar.append(send);
@@ -1854,7 +1897,15 @@ async function load(){
 
   }
   const a=attached.get(m.id);
-  if(a&&(/\\.(png|jpe?g|webp|pdf)$/i.test(a.file_name))){
+  if(a&&/\\.(webm|m4a|mp4|ogg|wav)$/i.test(a.file_name)){
+ const wrap=document.createElement('div');wrap.className='tc-voice-message';
+ const label=document.createElement('span');label.textContent='🎙 Voice message';
+ const player=document.createElement('audio');player.controls=true;player.preload='none';player.className='tc-voice-player';player.setAttribute('aria-label','Play voice message');
+ const {data:signed,error:err}=await supa.storage.from('tichor-attachments').createSignedUrl(a.storage_path,3600);
+ if(!err&&signed?.signedUrl)player.src=signed.signedUrl;
+ wrap.append(label,player);d.append(wrap);
+}
+if(a&&(/\\.(png|jpe?g|webp|pdf)$/i.test(a.file_name))){
    const isPdf=/\\.pdf$/i.test(a.file_name);
    const trigger=document.createElement('button');trigger.type='button';trigger.className='tichor-preview-trigger';
    trigger.setAttribute('aria-label','Preview '+a.file_name);
@@ -2932,4 +2983,13 @@ body.tc-call-floating>.tc-call-composer.tc-call-active #hangup{background:#d6384
 #sendForm .tichor-compose #tichorComposeMenu,
 #tichorComposeMenu,
 #tichorDecisionShortcut{display:none!important}
+</style><style id="tc-voice-notes-v1">
+#tcVoiceRecord{min-width:42px;min-height:42px;font-size:23px;cursor:pointer}
+#tcVoicePanel{display:flex;align-items:center;flex-wrap:wrap;gap:9px;padding:10px;margin:8px 0;border-radius:14px;background:#173a40;color:#fff}
+#tcVoicePanel[hidden]{display:none!important}
+#tcVoicePanel button{padding:8px 12px;border-radius:10px;background:#246a5b;color:white}
+#tcVoicePanel button:disabled{opacity:.45}
+#tcVoicePanel audio{width:min(100%,260px)}
+.tc-voice-message{display:flex;flex-direction:column;gap:7px;max-width:340px;padding:9px;margin:8px 0;border-radius:12px;background:#183b3c;color:#fff}
+.tc-voice-player{width:100%}
 </style></body></html>
