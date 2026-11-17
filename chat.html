@@ -2757,6 +2757,8 @@ function tcGroupFilter(){
 }
 function tcGroupBack(){
  tcGroupId=null;clearInterval(tcGroupTimer);
+ $('tcGroupPanel')?.classList.remove('tc-group-fullscreen');
+ document.body.classList.remove('tc-group-chat-open');
  $('tcGroupThread')?.replaceChildren();
  if($('tcGroupList'))$('tcGroupList').hidden=false;
  if($('tcGroupSearch'))$('tcGroupSearch').hidden=false;
@@ -2796,6 +2798,8 @@ async function tcGroupOpen(id){
  if(!role)throw Error('You are not a group member.');
  const admin=role==='owner'||role==='admin',canInvite=admin||groups.members_can_invite;
  const view=$('tcGroupThread');view.replaceChildren();
+ $('tcGroupPanel')?.classList.add('tc-group-fullscreen');
+ document.body.classList.add('tc-group-chat-open');
  $('tcGroupList').hidden=true;$('tcGroupSearch').hidden=true;
  if($('tcGroupManage'))$('tcGroupManage').hidden=true;
  if($('tcGroupInvites'))$('tcGroupInvites').hidden=true;
@@ -2805,22 +2809,21 @@ async function tcGroupOpen(id){
  const heading=tcGroupNode('div');heading.className='tc-group-heading';
  heading.append(tcGroupNode('h3','👥 '+groups.name),tcGroupNode('p',(members||[]).length+' participants · '+(admin?'Administrator':'Member')));
  view.append(heading);
- const controls=tcGroupNode('div');controls.className='tc-group-thread-controls';
- if(canInvite){const membersDetails=tcGroupNode('details');membersDetails.className='tc-group-control-details';membersDetails.append(tcGroupNode('summary','Members'));const membersBody=tcGroupNode('div');membersBody.className='tc-group-control-body';membersBody.append(tcGroupButton('＋ Add participants',()=>tcGroupInvite(id)));membersDetails.append(membersBody);controls.append(membersDetails);}
+ const controls=tcGroupNode('details');controls.className='tc-group-unified-settings';
+ controls.append(tcGroupNode('summary','⚙ Group settings'));
+ const controlsBody=tcGroupNode('div');controlsBody.className='tc-group-unified-body';
+ if(canInvite)controlsBody.append(tcGroupButton('＋ Add participants',()=>tcGroupInvite(id)));
  if(admin){
-  const settings=tcGroupNode('details');settings.className='tc-group-settings tc-group-control-details';
-  settings.append(tcGroupNode('summary','Settings'));
-  const adminControls=tcGroupNode('div');adminControls.className='tc-group-admin-controls';
-  adminControls.append(tcGroupButton(groups.members_can_invite?'Who can invite: All members':'Who can invite: Administrators only',async()=>{
+  controlsBody.append(tcGroupButton(groups.members_can_invite?'Who can invite: All members':'Who can invite: Administrators only',async()=>{
    await tcGroupRpc('tichor_group_set_invites',{g:id,allow_members:!groups.members_can_invite});await tcGroupOpen(id);
   }));
-  adminControls.append(tcGroupButton('Manage admins',()=>tcGroupAdmins(id,members)));
-  settings.append(adminControls);controls.append(settings);
+  controlsBody.append(tcGroupButton('Manage admins',()=>tcGroupAdmins(id,members)));
  }
- if(role!=='owner')controls.append(tcGroupButton('Leave group',async()=>{
+ if(role!=='owner')controlsBody.append(tcGroupButton('Leave group',async()=>{
   if(!confirm('Leave this group?'))return;
-  await tcGroupRpc('tichor_group_leave',{g:id});tcGroupId=null;view.replaceChildren();await tcGroupRefresh();
+  await tcGroupRpc('tichor_group_leave',{g:id});tcGroupBack();
  }));
+ controls.append(controlsBody);
  view.append(controls);
  const messages=tcGroupNode('div');messages.id='tcGroupMessages';messages.style.cssText='max-height:320px;overflow:auto;display:grid;gap:8px;margin:12px 0';view.append(messages);
  const form=tcGroupNode('form');form.style.cssText='display:flex;gap:8px;flex-wrap:wrap';
@@ -3717,4 +3720,24 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 #tcGroupPanel #tcGroupThread form button{flex:0 0 auto!important;min-height:40px!important;padding:8px 12px!important}
 #tcGroupPanel [hidden]{display:none!important}
 @media(max-width:380px){#tcGroupPanel .tc-group-thread-controls{grid-template-columns:1fr}}
+</style><style id="tc-group-fullscreen-v1">
+body.tc-group-chat-open{overflow:hidden!important}
+#tcGroupPanel.tc-group-fullscreen{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;max-width:none!important;max-height:none!important;box-sizing:border-box!important;z-index:2147483000!important;margin:0!important;padding:env(safe-area-inset-top,12px) max(12px,env(safe-area-inset-right,12px)) env(safe-area-inset-bottom,12px) max(12px,env(safe-area-inset-left,12px))!important;border:0!important;border-radius:0!important;display:flex!important;flex-direction:column!important;overflow:hidden!important;background:var(--tc-group-screen-bg,#142731)!important;color:var(--tc-group-screen-fg,#f1f7f5)!important}
+#tcGroupPanel.tc-group-fullscreen>#tcGroupManage,#tcGroupPanel.tc-group-fullscreen>#tcGroupInvites,#tcGroupPanel.tc-group-fullscreen>#tcGroupInvitesHeading,#tcGroupPanel.tc-group-fullscreen>#tcGroupList,#tcGroupPanel.tc-group-fullscreen>.tc-group-main-heading,#tcGroupPanel.tc-group-fullscreen>#tcGroupStatus{display:none!important}
+#tcGroupPanel.tc-group-fullscreen #tcGroupThread{display:flex!important;flex-direction:column!important;flex:1 1 auto!important;min-height:0!important;gap:9px!important;overflow:hidden!important}
+#tcGroupPanel.tc-group-fullscreen .tc-group-back{align-self:flex-start!important;flex-shrink:0!important}
+#tcGroupPanel.tc-group-fullscreen .tc-group-heading{flex-shrink:0!important}
+#tcGroupPanel.tc-group-fullscreen .tc-group-unified-settings{flex-shrink:0!important;border:1px solid #829b9688;border-radius:11px;padding:0!important}
+#tcGroupPanel.tc-group-fullscreen .tc-group-unified-settings>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:9px 12px;font-size:14px;font-weight:650}
+#tcGroupPanel.tc-group-fullscreen .tc-group-unified-settings>summary::-webkit-details-marker{display:none}
+#tcGroupPanel.tc-group-fullscreen .tc-group-unified-settings>summary:after{content:'⌄';font-size:19px}
+#tcGroupPanel.tc-group-fullscreen .tc-group-unified-settings[open]>summary:after{content:'⌃'}
+#tcGroupPanel.tc-group-fullscreen .tc-group-unified-body{display:flex;flex-wrap:wrap;gap:8px;padding:9px;border-top:1px solid #829b9655}
+#tcGroupPanel.tc-group-fullscreen .tc-group-unified-body button{font-size:12px!important;padding:8px 10px!important;min-height:36px!important}
+#tcGroupPanel.tc-group-fullscreen #tcGroupMessages{flex:1 1 auto!important;min-height:0!important;max-height:none!important;overflow-y:auto!important;overscroll-behavior:contain;align-content:end;margin:0!important}
+#tcGroupPanel.tc-group-fullscreen #tcGroupThread>form{flex-shrink:0!important;margin-top:auto!important;padding-top:8px!important}
+#tcGroupPanel.tc-group-fullscreen #tcGroupThread>form input{background:rgba(18,45,39,.8)!important;color:#f6fffc!important}
+#tcGroupPanel.tc-group-fullscreen #tcGroupThread>form input::placeholder{color:#b5c7c2!important}
+html[data-tichor-theme="light"] #tcGroupPanel.tc-group-fullscreen,html[data-tichor-theme="crystal"] #tcGroupPanel.tc-group-fullscreen{--tc-group-screen-bg:#f7faf9;--tc-group-screen-fg:#17362e}
+@media(min-width:800px){#tcGroupPanel.tc-group-fullscreen{padding:24px max(30px,calc((100vw - 1120px)/2))!important}}
 </style></body></html>
