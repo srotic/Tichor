@@ -968,7 +968,7 @@ async function refreshFolder(){if(!user||folderBusy||activeFolder==='requests')r
   tichorAutoPanel(tichorAutoAll());
  }
  const labels=new Map((contacts||[]).filter(c=>tichorGoodContactLabel(c.label)).map(c=>[c.contact_id,c.label]));const participants=[...new Set((data||[]).map(m=>activeFolder==='inbox'?m.sender_id:m.recipient_id).filter(id=>id&&id!==user.id))];const identities=await tichorResolveUsernames(participants);for(const id of participants)if(!labels.has(id)&&identities.has(id))labels.set(id,identities.get(id));window.tichorAutoContactLabels=labels;const latest=new Map();let unread=0;const newSince=tichorInboxNewSince(),readMarks=tichorReadWatermarks();const isNew=m=>activeFolder==='inbox'&&!m.read_at&&Date.parse(m.created_at)>Math.max(newSince,Date.parse(readMarks[m.sender_id]||'')||0);
- for(const m of data||[]){if(hiddenSet.has(m.id))continue;if(activeFolder==='inbox'&&tichorMessageRoute(m)==='translate')continue;if(isNew(m))unread++;const id=activeFolder==='inbox'?m.sender_id:m.recipient_id;if(!latest.has(id))latest.set(id,m)}
+ for(const m of data||[]){if(hiddenSet.has(m.id))continue;/* Keep every received message in Chats regardless of translation language. */if(isNew(m))unread++;const id=activeFolder==='inbox'?m.sender_id:m.recipient_id;if(!latest.has(id))latest.set(id,m)}
  $('inboxCount').textContent=activeFolder==='inbox'&&unread?'('+unread+' unread)':'';
  box.replaceChildren();if(!latest.size){box.innerHTML='<div class="folder-empty">'+(activeFolder==='inbox'?'No received messages yet.':'No sent messages yet.')+'</div>';return}
  let visibleCount=0;for(const [id,m] of latest){visibleCount++;let preview=m.body||'';if(preview.startsWith('e2ee1.'))preview='🔒 Older encrypted message';addFolderRow(box,id,labels.get(id)||'Username unavailable',preview,folderTime(m.created_at),isNew(m))}
@@ -1145,7 +1145,7 @@ window.tichorRenderTranslateWorkspace=async()=>{
  if(box.dataset.translationGeneration!==generation)return;
  if(error){box.textContent='Unable to load messages for translation.';return}
  tichorRouteIncomingBatch(data);
- const translated=(data||[]).filter(m=>tichorMessageRoute(m)==='translate');
+ const translated=(data||[]).filter(m=>m.body&&!m.body.startsWith('e2ee1.')&&!m.body.startsWith('['));
  const ids=[...new Set(translated.map(m=>m.sender_id))];
  const names=await tichorResolveUsernames(ids);
  if(box.dataset.translationGeneration!==generation)return;
@@ -1177,7 +1177,7 @@ window.tichorRenderTranslateWorkspace=async()=>{
       let from;
       if(tichorSwahiliEvidence(m.body))from='sw';
       else if(localStorage.getItem(TICHOR_DETECT_KEY)==='off')from=localStorage.getItem(TICHOR_SOURCE_KEY)||'en';
-      else from=await tichorDetectLanguage(m.body);
+      else {try{from=await tichorDetectLanguage(m.body)}catch(e){if(/^[\\x00-\\x7F]*$/.test(m.body))from='en';else throw e}}
       if(from===preferred)result=m.body;
       else{
        const api=globalThis.Translator;
@@ -1941,7 +1941,7 @@ async function load(){
  for(const m of data||[]){
   if(hiddenIds.has(m.id))continue;
   const translationView=document.querySelector('[data-tab="translate"]')?.classList.contains('active')===true;
-  if(! (m.sender_id===user.id) && (tichorMessageRoute(m)==='translate')!==translationView)continue;
+  // Language routing must never make a received message disappear from Chats.
   const action=tichorParseAction(m.body);
   const poll=parseTichorPoll(m.body);
   if(action?.type==='status'||poll?.type==='vote')continue;
