@@ -1143,13 +1143,21 @@ window.tichorRenderTranslateWorkspace=async()=>{
  const generation=String(Date.now())+Math.random();box.dataset.translationGeneration=generation;
  const {data,error}=await supa.from('chat_messages').select('id,sender_id,recipient_id,body,created_at,read_at').eq('recipient_id',user.id).order('created_at',{ascending:false}).limit(200);
  if(box.dataset.translationGeneration!==generation)return;
- if(error){box.textContent='Unable to load messages for translation.';return}
- tichorRouteIncomingBatch(data);
- const translated=(data||[]).filter(m=>m.body&&!m.body.startsWith('e2ee1.')&&!m.body.startsWith('['));
+ if(error){box.textContent='Unable to load messages for translation: '+error.message;return}
+ // Translation previews are independent of message routing; do not recursively classify and redraw.
+ const translated=(data||[]).filter(m=>typeof m.body==='string'&&m.body.trim()&&!m.body.startsWith('e2ee1.')&&!m.body.startsWith('['));
  const ids=[...new Set(translated.map(m=>m.sender_id))];
- const names=await tichorResolveUsernames(ids);
- if(box.dataset.translationGeneration!==generation)return;
+ const names=tichorIdentityCache;
  box.replaceChildren();
+ // Resolve names after painting messages, so profile lookup cannot hide translation results.
+ tichorResolveUsernames(ids).then(resolved=>{
+  if(box.dataset.translationGeneration!==generation)return;
+  for(const group of box.querySelectorAll('[data-translate-sender]')){
+   const id=group.dataset.translateSender;
+   const title=group.querySelector('h3');
+   if(title)title.textContent=(resolved.get(id)||'Contact')+' · '+group.dataset.translateCount+' message'+(Number(group.dataset.translateCount)===1?'':'s');
+  }
+ }).catch(console.warn);
  const preferred=tichorPreferredLanguage();
  const language=TICHOR_LANGUAGES[preferred]||preferred;
  const heading=document.createElement('p');heading.className='muted';heading.textContent='Reading language: '+language+' · Original messages are always available';
@@ -1157,7 +1165,7 @@ window.tichorRenderTranslateWorkspace=async()=>{
  if(!translated.length){const p=document.createElement('p');p.className='muted';p.textContent='Incoming messages detected in another language will appear here. Translation requires a supported browser and language pair.';box.append(p)}
  for(const id of ids){
   const messages=translated.filter(m=>m.sender_id===id);
-  const group=document.createElement('section');group.className='tc-translate-thread';
+  const group=document.createElement('section');group.className='tc-translate-thread';group.dataset.translateSender=id;group.dataset.translateCount=String(messages.length);
   const title=document.createElement('h3');title.textContent=(names.get(id)||window.tichorAutoContactLabels?.get(id)||'Contact')+' · '+messages.length+' message'+(messages.length===1?'':'s');
   group.append(title);
   for(const m of messages){
