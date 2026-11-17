@@ -1447,11 +1447,11 @@ function tichorPollComposer(){const form=$('sendForm');if(!form||$('tichorPollCo
 function tichorPollCard(m,p,votes){const card=document.createElement('section');card.className='t12-preference';card.style.margin='8px 0';const title=document.createElement('strong');title.textContent='◉ Decision: '+p.question;card.append(title);const selected=votes.get(user.id);p.options.forEach((label,index)=>{const count=[...votes.values()].filter(x=>x===index).length;const b=document.createElement('button');b.type='button';b.style.cssText='display:block;width:100%;text-align:left;margin:8px 0;min-height:44px';b.textContent=(selected===index?'✓ ':'')+label+' · '+count+' vote'+(count===1?'':'s');b.setAttribute('aria-pressed',String(selected===index));b.onclick=async()=>{b.disabled=true;try{await sendTichorPoll({type:'vote',id:m.id,choice:index})}catch(e){alert(e.message)}finally{b.disabled=false}};card.append(b)});const note=document.createElement('small');note.className='muted';note.textContent=votes.size+' participant(s) voted · Tap to '+(selected===undefined?'vote':'change your vote');card.append(note);return card}
 
 function tichorGlassComposer(){
- const form=$('sendForm'),toolbar=form?.querySelector('.tichor-compose'),menu=$('tichorComposeMenu');
- if(!form||!toolbar||!menu||form.dataset.glassReady)return;form.dataset.glassReady='1';
+ const form=$('sendForm'),toolbar=form?.querySelector('.tichor-compose');
+ if(!form||!toolbar||form.dataset.glassReady)return;form.dataset.glassReady='1';
  form.classList.add('tichor-glass-composer');
  const write=$('tichorWritingToggle'),emoji=$('tichorEmojiToggle'),file=$('tichorFile'),attach=toolbar.querySelector('label[for="tichorFile"]'),send=toolbar.querySelector('button[type="submit"]');
- const plus=menu.querySelector('button'),options=$('tichorComposeOptions');
+ const options=null;
  const icons={
   plus:'<path d="M12 5v14M5 12h14"/>',
   wand:'<path d="m3 21 9-9M12 12l-3-3M16 3l1.5 3.5L21 8l-3.5 1.5L16 13l-1.5-3.5L11 8l3.5-1.5L16 3ZM5 2v4M3 4h4M20 17v4M18 19h4"/>',
@@ -1460,11 +1460,11 @@ function tichorGlassComposer(){
   send:'<path d="m22 2-7 20-4-9-9-4 20-7ZM11 13 22 2"/>'
  };
  const setIcon=(el,key,label)=>{if(!el)return;el.replaceChildren();const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('width','25');svg.setAttribute('height','25');svg.setAttribute('fill','none');svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','1.9');svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round');svg.setAttribute('aria-hidden','true');svg.innerHTML=icons[key];el.append(svg);el.setAttribute('aria-label',label);el.title=label;el.classList.add('tichor-glass-icon','tichor-glass-'+key)};
- setIcon(plus,'plus','Add action or decision');setIcon(write,'wand','AI writing assistant');setIcon(emoji,'smile','Choose emoji');
+ setIcon(write,'wand','AI writing assistant');setIcon(emoji,'smile','Choose emoji');
  if(attach){setIcon(attach,'clip','Attach document or image');attach.setAttribute('role','button');attach.tabIndex=0;attach.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();file?.click()}}}
  setIcon(send,'send','Send message');send.classList.add('tichor-glass-send');
  // Move existing controls without replacing their listeners.
- toolbar.prepend(menu);if(write)toolbar.append(write);if(emoji)toolbar.append(emoji);if(attach)toolbar.append(attach);if(send)toolbar.append(send);
+ if(write)toolbar.append(write);if(emoji)toolbar.append(emoji);if(attach)toolbar.append(attach);if(send)toolbar.append(send);
  if(file){file.classList.add('tichor-glass-file');file.addEventListener('change',()=>{let note=$('tichorSelectedFile');if(!note){note=document.createElement('span');note.id='tichorSelectedFile';note.className='muted';toolbar.after(note)}note.textContent=file.files?.[0]?'📎 '+file.files[0].name:''})}
  // Keep the plus popover anchored to the icon, while retaining action and decision forms.
  if(options){options.setAttribute('role','group');options.setAttribute('aria-label','Add to conversation')}
@@ -1500,19 +1500,13 @@ const tichorGlassStyle=document.createElement('style');tichorGlassStyle.textCont
 #sendForm.tichor-glass-composer .tichor-compose-menu>div:not([hidden]){background:linear-gradient(135deg,#2e6288f5,#0d2c4af8)!important;border:1px solid #a4e4ff99!important;box-shadow:inset 0 1px 1px #fff5,0 15px 30px #0008,0 0 20px #39d6e233!important}
 `;document.head.append(tichorGlassStyle);
 function tichorCompactComposer(){
- const form=$('sendForm');if(!form||$('tichorComposeMenu'))return;
- const action=$('tichorActionComposer'),decision=$('tichorPollComposer');if(!action||!decision)return;
- const wrapper=document.createElement('section');wrapper.id='tichorComposeMenu';wrapper.className='tichor-compose-menu';
- const toggle=document.createElement('button');toggle.type='button';toggle.textContent='＋ Add to chat';toggle.setAttribute('aria-expanded','false');toggle.setAttribute('aria-controls','tichorComposeOptions');
- const options=document.createElement('div');options.id='tichorComposeOptions';options.hidden=true;
- const actionButton=action.querySelector('button'),decisionButton=decision.querySelector('button');
- const make=(label,source)=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=()=>{options.hidden=true;toggle.setAttribute('aria-expanded','false');const fields=source.querySelector('div');fields.hidden=false;source.hidden=false;source.querySelector('textarea')?.focus()};return b};
- options.append(make('✓ New action',action),make('◉ New decision',decision));
- const attach=document.createElement('button');attach.type='button';attach.textContent='📎 Attachment';attach.onclick=()=>{options.hidden=true;toggle.setAttribute('aria-expanded','false');$('tichorFile')?.click()};options.append(attach);
- toggle.onclick=()=>{options.hidden=!options.hidden;toggle.setAttribute('aria-expanded',String(!options.hidden))};
- wrapper.append(toggle,options);action.hidden=true;decision.hidden=true;
- // Existing action/decision buttons stay available for screen readers inside expanded panels.
- form.before(wrapper);
+ // No redundant + menu: actions are suggested by Autonomous Action Intelligence,
+ // decisions remain available in Actions, and attachments use the paperclip.
+ const action=$('tichorActionComposer'),decision=$('tichorPollComposer');
+ if(action)action.hidden=true;
+ if(decision)decision.hidden=true;
+ $('tichorComposeMenu')?.remove();
+ $('tichorDecisionShortcut')?.remove();
 }
 const tichorComposeStyle=document.createElement('style');tichorComposeStyle.textContent='.tichor-compose-menu{margin:8px 0}.tichor-compose-menu>button{background:#15553d;color:white;border-radius:12px}.tichor-compose-menu>div:not([hidden]){display:flex;gap:6px;flex-wrap:wrap}.tichor-compose-menu>div button{flex:1;min-width:120px}.tichor-compose-menu+section[hidden],#tichorActionComposer[hidden],#tichorPollComposer[hidden]{display:none!important}';document.head.append(tichorComposeStyle);
 // Action Intelligence v1: privacy-preserving on-device suggestion rules; no message is sent without approval.
@@ -2934,4 +2928,8 @@ body.tc-call-floating>.tc-call-composer.tc-call-active:has(#tcVideoStage #localV
 body.tc-call-floating>.tc-call-composer.tc-call-active #tcVideoStage #tcVideoWaitingText{display:block!important}
 #tcVideoStage:has(#remoteVideo:not(.hide)) .tc-video-waiting{display:none!important}
 body.tc-call-floating>.tc-call-composer.tc-call-active #hangup{background:#d63849!important}
+</style><style id="tc-composer-no-plus-v1">
+#sendForm .tichor-compose #tichorComposeMenu,
+#tichorComposeMenu,
+#tichorDecisionShortcut{display:none!important}
 </style></body></html>
