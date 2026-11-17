@@ -474,6 +474,32 @@ html #messages .msg .tichor-sender-line small{font-size:calc(11px * var(--tichor
 #chat .tichor-menu-user-popover .tichor-toolbar-signout{display:block!important;position:static!important;min-height:0!important;width:auto!important;height:auto!important;margin:0!important;padding:6px 4px!important;border:0!important;border-radius:0!important;box-shadow:none!important;background:none!important;text-align:left!important;color:#f5fbfa!important;-webkit-text-fill-color:#f5fbfa!important;font:600 14px/1.5 system-ui,sans-serif!important;text-shadow:none!important}
 #chat .tichor-menu-user-popover .tichor-toolbar-signout .tichor-signout-label{display:inline!important;color:inherit!important;-webkit-text-fill-color:inherit!important}
 #chat .tichor-menu-user-popover .tichor-toolbar-signout svg{display:none!important}
+</style><style id="tc-group-mobile-refresh-20261117">
+#tcGroupPanel{padding:clamp(14px,3vw,24px)!important;border-radius:20px!important;gap:12px!important}
+#tcGroupPanel .tc-group-main-heading h3{margin:0;font-size:clamp(19px,4vw,24px);line-height:1.2}
+#tcGroupSearch{box-sizing:border-box!important;min-height:44px!important;border-radius:12px!important;padding:10px 14px!important;margin:0!important}
+#tcGroupPanel .tc-group-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#tcGroupPanel .tc-group-create{min-height:42px!important;padding:9px 15px!important;border-radius:12px!important;font-weight:650!important}
+#tcGroupInvitesHeading{margin:6px 0 0;font-size:15px}
+#tcGroupInvitesHeading[hidden]{display:none!important}
+#tcGroupInvites{display:grid;gap:10px}
+.tc-group-invite-card{display:grid;gap:12px;min-width:0;padding:14px;border:1px solid #6d8d9866;border-radius:14px;background:rgba(69,114,127,.09)}
+.tc-group-invite-intro{display:flex;align-items:center;gap:12px;min-width:0}
+.tc-group-invite-detail{display:grid;gap:3px;min-width:0;overflow-wrap:anywhere}
+.tc-group-invite-detail strong{font-size:15px}
+.tc-group-invite-detail small{opacity:.75;font-size:12px}
+.tc-group-invite-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.tc-group-invite-actions button{width:100%!important;min-width:0!important;min-height:42px!important;border-radius:10px!important;padding:9px!important}
+.tc-group-invite-accept{background:#167358!important;color:white!important}
+.tc-group-invite-decline{background:transparent!important;border:1px solid #75929b!important}
+#tcGroupList{display:grid;gap:8px;min-width:0}
+#tcGroupList .tc-group-row{border:1px solid #69838b55;border-radius:13px;padding:3px 7px;min-width:0;gap:0;background:rgba(65,109,124,.08)}
+#tcGroupList .tc-group-row-open{padding:9px 4px!important;min-height:62px}
+#tcGroupList .tc-group-menu{min-width:38px!important}
+#tcGroupPanel .tc-group-avatar{width:42px;height:42px}
+.tc-group-switch{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px!important;margin:10px 0!important}
+.tc-group-switch button{min-width:0!important;min-height:44px!important;padding:10px 8px!important;border-radius:12px!important}
+@media(max-width:480px){#tcGroupPanel{padding:14px!important}#tcGroupList .tc-group-row-open time{font-size:10px}#tcGroupPanel .tc-group-row-detail strong{font-size:14px}}
 </style></head><body><header><img id="tichorOfficialHeaderIcon" src="icon-192.png?v=metallic-20261116-v2" alt="Tichor official app icon" width="76" height="76" decoding="async"><strong>Tichor Connect</strong></header><main><p><a href="index.html" class="tichor-dashboard-icon-link" aria-label="Dashboard" title="Dashboard"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></a> · <a href="guest.html" class="tichor-glass-utility tichor-guest-link" aria-label="Create or join a guest room" title="Guest chat (no account required)"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6m-3-3h6"/></svg></a></p><section class="card hide" id="setup"><h2>Connection status</h2><p id="setupStatus" role="status">Connecting to Tichor…</p></section><section class="card hide" id="auth"><div class="tichor-entry-intro"><h1>Welcome to <span>Tichor</span></h1><p>Connect freely. Chat, call, translate and organize.</p></div><h2>Sign in or create account</h2><div class="two" role="group" aria-label="Choose sign-in method"><button type="button" id="emailMode" class="gold">Email</button><button type="button" id="phoneMode">Phone number</button></div><div id="emailAuth"><label for="email">Email address</label><input id="email" type="email" autocomplete="email" placeholder="Email"><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" placeholder="Password (at least 6 characters)"><button type="button" id="signin">Sign in</button><button type="button" id="signup">Create account</button><p class="muted">Existing email accounts continue to work. Email confirmation may be required.</p></div><div id="phoneAuth" class="hide"><label for="authPhone">Phone number (international format)</label><input id="authPhone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+17805550123"><button type="button" id="sendPhoneCode">Send SMS code</button><div id="phoneCodeArea" class="hide"><label for="authPhoneCode">Verification code</label><input id="authPhoneCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="SMS code"><button type="button" id="verifyPhoneCode" class="gold">Verify code & sign in</button></div><p class="muted">New phone numbers can create an account after SMS verification. Requires phone sign-in and an SMS provider configured in Supabase. SMS may cost money. If you already have an email account, sign in by email and link your phone under My profile first to keep the same messages and contacts.</p></div><p id="authStatus" role="status"></p><div class="tichor-entry-divider"><span>or</span></div><a class="tichor-entry-guest" href="guest.html">Continue as Guest — no account required</a></section><section class="card hide" id="chat"><h2>Messages</h2><p class="muted">Internet messaging: recipients do not need to have Tichor open. Messages are saved to Supabase and appear when they reconnect. Push alerts require notification permission and working server setup. Messages are not end-to-end encrypted in this version.</p><p id="who" class="muted"></p><button id="signout" type="button" class="tichor-glass-utility tichor-signout-icon" aria-label="Sign out" title="Sign out"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"/><path d="m15 16 4-4-4-4M19 12H9"/></svg></button><section class="card" id="notificationSettings"><h3>Background notifications</h3><p class="muted">Receive new-message and incoming-call alerts even when this app is closed. Enable separately on each device. On iPhone, add Tichor to your Home Screen first.</p><button type="button" id="enablePush" class="gold">Enable notifications</button><button type="button" id="disablePush">Disable notifications</button><p id="pushStatus" role="status" class="muted"></p></section><h3>Your profile</h3><p class="muted">Choose a unique username. A phone number is optional and searchable only if you enable discovery. Profile phone numbers are not verified. To use a phone for sign-in, link and verify it below.</p><div class="two"><input id="myUsername" placeholder="Username (3–24 letters/numbers/_)" maxlength="24"><input id="myPhone" type="tel" placeholder="Optional phone, e.g. +17805550123"></div><label><input id="phoneDiscoverable" type="checkbox" style="width:auto"> Let other registered users find me by phone number</label><p><button id="saveProfile">Save profile</button></p><div id="linkPhonePanel"><h4>Link a verified phone to this account</h4><p class="muted">For existing email users: link your phone here before using phone sign-in. This keeps your existing account ID, messages and contacts. Saving an optional profile phone number alone does not link it for login.</p><input id="linkAuthPhone" type="tel" inputmode="tel" placeholder="+17805550123"><button id="sendLinkCode" type="button">Send phone linking code</button><div id="linkCodeArea" class="hide"><input id="linkAuthCode" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="SMS verification code"><button id="verifyLinkCode" type="button">Verify & link phone</button></div><p id="linkPhoneStatus" role="status" class="muted"></p></div><p id="profileStatus" role="status"></p><hr><section class="tichor-mailbox" id="tichorMailbox" aria-label="Message folders">
  <div class="tichor-tabs" role="group" aria-label="Message folders">
  <button type="button" id="tabInbox" class="active">📥 Inbox <span id="inboxCount"></span></button>
@@ -2614,13 +2640,14 @@ function tcGroupButton(label,handler){const b=tcGroupNode('button',label);b.type
 function tcGroupMount(){
  if($('tcGroupPanel'))return;
  const panel=tcGroupNode('section');panel.id='tcGroupPanel';panel.className='card';
- panel.style.cssText='margin:12px 0;display:grid;gap:10px';panel.setAttribute('aria-label','Group conversations');
- panel.append(tcGroupNode('h3','Groups'));
- const toolbar=tcGroupNode('div');toolbar.style.cssText='display:flex;gap:8px;flex-wrap:wrap';
- const create=tcGroupButton('＋ New group',tcGroupCreate);create.className='tc-group-create';toolbar.append(create);
+ panel.style.cssText='margin:10px 0;display:grid;gap:12px';panel.setAttribute('aria-label','Group conversations');
+ const heading=tcGroupNode('div');heading.className='tc-group-main-heading';heading.append(tcGroupNode('h3','Your groups'));panel.append(heading);
+ const toolbar=tcGroupNode('div');toolbar.className='tc-group-toolbar';
+ const create=tcGroupButton('＋ Create new group',tcGroupCreate);create.className='tc-group-create';toolbar.append(create);
  const search=tcGroupNode('input');search.id='tcGroupSearch';search.placeholder='Search groups';search.setAttribute('aria-label','Search groups');search.addEventListener('input',()=>tcGroupFilter());panel.append(search);
  panel.append(toolbar);
  const status=tcGroupNode('p');status.id='tcGroupStatus';status.className='muted';status.setAttribute('role','status');panel.append(status);
+ const inviteHeading=tcGroupNode('h4','Invitations');inviteHeading.id='tcGroupInvitesHeading';panel.append(inviteHeading);
  const invites=tcGroupNode('div');invites.id='tcGroupInvites';panel.append(invites);
  const list=tcGroupNode('div');list.id='tcGroupList';panel.append(list);
  const thread=tcGroupNode('div');thread.id='tcGroupThread';panel.append(thread);
@@ -2698,12 +2725,17 @@ async function tcGroupRefresh(){
    tcGroupFilter();
   }
   const box=$('tcGroupInvites');box.replaceChildren();
+ const invitationHeading=$('tcGroupInvitesHeading');if(invitationHeading)invitationHeading.hidden=!(invites||[]).length;
   for(const invite of invites||[]){
-   const row=tcGroupNode('div');row.style.cssText='padding:8px;border:1px solid #8885;border-radius:8px;margin:6px 0';
-   row.append(tcGroupNode('span','Group invitation · '+invite.group_id.slice(0,8)+' '));
-   row.append(tcGroupButton('Accept',async()=>{await tcGroupRpc('tichor_group_respond',{invite_id:invite.id,accept_invite:true});await tcGroupRefresh()}));
-   row.append(tcGroupButton('Decline',async()=>{await tcGroupRpc('tichor_group_respond',{invite_id:invite.id,accept_invite:false});await tcGroupRefresh()}));
-   box.append(row);
+   const row=tcGroupNode('div');row.className='tc-group-invite-card';
+   const intro=tcGroupNode('div');intro.className='tc-group-invite-intro';
+   const avatar=tcGroupNode('span','👥');avatar.className='tc-group-avatar';
+   const detail=tcGroupNode('span');detail.className='tc-group-invite-detail';detail.append(tcGroupNode('strong','Group invitation'),tcGroupNode('small','Invitation ID: '+invite.group_id.slice(0,8)));
+   intro.append(avatar,detail);
+   const actions=tcGroupNode('div');actions.className='tc-group-invite-actions';
+   const accept=tcGroupButton('✓ Accept',async()=>{await tcGroupRpc('tichor_group_respond',{invite_id:invite.id,accept_invite:true});await tcGroupRefresh()});accept.className='tc-group-invite-accept';
+   const decline=tcGroupButton('Decline',async()=>{await tcGroupRpc('tichor_group_respond',{invite_id:invite.id,accept_invite:false});await tcGroupRefresh()});decline.className='tc-group-invite-decline';
+   actions.append(accept,decline);row.append(intro,actions);box.append(row);
   }
   tcGroupStatus('');
  }catch(e){tcGroupStatus('Groups unavailable: '+e.message+'. The group database migration must be installed first.')}
