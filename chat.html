@@ -701,6 +701,7 @@ const showTab=which=>{
  if(which==='language'){window.tichorQuickLanguage?.();return}
  for(const b of nav.querySelectorAll('button[data-tab]')){const active=b.dataset.tab===(which==='chat'?'inbox':which==='translate-chat'?'translate':which);b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active))}
  vaultPanel.hidden=which!=='vault';if(which==='vault')vaultRender();tasksPanel.hidden=which!=='tasks';if(which==='tasks')renderTasks();inbox.hidden=which!=='inbox'&&which!=='requests';translateWorkspace.hidden=which!=='translate';notifications.hidden=true;contacts.hidden=which!=='contacts';settings.hidden=which!=='profile'&&which!=='settings';conversation.hidden=which!=='chat'&&which!=='translate-chat';calls.hidden=which!=='calls';actions.hidden=which!=='actions';
+ if(which==='settings'){window.tichorEnsureTranslationControls?.();}
  if(which==='calls')window.tichorLoadCallHistory?.();
  if(which==='actions'){window.tichorRefreshAutonomous?.();window.tichorLoadActions?.();}
  if(which==='inbox'||which==='requests'){const btn=get(which==='requests'?'tabRequests':'tabInbox');if(btn)btn.click();if(which==='requests')window.tichorRefreshRequests?.()}
@@ -1243,7 +1244,8 @@ function tichorTranslationRoutingControl(){
 }
 window.tichorEnsureTranslationControls=()=>{tichorTranslatorControls();window.tichorMountTranslationWorkspace?.();};
 function tichorTranslatorControls(){
- const settings=$('t12Settings')||$('t12Translate');if(!settings||$('tichorTranslatorBar'))return;
+ const settings=$('t12Settings');if(!settings)return;
+ const existing=$('tichorTranslatorBar');if(existing){const group=[...settings.querySelectorAll('.tc-settings-group')].find(g=>g.querySelector('summary')?.textContent?.includes('Language & Translation'));const destination=group?.querySelector('.tc-settings-body')||settings;if(existing.parentElement!==destination)destination.append(existing);return;}
  const bar=document.createElement('section');bar.id='tichorTranslatorBar';bar.className='t12-preference';
  const title=document.createElement('h3');title.textContent='🌐 Language & Translation';
  const desc=document.createElement('p');desc.className='muted';desc.textContent='Messages arrive immediately in Chats. Incoming text is translated into your reading language when supported; tap translated text to view the original. Translation never delays delivery.';
@@ -3219,6 +3221,8 @@ original.forEach(n=>{
 const index=n===about?6:definitions.findIndex((d,i)=>i!==5&&i!==6&&d[3](n));
 groups[index<0?5:index].body.append(n);
 });
+// Ensure the language panel has real controls even when settings mounts before translation initialization.
+window.tichorEnsureTranslationControls?.();
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mount,0),{once:true});else setTimeout(mount,0);
 })();
