@@ -1140,21 +1140,60 @@ function tichorTranslationMark(contact,on=true){
 }
 window.tichorRenderTranslateWorkspace=async()=>{
  const box=$('tichorTranslateThreads');if(!box||!user)return;
+ const generation=String(Date.now())+Math.random();box.dataset.translationGeneration=generation;
  const {data,error}=await supa.from('chat_messages').select('id,sender_id,recipient_id,body,created_at,read_at').eq('recipient_id',user.id).order('created_at',{ascending:false}).limit(200);
- if(error){box.textContent='Unable to load translated messages.';return}
+ if(box.dataset.translationGeneration!==generation)return;
+ if(error){box.textContent='Unable to load messages for translation.';return}
  tichorRouteIncomingBatch(data);
  const translated=(data||[]).filter(m=>tichorMessageRoute(m)==='translate');
  const ids=[...new Set(translated.map(m=>m.sender_id))];
  const names=await tichorResolveUsernames(ids);
+ if(box.dataset.translationGeneration!==generation)return;
  box.replaceChildren();
- if(!translated.length){const p=document.createElement('p');p.className='muted';p.textContent='Messages in a different detected language will appear here automatically.';box.append(p)}
+ const preferred=tichorPreferredLanguage();
+ const language=TICHOR_LANGUAGES[preferred]||preferred;
+ const heading=document.createElement('p');heading.className='muted';heading.textContent='Reading language: '+language+' · Original messages are always available';
+ box.append(heading);
+ if(!translated.length){const p=document.createElement('p');p.className='muted';p.textContent='Incoming messages detected in another language will appear here. Translation requires a supported browser and language pair.';box.append(p)}
  for(const id of ids){
   const messages=translated.filter(m=>m.sender_id===id);
-  const b=document.createElement('button');b.type='button';b.className='folder-row';
-  const label=names.get(id)||window.tichorAutoContactLabels?.get(id)||'Contact';
-  b.textContent=label+' · '+messages.length+' translated message'+(messages.length===1?'':'s');
-  b.onclick=async()=>{peer=id;$('recipient').value=label;window.tichorShowTab?.('translate-chat');await load()};
-  box.append(b);
+  const group=document.createElement('section');group.className='tc-translate-thread';
+  const title=document.createElement('h3');title.textContent=(names.get(id)||window.tichorAutoContactLabels?.get(id)||'Contact')+' · '+messages.length+' message'+(messages.length===1?'':'s');
+  group.append(title);
+  for(const m of messages){
+   const item=document.createElement('article');item.className='tc-translate-item';
+   const target=document.createElement('div');target.className='tc-translate-result';target.textContent='Translating into '+language+'…';
+   const original=document.createElement('div');original.className='tc-translate-original';
+   const originalLabel=document.createElement('small');originalLabel.textContent='Original';
+   const originalText=document.createElement('p');originalText.textContent=m.body||'';
+   original.append(originalLabel,originalText);
+   item.append(target,original);group.append(item);
+   (async()=>{
+    const cacheKey=m.id+'|auto|'+preferred;
+    try{
+     if(!tichorTranslationSupported())throw Error('On-device translation is unavailable in this browser');
+     let result=tichorTranslationCache.get(cacheKey);
+     if(!result){
+      let from;
+      if(tichorSwahiliEvidence(m.body))from='sw';
+      else if(localStorage.getItem(TICHOR_DETECT_KEY)==='off')from=localStorage.getItem(TICHOR_SOURCE_KEY)||'en';
+      else from=await tichorDetectLanguage(m.body);
+      if(from===preferred)result=m.body;
+      else{
+       const api=globalThis.Translator;
+       if(typeof api.availability==='function'&&await api.availability({sourceLanguage:from,targetLanguage:preferred})==='unavailable')throw Error('Language pair unavailable on this device');
+       const translator=await api.create({sourceLanguage:from,targetLanguage:preferred});
+       result=await translator.translate(m.body);
+      }
+      if(result)tichorTranslationCache.set(cacheKey,result);
+     }
+     if(box.dataset.translationGeneration===generation&&item.isConnected)target.textContent=result||'Translation unavailable';
+    }catch(e){if(box.dataset.translationGeneration===generation&&item.isConnected)target.textContent='Translation unavailable · '+e.message}
+   })();
+  }
+  const open=document.createElement('button');open.type='button';open.className='tc-translate-open';open.textContent='Open conversation';
+  open.onclick=async()=>{peer=id;$('recipient').value=names.get(id)||window.tichorAutoContactLabels?.get(id)||'Contact';window.tichorShowTab?.('translate-chat');await load()};
+  group.append(open);box.append(group);
  }
 };
 function tichorTranslationRoutingControl(){
@@ -3086,4 +3125,13 @@ body.tc-call-floating>.tc-call-composer.tc-call-active #hangup{background:#d6384
 .tc-voice-play{display:grid;place-items:center;width:38px;height:38px;flex:none;border:0;border-radius:50%;background:#d6f5e9;color:#075e50;font-size:17px;cursor:pointer}
 .tc-voice-seek{flex:1;min-width:55px;accent-color:#49c7a2;cursor:pointer}
 .tc-voice-clock{font:500 12px system-ui,sans-serif;min-width:31px;text-align:right;color:inherit}
+</style><style id="tc-translation-preview-v1">
+#t12Translate .tc-translate-thread{margin:12px 0;padding:14px;border-radius:17px;border:1px solid #537d7d;background:rgba(29,70,79,.65);color:#f3faf9}
+#t12Translate .tc-translate-thread h3{font:700 16px/1.4 system-ui,sans-serif;margin:0 0 12px;color:inherit}
+#t12Translate .tc-translate-item{padding:12px;margin:8px 0;border-radius:12px;background:rgba(4,23,30,.35);border:1px solid rgba(167,213,210,.3)}
+#t12Translate .tc-translate-result{font:600 16px/1.5 system-ui,sans-serif;color:#f2fffa;overflow-wrap:anywhere}
+#t12Translate .tc-translate-original{margin-top:8px;color:#c2d8d6;font:400 13px/1.45 system-ui,sans-serif}
+#t12Translate .tc-translate-original small{font-weight:700;opacity:.8}
+#t12Translate .tc-translate-original p{margin:3px 0 0;overflow-wrap:anywhere}
+#t12Translate .tc-translate-open{margin-top:9px;padding:9px 14px;border-radius:12px;border:1px solid #79b7a9;background:#186b58;color:#fff;font-weight:650}
 </style></body></html>
