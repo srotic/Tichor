@@ -2428,7 +2428,18 @@ $('tcFlipCamera')?.addEventListener('click',async()=>{
 });
 async function prepareConnection(video){
  localStream=await navigator.mediaDevices.getUserMedia({audio:true,video});
- const c=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+ const iceServers=[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}];
+ // Optional deployment-provided relay configuration; never hardcode TURN secrets here.
+ const relay=window.TICHOR_TURN_CONFIG;
+ if(relay&&Array.isArray(relay.iceServers)){
+  for(const server of relay.iceServers){
+   if(server&&server.urls&&(typeof server.urls==='string'||Array.isArray(server.urls))&&
+      (typeof server.urls==='string'?[server.urls]:server.urls).every(url=>typeof url==='string'&&/^(stun|turn|turns):/i.test(url))){
+    iceServers.push({urls:server.urls,...(server.username?{username:server.username}:{}),...(server.credential?{credential:server.credential}:{})});
+   }
+  }
+ }
+ const c=new RTCPeerConnection({iceServers});
  pc=c;
  const remoteStream=new MediaStream();
  const remoteVideo=$('remoteVideo'),remoteAudio=$('remoteAudio');
@@ -2466,7 +2477,25 @@ async function prepareConnection(video){
  };
  c.onicecandidate=e=>{if(e.candidate&&callId&&callPeer){const id=callId,to=callPeer,candidate=e.candidate.toJSON();callCandidateQueue=callCandidateQueue.then(()=>emitCall('candidate',candidate,to,id)).catch(err=>{console.warn('Tichor candidate signaling failed',err);callStatus('Signaling error: '+err.message)})}};
  c.onicecandidateerror=e=>console.warn('Tichor ICE candidate error',e.errorCode,e.errorText);
- c.oniceconnectionstatechange=()=>{if(pc!==c)return;if(c.iceConnectionState==='failed')callStatus('Connection failed: a relay (TURN) may be required on these networks.');else if(c.iceConnectionState==='disconnected')callStatus('Connection interrupted — attempting to reconnect…')};
+ const reportConnection=async(reason)=>{
+  if(pc!==c)return;
+  try{
+   const stats=await c.getStats();let localTypes=new Set(),remoteTypes=new Set(),selected=null,received=0,sent=0;
+   stats.forEach(item=>{
+    if(item.type==='local-candidate')localTypes.add(item.candidateType);
+    if(item.type==='remote-candidate')remoteTypes.add(item.candidateType);
+    if(item.type==='candidate-pair'&&(item.selected||item.nominated&&item.state==='succeeded'))selected=item;
+    if(item.type==='inbound-rtp')received+=Number(item.bytesReceived||0);
+    if(item.type==='outbound-rtp')sent+=Number(item.bytesSent||0);
+   });
+   const summary='ICE '+c.iceConnectionState+'; signaling '+c.signalingState+'; local candidates '+([...localTypes].join(',')||'none')+'; remote candidates '+([...remoteTypes].join(',')||'none')+'; selected pair '+(selected?'yes':'no')+'; bytes received '+received+'; bytes sent '+sent;
+   console.info('Tichor call diagnostics',reason,summary);
+   if(c.connectionState==='failed'){$('audioHelp').textContent=summary+' — A TURN relay may be needed if no usable candidate pair exists.';callStatus('Connection failed — '+(remoteTypes.size?'ICE checks unsuccessful':'no remote ICE candidates received'))}
+  }catch(err){console.warn('Tichor call diagnostics unavailable',err)}
+ };
+ c.onicegatheringstatechange=()=>{if(pc===c)console.info('Tichor ICE gathering',c.iceGatheringState)};
+ c.onsignalingstatechange=()=>{if(pc===c)console.info('Tichor signaling',c.signalingState)};
+ c.oniceconnectionstatechange=()=>{if(pc!==c)return;if(c.iceConnectionState==='failed'){callStatus('ICE connection failed — collecting diagnostics…');reportConnection('ICE failed')}else if(c.iceConnectionState==='disconnected')callStatus('Connection interrupted — attempting to reconnect…')};
  c.onconnectionstatechange=()=>{
   if(pc!==c)return;
   if(c.connectionState==='connected'){
@@ -2474,7 +2503,7 @@ async function prepareConnection(video){
    emitCall('connected').catch(console.warn);updateRemote();playRemoteSound().catch(console.warn);
   }else if(c.connectionState==='connecting')callStatus('Connecting media…');
   else if(c.connectionState==='disconnected')callStatus('Connection interrupted — attempting to reconnect…');
-  else if(c.connectionState==='failed'){callStatus('Connection failed — please retry or switch networks.');$('audioHelp').textContent='This network may require a TURN relay for reliable calling.'}
+  else if(c.connectionState==='failed'){callStatus('Connection failed — collecting ICE diagnostics…');reportConnection('connection failed')}
  };
  show('hangup',true);return c;
 }
