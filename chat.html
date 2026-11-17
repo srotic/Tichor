@@ -1876,7 +1876,12 @@ async function load(){
  const autoItems=localStorage.getItem('tichor-auto-enabled')==='yes'?tichorAutoScan(data,hiddenIds):tichorAutoRead();
  tichorAutoPanel(localStorage.getItem('tichor-auto-enabled')==='yes'?tichorAutoAll():autoItems);
  const attached=new Map((attachments||[]).map(a=>[a.message_id,a]));
- const box=$('messages'),atBottom=box.scrollHeight-box.scrollTop-box.clientHeight<90;const forceBottom=box.dataset.openedPeer!==peer;box.dataset.openedPeer=peer;box.replaceChildren();
+ const box=$('messages'),atBottom=box.scrollHeight-box.scrollTop-box.clientHeight<90;const forceBottom=box.dataset.openedPeer!==peer;
+ // Realtime receipts and folder refreshes must not destroy audio controls or flash the chat.
+ const renderKey=JSON.stringify([peer,document.querySelector('[data-tab="translate"]')?.classList.contains('active'),tichorTranslationMode(),localStorage.getItem('tichor-translation-language'),data,(hidden||[]).map(h=>h.message_id),(attachments||[]).map(a=>[a.message_id,a.file_name,a.storage_path])]);
+ const shouldRender=forceBottom||box.dataset.renderKey!==renderKey;
+ if(shouldRender){
+ box.dataset.openedPeer=peer;box.dataset.renderKey=renderKey;box.replaceChildren();
  const actionCreates=new Map(),actionStates=new Map(),pollCreates=new Map(),pollVotes=new Map();
  for(const entry of data||[]){const p=parseTichorPoll(entry.body);if(p?.type==='create')pollCreates.set(entry.id,entry)}
  for(const entry of data||[]){const p=parseTichorPoll(entry.body);if(p?.type!=='vote')continue;const original=pollCreates.get(p.id);if(!original||![original.sender_id,original.recipient_id].includes(entry.sender_id)||p.choice>=parseTichorPoll(original.body).options.length)continue;if(!pollVotes.has(p.id))pollVotes.set(p.id,new Map());pollVotes.get(p.id).set(entry.sender_id,p.choice)}
@@ -1994,6 +1999,7 @@ if(a&&(/\\.(png|jpe?g|webp|pdf)$/i.test(a.file_name))){
  if(autoQueue.length){(async()=>{for(const task of autoQueue){if(!box.isConnected||tichorTranslationMode()!=='automatic')break;await task()}})()}
 
  if(atBottom||forceBottom){box.scrollTop=box.scrollHeight;requestAnimationFrame(()=>{if(box.dataset.openedPeer===peer)box.scrollTop=box.scrollHeight;});}
+ } // End of changed-message render; preserve audio playback during receipt updates.
  if(document.visibilityState==='visible'&&!$('t12Conversation')?.hidden&&peer){
   // Opening the conversation marks every received unread message from this contact as read.
   const viewedPeer=peer;
