@@ -2902,4 +2902,25 @@ body.tc-call-floating>.tc-call-composer.tc-call-active #tcVideoStage{max-height:
 #tcVideoStage.tc-video-swapped #remoteVideo:not(.hide){position:absolute!important;top:12px!important;right:12px!important;left:auto!important;bottom:auto!important;width:clamp(100px,24%,180px)!important;height:auto!important;aspect-ratio:3/4!important;object-fit:cover!important;border:2px solid #e6f6f1!important;border-radius:14px!important;z-index:5!important}
 #tcVideoStage.tc-video-swapped .tc-video-self-label{display:none!important}
 @media(max-width:480px){#tcVideoStage .tc-video-controls{left:7px;bottom:7px;gap:5px}#tcVideoStage .tc-video-controls button{padding:7px 9px!important;font-size:11px!important}}
+</style><style id="tc-call-clean-layout-v4">
+/* One identity, one status, one end-call control. Compact floating video. */
+body.tc-call-floating>.tc-call-composer.tc-call-active{width:min(90vw,390px)!important;max-height:min(78dvh,610px)!important;padding:10px 12px 12px!important;display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:5px!important}
+body.tc-call-floating>.tc-call-composer.tc-call-active .tc-call-drag-handle{min-height:24px!important;margin:0!important;padding:1px 5px!important}
+body.tc-call-floating>.tc-call-composer.tc-call-active .tc-call-drag-handle .tc-drag-label{font-size:11px!important;opacity:.8}
+body.tc-call-floating>.tc-call-composer.tc-call-active .tc-active-call-person{padding:0 0 2px!important;gap:0!important}
+body.tc-call-floating>.tc-call-composer.tc-call-active .tc-active-call-caption{font-size:12px!important;line-height:1.2!important}
+body.tc-call-floating>.tc-call-composer.tc-call-active #tcActiveCallName{font-size:clamp(19px,5vw,25px)!important;line-height:1.2!important}
+body.tc-call-floating>.tc-call-composer.tc-call-active #callStatus{font-size:13px!important;line-height:1.25!important;margin:1px 0 3px!important;color:#c5e1dc!important}
+body.tc-call-floating>.tc-call-composer.tc-call-active #tcVideoStage{width:100%!important;max-width:100%!important;height:min(43dvh,330px)!important;min-height:185px!important;max-height:330px!important;aspect-ratio:auto!important;margin:3px auto!important;border-radius:14px!important}
+body.tc-call-floating>.tc-call-composer.tc-call-active #tcVideoStage .tc-video-waiting{padding:12px!important;gap:10px!important}
+body.tc-call-floating>.tc-call-composer.tc-call-active #tcVideoStage .tc-video-avatar{width:66px!important;height:66px!important;font-size:29px!important}
+body.tc-call-floating>.tc-call-composer.tc-call-active #tcVideoStage #tcVideoWaitingText{display:none!important}
+body.tc-call-floating>.tc-call-composer.tc-call-active:has(#tcVideoStage:not(:has(#localVideo.hide))) #callStatus{display:block!important}
+body.tc-call-floating>.tc-call-composer.tc-call-active #hangup{order:5!important;align-self:center!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;width:64px!important;height:64px!important;min-width:64px!important;min-height:64px!important;padding:8px!important;margin:4px auto 0!important;border-radius:50%!important;background:#d63849!important;color:#fff!important}
+body.tc-call-floating>.tc-call-composer.tc-call-active #hangup.hide{display:none!important}
+body.tc-call-floating>.tc-call-composer.tc-call-active #hangup svg{width:24px!important;height:24px!important}
+body.tc-call-floating>.tc-call-composer.tc-call-active #hangup span{font-size:11px!important}
+body.tc-call-floating>.tc-call-composer.tc-call-active #tcVideoStage .tc-video-controls{bottom:8px!important;left:8px!important}
+body.tc-call-floating>.tc-call-composer.tc-call-active #tcVideoStage .tc-video-controls button{font-size:11px!important;padding:7px 9px!important}
+@media(max-width:600px){body.tc-call-floating>.tc-call-composer.tc-call-active{width:min(90vw,370px)!important;max-height:78dvh!important}body.tc-call-floating>.tc-call-composer.tc-call-active #tcVideoStage{height:min(38dvh,290px)!important;min-height:170px!important;max-height:290px!important}}
 </style></body></html>
