@@ -1935,10 +1935,23 @@ async function load(){
    // The audio player is the message: remove the redundant body and title.
    if(content.parentElement===d)content.remove();
  const wrap=document.createElement('div');wrap.className='tc-voice-message';
- const player=document.createElement('audio');player.controls=true;player.preload='none';player.className='tc-voice-player';player.setAttribute('aria-label','Play voice message');
+ const player=document.createElement('audio');player.preload='metadata';player.className='tc-voice-player';player.setAttribute('aria-label','Play voice message');
+ const controls=document.createElement('div');controls.className='tc-voice-controls';
+ const play=document.createElement('button');play.type='button';play.className='tc-voice-play';play.textContent='▶';play.setAttribute('aria-label','Play voice note');
+ const seek=document.createElement('input');seek.type='range';seek.min='0';seek.max='1000';seek.value='0';seek.className='tc-voice-seek';seek.setAttribute('aria-label','Seek voice note');
+ const clock=document.createElement('span');clock.className='tc-voice-clock';clock.textContent='0:00';
+ const fmt=t=>Number.isFinite(t)?Math.floor(t/60)+':'+String(Math.floor(t%60)).padStart(2,'0'):'0:00';
+ play.onclick=async()=>{try{if(player.paused)await player.play();else player.pause()}catch(e){status('chatStatus','Audio playback failed: '+e.message)}};
+ player.onplay=()=>{play.textContent='❚❚';play.setAttribute('aria-label','Pause voice note')};
+ player.onpause=()=>{play.textContent='▶';play.setAttribute('aria-label','Play voice note')};
+ player.onended=()=>{play.textContent='▶';seek.value='0'};
+ player.ontimeupdate=()=>{if(player.duration)seek.value=String(Math.round(player.currentTime/player.duration*1000));clock.textContent=fmt(player.currentTime)};
+ player.onloadedmetadata=()=>{clock.textContent=fmt(player.duration)};
+ seek.oninput=()=>{if(Number.isFinite(player.duration)&&player.duration>0)player.currentTime=Number(seek.value)/1000*player.duration};
+ controls.append(play,seek,clock);
  const {data:signed,error:err}=await supa.storage.from('tichor-attachments').createSignedUrl(a.storage_path,3600);
  if(!err&&signed?.signedUrl)player.src=signed.signedUrl;
- wrap.append(player);d.append(wrap);
+ wrap.append(player,controls);d.append(wrap);
 }
 if(a&&(/\\.(png|jpe?g|webp|pdf)$/i.test(a.file_name))){
    const isPdf=/\\.pdf$/i.test(a.file_name);
@@ -1992,6 +2005,14 @@ if(a&&(/\\.(png|jpe?g|webp|pdf)$/i.test(a.file_name))){
   if(content.parentElement===d||isVoice){
    const options=document.createElement('details');options.className='tichor-message-more';
    const trigger=document.createElement('summary');trigger.textContent='⋮';trigger.title='Message options';trigger.setAttribute('aria-label','Message options');options.append(trigger);
+   if(a){
+    const download=document.createElement('button');download.type='button';download.textContent='Download attachment';
+    download.onclick=async()=>{options.open=false;try{
+     const {data:blob,error:err}=await supa.storage.from('tichor-attachments').download(a.storage_path);
+     if(err)throw err;const url=URL.createObjectURL(blob);const anchor=document.createElement('a');anchor.href=url;anchor.download=a.file_name;document.body.append(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)
+    }catch(e){status('chatStatus','Download failed: '+e.message)}};
+    options.append(download);
+   }
    const remove=document.createElement('button');remove.type='button';remove.textContent='Delete message';remove.onclick=()=>{options.open=false;deleteTichorMessage(m,a,mine)};options.append(remove);
    const block=document.createElement('button');block.type='button';block.textContent=tichorIsBlocked(peer)?'Unblock contact':'Block contact';block.onclick=()=>{options.open=false;$('tichorQuickBlock')?.click()};options.append(block);d.append(options);
   }
@@ -3059,4 +3080,10 @@ body.tc-call-floating>.tc-call-composer.tc-call-active #hangup{background:#d6384
 #messages .msg:has(.tc-voice-message) .tichor-message-more{margin-top:3px}
 #sendForm #body{min-height:62px!important;max-height:160px;resize:vertical}
 @media(max-width:600px){#messages .msg:has(.tc-voice-message){max-width:94%}#sendForm #body{min-height:52px!important}}
+</style><style id="tc-voice-single-menu-v4">
+.tc-voice-message .tc-voice-player{display:none!important}
+.tc-voice-controls{display:flex;align-items:center;gap:9px;width:min(74vw,310px);min-height:43px}
+.tc-voice-play{display:grid;place-items:center;width:38px;height:38px;flex:none;border:0;border-radius:50%;background:#d6f5e9;color:#075e50;font-size:17px;cursor:pointer}
+.tc-voice-seek{flex:1;min-width:55px;accent-color:#49c7a2;cursor:pointer}
+.tc-voice-clock{font:500 12px system-ui,sans-serif;min-width:31px;text-align:right;color:inherit}
 </style></body></html>
