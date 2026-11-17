@@ -1274,7 +1274,9 @@ function tichorTranslatorControls(){
  detect.onchange=()=>{localStorage.setItem(TICHOR_DETECT_KEY,detect.checked?'on':'off');changed()};
  source.onchange=()=>{localStorage.setItem(TICHOR_SOURCE_KEY,source.value);tichorTranslatorSession=null;tichorTranslatorPair='';changed()};
  target.onchange=()=>{tichorSetPreferredLanguage(target.value);changed()};
- bar.append(title,desc,modeLabel,detectLabel,labels,info);settings.append(bar);refresh();
+ bar.append(modeLabel,detectLabel,labels,info);
+ const languageGroup=[...settings.querySelectorAll('.tc-settings-group')].find(g=>g.querySelector('summary')?.textContent?.includes('Language & Translation'));
+ (languageGroup?.querySelector('.tc-settings-body')||settings).append(bar);refresh();
 }
 async function tichorDetectLanguage(value){
  const api=globalThis.LanguageDetector;
@@ -3223,6 +3225,8 @@ groups[index<0?5:index].body.append(n);
 });
 // Ensure the language panel has real controls even when settings mounts before translation initialization.
 window.tichorEnsureTranslationControls?.();
+const languagePanel=document.getElementById('tichorTranslatorBar');
+if(languagePanel){const languageBody=groups[4].body;if(languagePanel.parentElement!==languageBody)languageBody.append(languagePanel);languagePanel.querySelector('h3')?.remove();languagePanel.querySelector('p.muted')?.remove();}
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mount,0),{once:true});else setTimeout(mount,0);
 })();
