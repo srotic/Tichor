@@ -92,3 +92,7 @@ html[data-tichor-theme-preference="crystal"] a{color:#155c82!important}
  }
 }
 @media(max-width:750px){html[data-tichor-theme-preference="crystal"] body{background-attachment:scroll!important}}
+
+/* Crystal uses the same emblem with a translucent, light glass treatment. */
+html[data-tichor-theme-preference="crystal"] body{background-image:linear-gradient(160deg,rgba(245,251,254,.86),rgba(232,243,248,.88) 55%,rgba(228,237,245,.89)),url('./icon-512.png?v=metallic-20261116-v2')!important;background-size:cover,clamp(290px,43vw,620px)!important;background-position:center,center!important;background-repeat:no-repeat,repeat!important;background-attachment:fixed!important}
+html[data-tichor-theme-preference="crystal"] body::before{content:none!important}
