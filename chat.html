@@ -2608,9 +2608,10 @@ function tcGroupMount(){
  if($('tcGroupPanel'))return;
  const panel=tcGroupNode('section');panel.id='tcGroupPanel';panel.className='card';
  panel.style.cssText='margin:12px 0;display:grid;gap:10px';panel.setAttribute('aria-label','Group conversations');
- panel.append(tcGroupNode('h3','Group chats'));
+ panel.append(tcGroupNode('h3','Groups'));
  const toolbar=tcGroupNode('div');toolbar.style.cssText='display:flex;gap:8px;flex-wrap:wrap';
- toolbar.append(tcGroupButton('Create group',tcGroupCreate),tcGroupButton('Refresh groups',tcGroupRefresh));
+ const create=tcGroupButton('＋ New group',tcGroupCreate);create.className='tc-group-create';toolbar.append(create);
+ const search=tcGroupNode('input');search.id='tcGroupSearch';search.placeholder='Search groups';search.setAttribute('aria-label','Search groups');search.addEventListener('input',()=>tcGroupFilter());panel.append(search);
  panel.append(toolbar);
  const status=tcGroupNode('p');status.id='tcGroupStatus';status.className='muted';status.setAttribute('role','status');panel.append(status);
  const invites=tcGroupNode('div');invites.id='tcGroupInvites';panel.append(invites);
@@ -2624,6 +2625,7 @@ function tcGroupMount(){
  personal.id='tcPersonalSwitch';groups.id='tcGroupsSwitch';
  tabs.append(personal,groups);
  if(mailbox)mailbox.before(tabs);
+ tabs.after(panel);
  panel.hidden=true;
  const groupTab=tcGroupButton('👥 Groups',()=>tcGroupSwitchView('groups'));
  groupTab.id='tcMailboxGroupsSwitch';
@@ -2667,7 +2669,26 @@ async function tcGroupRefresh(){
   if(!ids.length)list.append(tcGroupNode('p','No groups yet. Create one to get started.'));
   else{
    const groups=await tcGroupQuery(supa.from('tichor_groups').select('id,name,members_can_invite,owner_id').in('id',ids));
-   for(const g of groups||[])list.append(tcGroupButton('👥 '+g.name,()=>tcGroupOpen(g.id)));
+   const previews=await Promise.all((groups||[]).map(async g=>{
+    try{const recent=await tcGroupQuery(supa.from('tichor_group_messages').select('body,created_at').eq('group_id',g.id).order('created_at',{ascending:false}).limit(1));return {g,recent:recent?.[0]}}catch{return {g,recent:null}}
+   }));
+   previews.sort((a,b)=>new Date(b.recent?.created_at||0)-new Date(a.recent?.created_at||0));
+   for(const {g,recent} of previews){
+    const row=tcGroupNode('div');row.className='tc-group-row';row.dataset.name=g.name.toLowerCase();
+    const open=tcGroupButton('',()=>tcGroupOpen(g.id));open.className='tc-group-row-open';
+    const avatar=tcGroupNode('span','👥');avatar.className='tc-group-avatar';
+    const detail=tcGroupNode('span');detail.className='tc-group-row-detail';
+    detail.append(tcGroupNode('strong',g.name),tcGroupNode('small',recent?.body||'Tap to start a conversation'));
+    open.append(avatar,detail);
+    if(recent?.created_at){const time=tcGroupNode('time',new Date(recent.created_at).toLocaleDateString());open.append(time)}
+    const menu=tcGroupButton('⋮',()=>tcGroupActions(g));menu.className='tc-group-menu';menu.setAttribute('aria-label','Group actions for '+g.name);
+    let timer=null,longPress=false;
+    open.addEventListener('touchstart',()=>{longPress=false;timer=setTimeout(()=>{longPress=true;tcGroupActions(g)},550)},{passive:true});
+    for(const evt of ['touchend','touchcancel','touchmove'])open.addEventListener(evt,()=>clearTimeout(timer),{passive:true});
+    open.addEventListener('click',e=>{if(longPress){e.stopImmediatePropagation();longPress=false}},true);
+    row.append(open,menu);list.append(row);
+   }
+   tcGroupFilter();
   }
   const box=$('tcGroupInvites');box.replaceChildren();
   for(const invite of invites||[]){
@@ -2680,6 +2701,38 @@ async function tcGroupRefresh(){
   tcGroupStatus('');
  }catch(e){tcGroupStatus('Groups unavailable: '+e.message+'. The group database migration must be installed first.')}
 }
+function tcGroupFilter(){
+ const term=($('tcGroupSearch')?.value||'').trim().toLowerCase();
+ for(const row of $('tcGroupList')?.querySelectorAll('.tc-group-row')||[])row.hidden=!row.dataset.name.includes(term);
+}
+function tcGroupBack(){
+ tcGroupId=null;clearInterval(tcGroupTimer);
+ $('tcGroupThread')?.replaceChildren();
+ if($('tcGroupList'))$('tcGroupList').hidden=false;
+ if($('tcGroupSearch'))$('tcGroupSearch').hidden=false;
+ tcGroupRefresh().catch(e=>tcGroupStatus(e.message));
+}
+async function tcGroupActions(group){
+ const options=group.owner_id===user.id?['Open','Delete group for everyone','Cancel']:['Open','Leave group','Cancel'];
+ const overlay=tcGroupNode('div');overlay.className='tc-group-modal-backdrop';
+ const dialog=tcGroupNode('div');dialog.className='tc-group-modal';dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');
+ dialog.append(tcGroupNode('h3',group.name));
+ const close=()=>overlay.remove();
+ for(const option of options)dialog.append(tcGroupButton(option,async()=>{
+  close();
+  if(option==='Open')return tcGroupOpen(group.id);
+  if(option==='Cancel')return;
+  if(option==='Leave group'){
+   if(!confirm('Leave '+group.name+'?'))return;
+   await tcGroupRpc('tichor_group_leave',{g:group.id});
+  }else{
+   if(!confirm('Permanently delete '+group.name+' and ALL its messages for every member? This cannot be undone.'))return;
+   await tcGroupRpc('tichor_group_delete',{g:group.id});
+  }
+  tcGroupBack();tcGroupStatus(option==='Leave group'?'You left the group.':'Group deleted.');
+ }));
+ overlay.append(dialog);overlay.addEventListener('click',e=>{if(e.target===overlay)close()});document.body.append(overlay);
+}
 async function tcGroupOpen(id){
  tcGroupId=id;
  const [groups,members]=await Promise.all([
@@ -2690,6 +2743,8 @@ async function tcGroupOpen(id){
  if(!role)throw Error('You are not a group member.');
  const admin=role==='owner'||role==='admin',canInvite=admin||groups.members_can_invite;
  const view=$('tcGroupThread');view.replaceChildren();
+ $('tcGroupList').hidden=true;$('tcGroupSearch').hidden=true;
+ const back=tcGroupButton('← All groups',()=>tcGroupBack());back.className='tc-group-back';view.append(back);
  const heading=tcGroupNode('div');heading.className='tc-group-heading';
  heading.append(tcGroupNode('h3','👥 '+groups.name),tcGroupNode('p',(members||[]).length+' participants · '+(admin?'Administrator':'Member')));
  view.append(heading);
@@ -2770,6 +2825,18 @@ async function tcGroupAdmins(id,members){
 }
 
 </script><style>
+.tc-group-row{display:flex;align-items:stretch;border-bottom:1px solid #8884;gap:4px}
+.tc-group-row[hidden]{display:none!important}
+.tc-group-row-open{display:flex!important;align-items:center;gap:12px;flex:1;min-width:0;text-align:left!important;background:transparent!important;border:0!important;padding:12px 4px!important}
+.tc-group-avatar{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;background:#206b5c;flex-shrink:0}
+.tc-group-row-detail{display:grid;gap:3px;min-width:0;flex:1}
+.tc-group-row-detail strong,.tc-group-row-detail small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tc-group-row-detail small{opacity:.75}
+.tc-group-row-open time{font-size:11px;opacity:.7;white-space:nowrap}
+.tc-group-menu{min-width:42px!important;background:transparent!important;border:0!important;font-size:25px!important}
+.tc-group-create{width:max-content}
+#tcGroupSearch{width:100%;max-width:100%}
+#tcGroupList[hidden],#tcGroupSearch[hidden]{display:none!important}
 .tc-group-switch{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
 .tc-group-switch button{flex:1;min-width:130px}
 #tcGroupPanel[hidden]{display:none!important}
