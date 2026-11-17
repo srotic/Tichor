@@ -1138,9 +1138,61 @@ function tichorTranslationMark(contact,on=true){
  const all=tichorTranslationThreads();if(on)all[contact]=true;else delete all[contact];
  localStorage.setItem(tichorTranslationThreadKey(),JSON.stringify(all));
 }
+const tichorTranslatePreviewQueue=[];
+let tichorTranslatePreviewRunning=false;
+const tichorPreviewSessions=new Map();
+function tichorPreviewTimeout(p,ms,label){
+ return Promise.race([p,new Promise((_,reject)=>setTimeout(()=>reject(new Error(label+' timed out')),ms))]);
+}
+async function tichorRunPreviewQueue(){
+ if(tichorTranslatePreviewRunning)return;
+ tichorTranslatePreviewRunning=true;
+ try{
+  while(tichorTranslatePreviewQueue.length){
+   const job=tichorTranslatePreviewQueue.shift();
+   const {message:m,target,preferred,language,generation,box,item}=job;
+   if(box.dataset.translationGeneration!==generation||!item.isConnected)continue;
+   const cacheKey=m.id+'|auto|'+preferred;
+   try{
+    let result=tichorTranslationCache.get(cacheKey);
+    if(!result){
+     if(!tichorTranslationSupported())throw new Error('This browser does not support on-device translation');
+     let from;
+     if(tichorSwahiliEvidence(m.body))from='sw';
+     else if(localStorage.getItem(TICHOR_DETECT_KEY)==='off')from=localStorage.getItem(TICHOR_SOURCE_KEY)||'en';
+     else{
+      try{from=await tichorPreviewTimeout(tichorDetectLanguage(m.body),6000,'Language detection')}
+      catch(e){if(/^[\\x00-\\x7F]*$/.test(m.body))from='en';else throw e}
+     }
+     if(from===preferred)result=m.body;
+     else{
+      const pair=from+'>'+preferred;
+      if(!tichorPreviewSessions.has(pair)){
+       const task=(async()=>{
+        const api=globalThis.Translator;
+        if(typeof api.availability==='function'){
+         const status=await tichorPreviewTimeout(api.availability({sourceLanguage:from,targetLanguage:preferred}),8000,'Language availability');
+         if(status==='unavailable')throw new Error('Translation from '+from+' to '+preferred+' is unsupported in this browser');
+        }
+        return tichorPreviewTimeout(api.create({sourceLanguage:from,targetLanguage:preferred}),18000,'Translator initialization');
+       })();
+       tichorPreviewSessions.set(pair,task);
+      }
+      const translator=await tichorPreviewSessions.get(pair).catch(e=>{tichorPreviewSessions.delete(pair);throw e});
+      result=await tichorPreviewTimeout(translator.translate(m.body),12000,'Message translation');
+     }
+     if(result)tichorTranslationCache.set(cacheKey,result);
+    }
+    if(box.dataset.translationGeneration===generation&&item.isConnected)target.textContent=result||'Translation unavailable';
+   }catch(e){
+    if(box.dataset.translationGeneration===generation&&item.isConnected)target.textContent='Translation unavailable · '+(e?.message||'Unknown error');
+   }
+  }
+ }finally{tichorTranslatePreviewRunning=false}
+}
 window.tichorRenderTranslateWorkspace=async()=>{
  const box=$('tichorTranslateThreads');if(!box||!user)return;
- const generation=String(Date.now())+Math.random();box.dataset.translationGeneration=generation;
+ const generation=String(Date.now())+Math.random();box.dataset.translationGeneration=generation;tichorTranslatePreviewQueue.length=0;
  const {data,error}=await supa.from('chat_messages').select('id,sender_id,recipient_id,body,created_at,read_at').eq('recipient_id',user.id).order('created_at',{ascending:false}).limit(200);
  if(box.dataset.translationGeneration!==generation)return;
  if(error){box.textContent='Unable to load messages for translation: '+error.message;return}
@@ -1176,28 +1228,9 @@ window.tichorRenderTranslateWorkspace=async()=>{
    const originalText=document.createElement('p');originalText.textContent=m.body||'';
    original.append(originalLabel,originalText);
    item.append(target,original);group.append(item);
-   (async()=>{
-    const cacheKey=m.id+'|auto|'+preferred;
-    try{
-     if(!tichorTranslationSupported())throw Error('On-device translation is unavailable in this browser');
-     let result=tichorTranslationCache.get(cacheKey);
-     if(!result){
-      let from;
-      if(tichorSwahiliEvidence(m.body))from='sw';
-      else if(localStorage.getItem(TICHOR_DETECT_KEY)==='off')from=localStorage.getItem(TICHOR_SOURCE_KEY)||'en';
-      else {try{from=await tichorDetectLanguage(m.body)}catch(e){if(/^[\\x00-\\x7F]*$/.test(m.body))from='en';else throw e}}
-      if(from===preferred)result=m.body;
-      else{
-       const api=globalThis.Translator;
-       if(typeof api.availability==='function'&&await api.availability({sourceLanguage:from,targetLanguage:preferred})==='unavailable')throw Error('Language pair unavailable on this device');
-       const translator=await api.create({sourceLanguage:from,targetLanguage:preferred});
-       result=await translator.translate(m.body);
-      }
-      if(result)tichorTranslationCache.set(cacheKey,result);
-     }
-     if(box.dataset.translationGeneration===generation&&item.isConnected)target.textContent=result||'Translation unavailable';
-    }catch(e){if(box.dataset.translationGeneration===generation&&item.isConnected)target.textContent='Translation unavailable · '+e.message}
-   })();
+   // Queue translation work: creating dozens of language models simultaneously can stall browsers.
+   tichorTranslatePreviewQueue.push({message:m,target,preferred,language,generation,box,item});
+   tichorRunPreviewQueue();
   }
   const open=document.createElement('button');open.type='button';open.className='tc-translate-open';open.textContent='Open conversation';
   open.onclick=async()=>{peer=id;$('recipient').value=names.get(id)||window.tichorAutoContactLabels?.get(id)||'Contact';window.tichorShowTab?.('translate-chat');await load()};
