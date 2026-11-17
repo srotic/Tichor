@@ -536,7 +536,7 @@ calls.append(callTools,callbar,callHistory);
 callsHelp.remove();callbar.classList.add('tc-call-composer');
 newCall.addEventListener('click',()=>{const open=!callbar.classList.contains('tc-composer-open');callbar.classList.toggle('tc-composer-open',open);newCall.setAttribute('aria-expanded',String(open));if(open)document.getElementById('callContactPicker')?.focus()});
 const callStatusNode=document.getElementById('callStatus');
-if(callStatusNode)new MutationObserver(()=>{const active=!/^(no active call|)$/i.test(callStatusNode.textContent.trim());callbar.classList.toggle('tc-call-active',active)}).observe(callStatusNode,{childList:true,subtree:true,characterData:true});
+if(callStatusNode)new MutationObserver(()=>{const message=callStatusNode.textContent.trim();const active=/ringing|calling|connecting|connected|in call|call active|incoming call|answering|waiting for/i.test(message)&&!/declined|ended|failed|could not|cancelled|canceled|unanswered/i.test(message);callbar.classList.toggle('tc-call-active',active);document.body.classList.toggle('tc-call-floating',active)}).observe(callStatusNode,{childList:true,subtree:true,characterData:true});
 callSearch.addEventListener('input',()=>{document.querySelectorAll('#tichorCallHistory .tichor-call-history-item').forEach(row=>{row.hidden=!row.textContent.toLowerCase().includes(callSearch.value.trim().toLowerCase())})});
 
 // Preserve every original node, even when a future release adds controls.
@@ -2759,4 +2759,13 @@ html #t12Settings.tc-settings-compact .tc-settings-group>summary:hover{filter:br
 #t12Calls .tc-call-tools .tc-call-title{margin-top:0!important}
 #t12Calls .tc-call-tools #tcCallSearch{margin-bottom:0!important}
 @media(max-width:600px){#t12Calls .tc-call-tools{padding:10px!important;margin:-10px -10px 10px!important;border-radius:12px!important}}
+</style><style id="tc-floating-active-call-v1">
+/* Active call remains above scrollable call history, with safe-area spacing. */
+body.tc-call-floating #t12Calls .tc-call-composer.tc-call-active{position:fixed!important;z-index:1005!important;left:50%!important;transform:translateX(-50%)!important;bottom:calc(env(safe-area-inset-bottom,0px) + 12px)!important;top:auto!important;width:min(92vw,650px)!important;max-height:min(74dvh,690px)!important;overflow-y:auto!important;overscroll-behavior:contain;box-sizing:border-box!important;margin:0!important;padding:15px!important;border:1px solid #76949b!important;border-radius:20px!important;background:#213743!important;color:#f4fafb!important;box-shadow:0 12px 55px #000a!important;-webkit-overflow-scrolling:touch}
+body.tc-call-floating #t12Calls{padding-bottom:min(45vh,380px)!important}
+body.tc-call-floating #t12Calls .tc-call-composer.tc-call-active #callStatus{color:#f4fafb!important;font-size:15px!important;margin:10px 0!important}
+body.tc-call-floating #t12Calls .tc-call-composer.tc-call-active label{color:#f4fafb!important}
+body.tc-call-floating #t12Calls .tc-call-composer.tc-call-active #tcVideoStage{max-height:38dvh!important;min-height:170px!important;aspect-ratio:16/10!important;margin:10px auto!important}
+body.tc-call-floating #t12Calls .tc-call-composer.tc-call-active #audioHelp{display:none!important}
+@media(max-width:600px){body.tc-call-floating #t12Calls .tc-call-composer.tc-call-active{width:calc(100vw - 20px)!important;max-height:66dvh!important;padding:12px!important;bottom:calc(env(safe-area-inset-bottom,0px) + 8px)!important}body.tc-call-floating #t12Calls .tc-call-composer.tc-call-active #tcVideoStage{max-height:27dvh!important;min-height:140px!important}body.tc-call-floating #t12Calls .tc-call-composer.tc-call-active .tc-call-circle{min-width:62px!important;min-height:62px!important;margin:4px!important;padding:9px!important}body.tc-call-floating #t12Calls .tc-call-composer.tc-call-active #callContactPicker{padding:8px!important;margin:5px 0!important}}
 </style></body></html>
