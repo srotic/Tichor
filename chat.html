@@ -2841,12 +2841,28 @@ async function tcGroupMessages(id){
  if(tcGroupId!==id)return;
  const box=$('tcGroupMessages');if(!box)return;
  const atBottom=box.scrollTop+box.clientHeight>=box.scrollHeight-35;
+ const senderIds=[...new Set((data||[]).map(m=>m.sender_id).filter(id=>id&&id!==user.id))];
+ const names=new Map();
+ if(senderIds.length){
+  try{
+   const contacts=await tcGroupQuery(supa.from('tichor_contacts').select('contact_id,label').eq('owner_id',user.id).in('contact_id',senderIds));
+   for(const c of contacts||[])if(c.label)names.set(c.contact_id,c.label);
+  }catch(e){console.warn('Group sender labels unavailable',e)}
+ }
+ if(tcGroupId!==id)return;
  box.replaceChildren();
+ const senderColors=['#ffd08a','#a9ddff','#f4b7e9','#c8f0a4','#d6c3ff','#ffb8a8'];
+ const colorFor=id=>{let h=0;for(let i=0;i<id.length;i++)h=(Math.imul(31,h)+id.charCodeAt(i))|0;return senderColors[(h>>>0)%senderColors.length]};
  for(const m of data||[]){
-  const line=tcGroupNode('div');line.style.cssText='padding:8px;border:1px solid #8884;border-radius:9px;white-space:pre-wrap;overflow-wrap:anywhere';
-  const label=tcGroupNode('strong',m.sender_id===user.id?'You':m.sender_id.slice(0,8));
-  const content=tcGroupNode('div',m.body);line.append(label,content);box.append(line);
-  tichorAddTranslateButton(line,content,m.sender_id===user.id,'group:'+m.id,tcGroupTranslateQueue);
+  const mine=m.sender_id===user.id;
+  const line=tcGroupNode('div');line.className='tc-group-message '+(mine?'tc-group-message-mine':'tc-group-message-other');
+  const label=tcGroupNode('strong',mine?'You':(names.get(m.sender_id)||'Member · '+m.sender_id.slice(0,6)));
+  label.className='tc-group-sender';if(!mine)label.style.color=colorFor(m.sender_id);
+  const content=tcGroupNode('div',m.body);content.className='tc-group-message-text';
+  const time=tcGroupNode('time');time.className='tc-group-message-time';
+  const date=new Date(m.created_at);if(!Number.isNaN(date.getTime())){time.dateTime=m.created_at;time.textContent=date.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}
+  line.append(label,content,time);box.append(line);
+  tichorAddTranslateButton(line,content,mine,'group:'+m.id,tcGroupTranslateQueue);
  }
  if(atBottom)box.scrollTop=box.scrollHeight;
  tcGroupRunTranslations().catch(console.warn);
@@ -3740,4 +3756,14 @@ body.tc-group-chat-open{overflow:hidden!important}
 #tcGroupPanel.tc-group-fullscreen #tcGroupThread>form input::placeholder{color:#b5c7c2!important}
 html[data-tichor-theme="light"] #tcGroupPanel.tc-group-fullscreen,html[data-tichor-theme="crystal"] #tcGroupPanel.tc-group-fullscreen{--tc-group-screen-bg:#f7faf9;--tc-group-screen-fg:#17362e}
 @media(min-width:800px){#tcGroupPanel.tc-group-fullscreen{padding:24px max(30px,calc((100vw - 1120px)/2))!important}}
+</style><style id="tc-group-sender-bubbles-v1">
+#tcGroupPanel.tc-group-fullscreen #tcGroupMessages{display:flex!important;flex-direction:column!important;align-items:stretch!important;justify-content:flex-start!important;gap:8px!important}
+#tcGroupPanel #tcGroupMessages>.tc-group-message{box-sizing:border-box!important;display:flex!important;flex-direction:column!important;align-self:flex-start!important;max-width:min(82%,540px)!important;width:max-content!important;min-width:85px!important;border:0!important;border-radius:14px 14px 14px 4px!important;padding:8px 11px!important;background:#294454!important;color:#f7fbff!important;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 1px 3px #0002}
+#tcGroupPanel #tcGroupMessages>.tc-group-message-mine{align-self:flex-end!important;background:#176b50!important;color:#fff!important;border-radius:14px 14px 4px 14px!important}
+#tcGroupPanel #tcGroupMessages .tc-group-sender{font-size:12px!important;line-height:1.25!important;margin-bottom:4px!important;color:#d5f3e6}
+#tcGroupPanel #tcGroupMessages .tc-group-message-text{font-size:14px!important;line-height:1.45!important;overflow-wrap:anywhere}
+#tcGroupPanel #tcGroupMessages .tc-group-message-time{align-self:flex-end!important;margin-top:4px!important;font-size:10px!important;line-height:1!important;color:#c9ded9!important;opacity:.9}
+#tcGroupPanel #tcGroupMessages .tc-group-message-other .tc-group-message-time{color:#c4d4dc!important}
+#tcGroupPanel #tcGroupMessages .tc-group-message button{max-width:100%}
+@media(max-width:480px){#tcGroupPanel #tcGroupMessages>.tc-group-message{max-width:88%!important}}
 </style></body></html>
