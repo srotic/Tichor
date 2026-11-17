@@ -2275,7 +2275,7 @@ $('sendForm').onsubmit=async e=>{e.preventDefault();if(!peer)return status('chat
  }catch(err){status('chatStatus','Send failed: '+err.message)}finally{button.disabled=false}};$('refresh').onclick=load;$('secret').addEventListener('change',()=>{if(peer)load()});
 async function loadProfile(){const {data,error}=await supa.from('tichor_profiles').select('username,phone,phone_discoverable').eq('user_id',user.id).maybeSingle();if(error){status('profileStatus',error.message);return}if(data){$('myUsername').value=data.username||'';$('myPhone').value=data.phone||'';$('phoneDiscoverable').checked=!!data.phone_discoverable;}}
 $('saveProfile').onclick=async()=>{try{const username=$('myUsername').value.trim().replace(/^@/,'').toLowerCase(),phone=$('myPhone').value.trim();if(!/^[a-z][a-z0-9_]{2,23}$/.test(username))throw Error('Username must start with a letter and be 3–24 letters, numbers or underscores');if(phone&&!/^\+[1-9][0-9]{6,14}$/.test(phone))throw Error('Use international phone format, e.g. +17805550123');const {error}=await supa.from('tichor_profiles').upsert({user_id:user.id,username,phone:phone||null,phone_discoverable:!!$('phoneDiscoverable').checked});if(error)throw error;status('profileStatus','Profile saved.');}catch(e){status('profileStatus',e.message)}};
-let pc=null,localStream=null,callId=null,callPeer=null,pollTimer=null,seen=new Set(),pendingOffer=null,remoteCandidates=[];
+let pc=null,localStream=null,callId=null,callPeer=null,pollTimer=null,seen=new Set(),pendingOffer=null,remoteCandidates=[],callPolling=false,callCandidateQueue=Promise.resolve();
 let ringContext=null,ringInterval=null,ringCounter=0,ringMode="incoming";
 const ringSelect=$('ringtoneChoice');
 try{ringSelect.value=localStorage.getItem('tichor-ring-choice')||'classic'}catch{}
@@ -2396,8 +2396,10 @@ const tcCallIcon=(kind)=>{const ns='http://www.w3.org/2000/svg';const svg=docume
 }
 window.tichorLoadCallHistory=tichorLoadCallHistory;
 async function emitCall(kind,payload={},to=callPeer,id=callId){const {error}=await supa.from('tichor_call_events').insert({call_id:id,sender_id:user.id,recipient_id:to,kind,payload});if(error)throw error;}
+async function recoverCallCandidates(id){if(!id)return;const {data,error}=await supa.from('tichor_call_events').select('id,sender_id,payload').eq('call_id',id).eq('kind','candidate').order('created_at',{ascending:true}).limit(300);if(error)throw error;for(const e of data||[]){seen.add(e.id);if(e.sender_id===callPeer&&e.sender_id!==user.id&&e.payload)remoteCandidates.push(e.payload)}}
+async function applyRemoteCandidates(c){if(!c?.remoteDescription)return;const pending=remoteCandidates.splice(0);for(const candidate of pending){try{await c.addIceCandidate(candidate)}catch(err){console.warn('Tichor ICE candidate rejected',err)}}}
 function mediaTracksStop(){tcStage?.classList.remove('tc-video-swapped');$('tcSwapVideo')?.setAttribute('aria-pressed','false');tcCameraFacing='user';if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null}$('localVideo').srcObject=null;$('remoteVideo').srcObject=null;$('remoteAudio').srcObject=null;show('localVideo',false);show('remoteVideo',false)}
-async function closeCall(send=true){if(send&&callId&&callPeer)try{await emitCall('hangup')}catch{}if(pc){pc.close();pc=null}mediaTracksStop();callId=null;callPeer=null;pendingOffer=null;remoteCandidates=[];show('hangup',false);show('acceptCall',false);show('declineCall',false);stopRinging();$('callIdentity').textContent='Select a contact to call';callStatus('No active call')}
+async function closeCall(send=true){if(send&&callId&&callPeer)try{await emitCall('hangup')}catch{}if(pc){pc.close();pc=null}mediaTracksStop();callId=null;callPeer=null;pendingOffer=null;remoteCandidates=[];callCandidateQueue=Promise.resolve();show('hangup',false);show('acceptCall',false);show('declineCall',false);stopRinging();$('callIdentity').textContent='Select a contact to call';callStatus('No active call')}
 let tcCameraFacing='user',tcCameraSwitchBusy=false;
 const tcStage=$('tcVideoStage');
 $('tcSwapVideo')?.addEventListener('click',()=>{
@@ -2462,7 +2464,7 @@ async function prepareConnection(video){
   updateRemote();
   playRemoteSound().catch(console.warn);
  };
- c.onicecandidate=e=>{if(e.candidate&&callId&&callPeer)emitCall('candidate',e.candidate.toJSON()).catch(err=>callStatus('Signaling error: '+err.message))};
+ c.onicecandidate=e=>{if(e.candidate&&callId&&callPeer){const id=callId,to=callPeer,candidate=e.candidate.toJSON();callCandidateQueue=callCandidateQueue.then(()=>emitCall('candidate',candidate,to,id)).catch(err=>{console.warn('Tichor candidate signaling failed',err);callStatus('Signaling error: '+err.message)})}};
  c.onicecandidateerror=e=>console.warn('Tichor ICE candidate error',e.errorCode,e.errorText);
  c.oniceconnectionstatechange=()=>{if(pc!==c)return;if(c.iceConnectionState==='failed')callStatus('Connection failed: a relay (TURN) may be required on these networks.');else if(c.iceConnectionState==='disconnected')callStatus('Connection interrupted — attempting to reconnect…')};
  c.onconnectionstatechange=()=>{
@@ -2478,9 +2480,24 @@ async function prepareConnection(video){
 }
 async function startCall(video){if(!peer)return callStatus('Open a conversation first');if(tichorIsBlocked(peer))return callStatus('This contact is blocked on this device.');try{if(!await tichorEnsureContactAllowed(peer))return callStatus('Contact approval required before calling.')}catch(e){return callStatus(e.message)}if(pc||pendingOffer)return callStatus('Finish the current call first');try{callId=crypto.randomUUID();callPeer=peer;callIdentity('Calling',peer);const c=await prepareConnection(video);const offer=await c.createOffer();await c.setLocalDescription(offer);await emitCall('offer',{sdp:c.localDescription.sdp,type:'offer',video});startRinging('outgoing');callStatus('Ringing…')}catch(e){callStatus('Could not start call: '+e.message);await closeCall(false)}}
 $('voiceCall').onclick=()=>startCall(false);$('videoCall').onclick=()=>startCall(true);$('hangup').onclick=()=>closeCall();$('declineCall').onclick=async()=>{if(pendingOffer){try{await emitCall('decline',{},pendingOffer.sender_id,pendingOffer.call_id)}catch{}}pendingOffer=null;stopRinging();show('acceptCall',false);show('declineCall',false);$('callIdentity').textContent='Call declined';callStatus('Call declined')};
-$('acceptCall').onclick=async()=>{if(!pendingOffer)return;const e=pendingOffer;pendingOffer=null;stopRinging();callIdentity('Connecting with',e.sender_id);show('acceptCall',false);show('declineCall',false);try{callId=e.call_id;callPeer=e.sender_id;const video=!!e.payload.video;const c=await prepareConnection(video);playRemoteSound().catch(console.warn);await c.setRemoteDescription({type:'offer',sdp:e.payload.sdp});const answer=await c.createAnswer();await c.setLocalDescription(answer);await emitCall('answer',{type:'answer',sdp:c.localDescription.sdp});for(const cand of remoteCandidates)await c.addIceCandidate(cand);remoteCandidates=[];callStatus('Connecting…')}catch(err){callStatus('Unable to answer: '+err.message);await closeCall(false)}};
-async function processCallEvent(e){if(e.sender_id===user.id)return;if(e.kind==='offer'){if(!tichorAllowIncomingCall(e.sender_id))return;if(Date.now()-new Date(e.created_at).getTime()>90000)return;if(pc||pendingOffer)return;const {data:closed}=await supa.from('tichor_call_events').select('id').eq('call_id',e.call_id).eq('kind','hangup').limit(1);if(closed?.length)return;pendingOffer=e;remoteCandidates=[];callIdentity('Incoming call from',e.sender_id);startRinging();window.tichorShowTab?.('calls');show('acceptCall',true);show('declineCall',true);callStatus('Incoming '+(e.payload.video?'video':'voice')+' call. Accept or decline.');return}if(!callId||e.call_id!==callId)return;if(e.kind==='answer'&&pc){stopRinging();callIdentity('Connected with',e.sender_id);await pc.setRemoteDescription({type:'answer',sdp:e.payload.sdp});for(const cand of remoteCandidates)await pc.addIceCandidate(cand);remoteCandidates=[]}if(e.kind==='candidate'){if(pc&&pc.remoteDescription)await pc.addIceCandidate(e.payload);else remoteCandidates.push(e.payload)}if(e.kind==='hangup'||e.kind==='decline')await closeCall(false)}
-async function pollCalls(){if(!user)return;try{const since=new Date(Date.now()-120000).toISOString();const {data,error}=await supa.from('tichor_call_events').select('id,call_id,sender_id,recipient_id,kind,payload,created_at').or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`).gte('created_at',since).order('created_at',{ascending:true}).limit(400);if(error)throw error;for(const e of data){if(seen.has(e.id))continue;seen.add(e.id);try{await processCallEvent(e)}catch(err){callStatus('Call error: '+err.message)}}if(seen.size>2000)seen.clear()}catch(e){callStatus('Call signaling unavailable: '+e.message)}}
+$('acceptCall').onclick=async()=>{if(!pendingOffer)return;const e=pendingOffer;pendingOffer=null;stopRinging();callIdentity('Connecting with',e.sender_id);show('acceptCall',false);show('declineCall',false);try{callId=e.call_id;callPeer=e.sender_id;const video=!!e.payload.video;const c=await prepareConnection(video);playRemoteSound().catch(console.warn);await c.setRemoteDescription({type:'offer',sdp:e.payload.sdp});await recoverCallCandidates(callId);await applyRemoteCandidates(c);const answer=await c.createAnswer();await c.setLocalDescription(answer);await emitCall('answer',{type:'answer',sdp:c.localDescription.sdp});await applyRemoteCandidates(c);callStatus('Connecting media…')}catch(err){callStatus('Unable to answer: '+err.message);await closeCall(false)}};
+async function processCallEvent(e){if(e.sender_id===user.id)return;if(e.kind==='offer'){if(!tichorAllowIncomingCall(e.sender_id))return;if(Date.now()-new Date(e.created_at).getTime()>90000)return;if(pc||pendingOffer)return;const {data:closed}=await supa.from('tichor_call_events').select('id').eq('call_id',e.call_id).eq('kind','hangup').limit(1);if(closed?.length)return;pendingOffer=e;remoteCandidates=[];callIdentity('Incoming call from',e.sender_id);startRinging();window.tichorShowTab?.('calls');show('acceptCall',true);show('declineCall',true);callStatus('Incoming '+(e.payload.video?'video':'voice')+' call. Accept or decline.');return}if(!callId||e.call_id!==callId)return;if(e.kind==='answer'&&pc){stopRinging();callIdentity('Negotiating with',e.sender_id);await pc.setRemoteDescription({type:'answer',sdp:e.payload.sdp});await recoverCallCandidates(callId);await applyRemoteCandidates(pc);callStatus('Negotiating media connection…')}if(e.kind==='candidate'){if(pc&&pc.remoteDescription){try{await pc.addIceCandidate(e.payload)}catch(err){console.warn('Tichor candidate rejected',err)}}else remoteCandidates.push(e.payload)}if(e.kind==='hangup'||e.kind==='decline')await closeCall(false)}
+async function pollCalls(){
+ if(!user||callPolling)return;
+ callPolling=true;
+ try{
+  const since=new Date(Date.now()-120000).toISOString();
+  const {data,error}=await supa.from('tichor_call_events').select('id,call_id,sender_id,recipient_id,kind,payload,created_at').or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`).gte('created_at',since).order('created_at',{ascending:true}).limit(1000);
+  if(error)throw error;
+  for(const e of data||[]){
+   if(seen.has(e.id))continue;
+   // Mark only after processing so transient failures can be retried.
+   try{await processCallEvent(e);seen.add(e.id)}catch(err){console.warn('Tichor signaling event failed',e.kind,err);callStatus('Call signaling error: '+err.message)}
+  }
+  if(seen.size>5000)seen.clear();
+ }catch(e){console.warn('Tichor call polling failed',e);callStatus('Call signaling unavailable: '+e.message)}
+ finally{callPolling=false}
+}
 async function recoverIncomingCall(){
  if(!user||pc||pendingOffer)return;
  // Reconstruct an unanswered invitation when the recipient returns from a push notification.
@@ -2516,6 +2533,7 @@ async function startCalling(){
   .gte('created_at',new Date(Date.now()-120000).toISOString());
  for(const e of data||[])seen.add(e.id);
  await recoverIncomingCall();
+ await pollCalls();
  if(pollTimer)clearInterval(pollTimer);
  pollTimer=setInterval(pollCalls,1800);
 }
