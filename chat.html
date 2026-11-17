@@ -1185,7 +1185,7 @@ async function tichorRunPreviewQueue(){
     }
     if(box.dataset.translationGeneration===generation&&item.isConnected)target.textContent=result||'Translation unavailable';
    }catch(e){
-    if(box.dataset.translationGeneration===generation&&item.isConnected)target.textContent='Translation unavailable · '+(e?.message||'Unknown error');
+    if(box.dataset.translationGeneration===generation&&item.isConnected){target.textContent='Translation unavailable · '+(e?.message||'Unknown error');target.title='The original message is still available below.';}
    }
   }
  }finally{tichorTranslatePreviewRunning=false}
@@ -1230,12 +1230,13 @@ window.tichorRenderTranslateWorkspace=async()=>{
    item.append(target,original);group.append(item);
    // Queue translation work: creating dozens of language models simultaneously can stall browsers.
    tichorTranslatePreviewQueue.push({message:m,target,preferred,language,generation,box,item});
-   tichorRunPreviewQueue();
   }
   const open=document.createElement('button');open.type='button';open.className='tc-translate-open';open.textContent='Open conversation';
   open.onclick=async()=>{peer=id;$('recipient').value=names.get(id)||window.tichorAutoContactLabels?.get(id)||'Contact';window.tichorShowTab?.('translate-chat');await load()};
   group.append(open);box.append(group);
  }
+ // Start only after every preview card is connected to the document.
+ void tichorRunPreviewQueue();
 };
 function tichorTranslationRoutingControl(){
  const button=$('tichorMoveTranslate');if(button)button.remove();
