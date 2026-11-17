@@ -1354,7 +1354,7 @@ function tichorAddTranslateButton(parent,content,mine,messageId,autoQueue){
   else if(autoQueue&&tichorTranslationSupported())autoQueue.push(async()=>{
    try{
     let source;
-    try{source=tichorSwahiliEvidence(original)?'sw':await tichorDetectLanguage(original)}catch{source=localStorage.getItem(TICHOR_DETECT_KEY)==='off'?(localStorage.getItem(TICHOR_SOURCE_KEY)||'en'):null;if(!source)return;}
+    try{source=localStorage.getItem(TICHOR_DETECT_KEY)==='off'?(localStorage.getItem(TICHOR_SOURCE_KEY)||'en'):(tichorSwahiliEvidence(original)?'sw':await tichorDetectLanguage(original))}catch{source=localStorage.getItem(TICHOR_SOURCE_KEY)||(/^[\x00-\x7F]*$/.test(original)?'en':null);if(!source)return;}
     if(source===preferred)return;
     const api=globalThis.Translator;
     if(!api||typeof api.create!=='function')return;
@@ -2007,8 +2007,11 @@ async function load(){
   else if(content.textContent.startsWith(TICHOR_POLL_PREFIX)){d.append(senderLine);const notice=document.createElement('p');notice.textContent='Update Tichor to view this decision poll.';d.append(notice)}
   else if(displayedAction?.type==='create'){d.append(senderLine,tichorActionCard(m,displayedAction,actionStates.get(m.id)||'pending'))}
   else if(content.textContent.trim().startsWith(TICHOR_ACTION_PREFIX)){d.append(senderLine);const notice=document.createElement('p');notice.textContent='Action message received. Update Tichor to view its controls.';d.append(notice)}
-  else {d.append(senderLine,content);if(translationView&&!mine){tichorRenderBilingualMessage(d,content,m,autoQueue)}
-
+  else {d.append(senderLine,content);
+   if(!mine&&!content.textContent.startsWith('🔒')){
+    if(translationView)tichorRenderBilingualMessage(d,content,m,autoQueue);
+    else tichorAddTranslateButton(d,content,false,m.id,recentIds.has(m.id)?autoQueue:null);
+   }
   }
   const a=attached.get(m.id);
   const isVoice=!!a&&['webm','m4a','mp4','ogg','wav'].includes(String(a.file_name||'').split('.').pop().toLowerCase());
