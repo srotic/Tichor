@@ -58,3 +58,6 @@ html[data-tichor-theme-preference="aurora"] body::before{content:"T";position:fi
 html[data-tichor-theme-preference="aurora"] body>header,html[data-tichor-theme-preference="aurora"] body>main{position:relative;z-index:1}
 html[data-tichor-theme-preference="aurora"] header{background:#0b1630!important}
 html[data-tichor-theme-preference="aurora"] .t12-nav button.active{background:#163c6c!important;border-bottom-color:#7bcaf2!important}
+
+/* Aurora keeps the Tichor DNA emblem visible beneath its space palette. */
+html[data-tichor-theme-preference="aurora"] body,html[data-tichor-theme="dark"][data-tichor-theme-preference="aurora"] body{background-image:linear-gradient(155deg,rgba(5,12,30,.86),rgba(9,19,42,.88) 55%,rgba(10,17,36,.87)),url('./icon-512.png?v=metallic-20261116-v2')!important;background-size:cover,clamp(290px,43vw,620px)!important;background-position:center,center!important;background-repeat:no-repeat,repeat!important;background-attachment:fixed!important}
