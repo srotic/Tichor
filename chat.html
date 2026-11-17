@@ -537,6 +537,42 @@ callsHelp.remove();callbar.classList.add('tc-call-composer');
 newCall.addEventListener('click',()=>{const open=!callbar.classList.contains('tc-composer-open');callbar.classList.toggle('tc-composer-open',open);newCall.setAttribute('aria-expanded',String(open));if(open)document.getElementById('callContactPicker')?.focus()});
 const callStatusNode=document.getElementById('callStatus');
 const tcCallHome=document.createComment('Active call panel home');callbar.before(tcCallHome);
+const tcDragHandle=document.createElement('div');tcDragHandle.className='tc-call-drag-handle';tcDragHandle.setAttribute('role','button');tcDragHandle.setAttribute('tabindex','0');tcDragHandle.setAttribute('aria-label','Drag call window to reposition');
+tcDragHandle.innerHTML='<span class="tc-drag-grip" aria-hidden="true"></span><span class="tc-drag-label">Call in progress</span><span class="tc-drag-hint">Drag to move</span>';
+callbar.prepend(tcDragHandle);
+let tcDragState=null,tcMoved=false;
+function tcPositionCall(left,top){
+ const width=callbar.offsetWidth,height=callbar.offsetHeight;
+ const x=Math.max(8,Math.min(left,window.innerWidth-width-8));
+ const y=Math.max(8,Math.min(top,window.innerHeight-height-8));
+ callbar.style.setProperty('left',x+'px','important');
+ callbar.style.setProperty('top',y+'px','important');
+ callbar.style.setProperty('bottom','auto','important');
+ callbar.style.setProperty('transform','none','important');
+ tcMoved=true;
+}
+tcDragHandle.addEventListener('pointerdown',e=>{
+ if(!callbar.classList.contains('tc-call-active')||e.button!==0)return;
+ const rect=callbar.getBoundingClientRect();
+ tcDragState={id:e.pointerId,startX:e.clientX,startY:e.clientY,left:rect.left,top:rect.top};
+ tcDragHandle.setPointerCapture(e.pointerId);
+ e.preventDefault();
+});
+tcDragHandle.addEventListener('pointermove',e=>{
+ if(!tcDragState||tcDragState.id!==e.pointerId)return;
+ tcPositionCall(tcDragState.left+e.clientX-tcDragState.startX,tcDragState.top+e.clientY-tcDragState.startY);
+});
+function tcEndDrag(){tcDragState=null}
+tcDragHandle.addEventListener('pointerup',tcEndDrag);
+tcDragHandle.addEventListener('pointercancel',tcEndDrag);
+tcDragHandle.addEventListener('keydown',e=>{
+ const steps={ArrowLeft:[-20,0],ArrowRight:[20,0],ArrowUp:[0,-20],ArrowDown:[0,20]};
+ if(!steps[e.key]||!callbar.classList.contains('tc-call-active'))return;
+ e.preventDefault();const rect=callbar.getBoundingClientRect();
+ tcPositionCall(rect.left+steps[e.key][0],rect.top+steps[e.key][1]);
+});
+window.addEventListener('resize',()=>{if(tcMoved&&callbar.classList.contains('tc-call-active')){const rect=callbar.getBoundingClientRect();tcPositionCall(rect.left,rect.top)}});
+
 function tcSyncFloatingCall(active){
  callbar.classList.toggle('tc-call-active',active);
  document.body.classList.toggle('tc-call-floating',active);
@@ -546,7 +582,10 @@ function tcSyncFloatingCall(active){
   const identity=document.getElementById('callIdentity')?.textContent||'';
   const selected=document.getElementById('callContactPicker')?.selectedOptions?.[0]?.textContent?.trim();
   if(heading&&(!heading.textContent.trim()||heading.textContent==='Contact'))heading.textContent=selected||identity.replace(/^.*? · /,'')||'Contact';
- }else if(tcCallHome.parentNode&&callbar.parentElement===document.body)tcCallHome.after(callbar);
+ }else {
+ if(tcCallHome.parentNode&&callbar.parentElement===document.body)tcCallHome.after(callbar);
+ if(tcMoved){['left','top','bottom','transform'].forEach(key=>callbar.style.removeProperty(key));tcMoved=false}
+}
 }
 window.tichorSyncFloatingCall=tcSyncFloatingCall;
 if(callStatusNode)new MutationObserver(()=>{
@@ -2807,4 +2846,25 @@ body.tc-call-floating > .tc-call-composer.tc-call-active #tcVideoStage{max-heigh
 body.tc-call-floating > .tc-call-composer.tc-call-active .tc-call-circle{display:inline-flex!important}
 body.tc-call-floating > .tc-call-composer.tc-call-active .tc-call-circle.hide{display:none!important}
 @media(max-width:600px){body.tc-call-floating > .tc-call-composer.tc-call-active{width:calc(100vw - 20px)!important;max-height:64dvh!important;padding:12px!important;bottom:calc(8px + env(safe-area-inset-bottom,0px))!important}body.tc-call-floating > .tc-call-composer.tc-call-active #tcVideoStage{max-height:26dvh!important}}
+</style><style id="tc-draggable-compact-call-v1">
+/* Compact, draggable in-call card. The drag handle is the only drag target. */
+body.tc-call-floating>.tc-call-composer.tc-call-active{width:min(90vw,410px)!important;max-height:min(65dvh,550px)!important;padding:12px 14px!important;border-radius:18px!important;box-shadow:0 14px 44px #000a!important}
+.tc-call-drag-handle{display:none;align-items:center;justify-content:center;gap:8px;min-height:30px;margin:-3px -3px 5px;padding:4px 8px;color:#d3e8e4;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;border-radius:10px;font:600 12px/1.2 system-ui,sans-serif}
+.tc-call-drag-handle:active{cursor:grabbing}
+.tc-call-drag-handle:focus-visible{outline:2px solid #5ed1b4}
+.tc-drag-grip{width:29px;height:5px;background:#9bbab7;border-radius:99px}
+.tc-drag-hint{font-weight:400;opacity:.75}
+body.tc-call-floating>.tc-call-composer.tc-call-active .tc-call-drag-handle{display:flex!important}
+body.tc-call-floating>.tc-call-composer.tc-call-active>strong,
+body.tc-call-floating>.tc-call-composer.tc-call-active>label[for="callContactPicker"],
+body.tc-call-floating>.tc-call-composer.tc-call-active>#callContactPicker,
+body.tc-call-floating>.tc-call-composer.tc-call-active>#tichorQuickBlock,
+body.tc-call-floating>.tc-call-composer.tc-call-active>#voiceCall,
+body.tc-call-floating>.tc-call-composer.tc-call-active>#videoCall{display:none!important}
+body.tc-call-floating>.tc-call-composer.tc-call-active .tc-active-call-person{padding:4px 0 8px!important}
+body.tc-call-floating>.tc-call-composer.tc-call-active #tcActiveCallName{font-size:21px!important}
+body.tc-call-floating>.tc-call-composer.tc-call-active #callStatus{margin:6px 0!important;font-size:14px!important;text-align:center!important}
+body.tc-call-floating>.tc-call-composer.tc-call-active #hangup{min-width:64px!important;min-height:64px!important;margin:4px!important}
+body.tc-call-floating>.tc-call-composer.tc-call-active #tcVideoStage{max-height:31dvh!important;min-height:130px!important;margin:7px auto!important}
+@media(max-width:600px){body.tc-call-floating>.tc-call-composer.tc-call-active{width:min(88vw,350px)!important;max-height:60dvh!important;padding:10px!important}body.tc-call-floating>.tc-call-composer.tc-call-active #tcVideoStage{max-height:24dvh!important;min-height:110px!important}.tc-drag-hint{display:none}}
 </style></body></html>
