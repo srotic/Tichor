@@ -2708,4 +2708,24 @@ window.tichorRefreshAutonomous?.();
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
 window.addEventListener('tichor-autonomous-ready',mount);
 })();
-</script></body></html>
+</script><style id="tc-settings-contrast-fix-v1">
+/* Readable Settings surfaces across light, dark and glass appearance modes. */
+html #t12Settings.tc-settings-compact{--tc-setting-bg:#f7faf9;--tc-setting-text:#19382f;--tc-setting-sub:#4b655d;--tc-setting-border:#b4cbc3;--tc-setting-icon:#175d4d}
+html[data-tichor-theme="dark"] #t12Settings.tc-settings-compact,
+html[data-tichor-theme="aurora"] #t12Settings.tc-settings-compact,
+html[data-tichor-theme="crystal"] #t12Settings.tc-settings-compact,
+html[data-tichor-theme-preference="dark"] #t12Settings.tc-settings-compact{--tc-setting-bg:#20333c;--tc-setting-text:#f4faf8;--tc-setting-sub:#bfd4d0;--tc-setting-border:#59737b;--tc-setting-icon:#246d60}
+html #t12Settings.tc-settings-compact .tc-settings-heading{color:var(--tc-setting-text)!important}
+html #t12Settings.tc-settings-compact .tc-settings-group{background:var(--tc-setting-bg)!important;border-color:var(--tc-setting-border)!important}
+html #t12Settings.tc-settings-compact .tc-settings-group>summary,
+html #t12Settings.tc-settings-compact .tc-settings-group>summary span:not(.tc-settings-icon){color:var(--tc-setting-text)!important;-webkit-text-fill-color:var(--tc-setting-text)!important;opacity:1!important}
+html #t12Settings.tc-settings-compact .tc-settings-group .tc-settings-description{color:var(--tc-setting-sub)!important;-webkit-text-fill-color:var(--tc-setting-sub)!important;opacity:1!important}
+html #t12Settings.tc-settings-compact .tc-settings-group>summary::after{color:var(--tc-setting-text)!important;opacity:.85!important}
+html #t12Settings.tc-settings-compact .tc-settings-group .tc-settings-icon{background:var(--tc-setting-icon)!important;color:#fff!important;-webkit-text-fill-color:#fff!important}
+html #t12Settings.tc-settings-compact .tc-settings-body{color:var(--tc-setting-text)!important;border-color:var(--tc-setting-border)!important}
+html #t12Settings.tc-settings-compact #tichorAbout .tichor-about-content{background:var(--tc-setting-bg)!important;color:var(--tc-setting-text)!important}
+html #t12Settings.tc-settings-compact #tichorAbout .tichor-about-content:after{background:var(--tc-setting-bg)!important;opacity:.93!important}
+html #t12Settings.tc-settings-compact #tichorAbout .tichor-about-content :is(h3,h4,p,em,strong,blockquote){color:var(--tc-setting-text)!important;-webkit-text-fill-color:var(--tc-setting-text)!important}
+html #t12Settings.tc-settings-compact .tc-settings-group>summary:focus-visible{outline:3px solid #48c6ad;outline-offset:-4px}
+html #t12Settings.tc-settings-compact .tc-settings-group>summary:hover{filter:brightness(1.08)}
+</style></body></html>
