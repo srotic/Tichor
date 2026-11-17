@@ -2644,8 +2644,10 @@ function tcGroupMount(){
  const heading=tcGroupNode('div');heading.className='tc-group-main-heading';heading.append(tcGroupNode('h3','Your groups'));panel.append(heading);
  const toolbar=tcGroupNode('div');toolbar.className='tc-group-toolbar';
  const create=tcGroupButton('＋ Create new group',tcGroupCreate);create.className='tc-group-create';toolbar.append(create);
- const search=tcGroupNode('input');search.id='tcGroupSearch';search.placeholder='Search groups';search.setAttribute('aria-label','Search groups');search.addEventListener('input',()=>tcGroupFilter());panel.append(search);
- panel.append(toolbar);
+ const search=tcGroupNode('input');search.id='tcGroupSearch';search.placeholder='Search groups';search.setAttribute('aria-label','Search groups');search.addEventListener('input',()=>tcGroupFilter());const manage=tcGroupNode('details');manage.id='tcGroupManage';manage.className='tc-group-manage';
+ const manageSummary=tcGroupNode('summary','Manage groups');manage.append(manageSummary);
+ const manageBody=tcGroupNode('div');manageBody.className='tc-group-manage-body';manageBody.append(toolbar,search);manage.append(manageBody);
+ panel.append(manage);
  const status=tcGroupNode('p');status.id='tcGroupStatus';status.className='muted';status.setAttribute('role','status');panel.append(status);
  const inviteHeading=tcGroupNode('h4','Invitations');inviteHeading.id='tcGroupInvitesHeading';panel.append(inviteHeading);
  const invites=tcGroupNode('div');invites.id='tcGroupInvites';panel.append(invites);
@@ -2758,6 +2760,9 @@ function tcGroupBack(){
  $('tcGroupThread')?.replaceChildren();
  if($('tcGroupList'))$('tcGroupList').hidden=false;
  if($('tcGroupSearch'))$('tcGroupSearch').hidden=false;
+ if($('tcGroupManage'))$('tcGroupManage').hidden=false;
+ if($('tcGroupInvites'))$('tcGroupInvites').hidden=false;
+ if($('tcGroupPanel')?.querySelector('.tc-group-main-heading'))$('tcGroupPanel').querySelector('.tc-group-main-heading').hidden=false;
  tcGroupRefresh().catch(e=>tcGroupStatus(e.message));
 }
 async function tcGroupActions(group){
@@ -2792,15 +2797,19 @@ async function tcGroupOpen(id){
  const admin=role==='owner'||role==='admin',canInvite=admin||groups.members_can_invite;
  const view=$('tcGroupThread');view.replaceChildren();
  $('tcGroupList').hidden=true;$('tcGroupSearch').hidden=true;
+ if($('tcGroupManage'))$('tcGroupManage').hidden=true;
+ if($('tcGroupInvites'))$('tcGroupInvites').hidden=true;
+ if($('tcGroupInvitesHeading'))$('tcGroupInvitesHeading').hidden=true;
+ if($('tcGroupPanel')?.querySelector('.tc-group-main-heading'))$('tcGroupPanel').querySelector('.tc-group-main-heading').hidden=true;
  const back=tcGroupButton('← All groups',()=>tcGroupBack());back.className='tc-group-back';view.append(back);
  const heading=tcGroupNode('div');heading.className='tc-group-heading';
  heading.append(tcGroupNode('h3','👥 '+groups.name),tcGroupNode('p',(members||[]).length+' participants · '+(admin?'Administrator':'Member')));
  view.append(heading);
- const controls=tcGroupNode('div');controls.style.cssText='display:flex;gap:8px;flex-wrap:wrap';
- if(canInvite)controls.append(tcGroupButton('Add participants',()=>tcGroupInvite(id)));
+ const controls=tcGroupNode('div');controls.className='tc-group-thread-controls';
+ if(canInvite){const membersDetails=tcGroupNode('details');membersDetails.className='tc-group-control-details';membersDetails.append(tcGroupNode('summary','Members'));const membersBody=tcGroupNode('div');membersBody.className='tc-group-control-body';membersBody.append(tcGroupButton('＋ Add participants',()=>tcGroupInvite(id)));membersDetails.append(membersBody);controls.append(membersDetails);}
  if(admin){
-  const settings=tcGroupNode('details');settings.className='tc-group-settings';
-  settings.append(tcGroupNode('summary','⚙ Group settings'));
+  const settings=tcGroupNode('details');settings.className='tc-group-settings tc-group-control-details';
+  settings.append(tcGroupNode('summary','Settings'));
   const adminControls=tcGroupNode('div');adminControls.className='tc-group-admin-controls';
   adminControls.append(tcGroupButton(groups.members_can_invite?'Who can invite: All members':'Who can invite: Administrators only',async()=>{
    await tcGroupRpc('tichor_group_set_invites',{g:id,allow_members:!groups.members_can_invite});await tcGroupOpen(id);
@@ -3683,4 +3692,29 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 .tc-group-switch{margin:6px 0!important;gap:8px!important}
 .tc-group-switch button{min-height:40px!important;padding:7px 8px!important;font-size:14px!important}
 @media(max-width:480px){#tcGroupPanel{padding:11px!important}#tcGroupPanel .tc-group-invite-card{padding:9px!important}}
+</style><style id="tc-group-accordion-20261117">
+#tcGroupManage.tc-group-manage{border:1px solid #7a9a9566;border-radius:12px;padding:0!important;margin:0!important;min-width:0}
+#tcGroupManage>summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;padding:10px 13px;font-size:14px;font-weight:650}
+#tcGroupManage>summary::-webkit-details-marker{display:none}
+#tcGroupManage>summary:after,.tc-group-control-details>summary:after{content:'⌄';font-size:19px;line-height:1}
+#tcGroupManage[open]>summary:after,.tc-group-control-details[open]>summary:after{content:'⌃'}
+#tcGroupManage .tc-group-manage-body{display:grid;gap:9px;padding:0 12px 12px}
+#tcGroupPanel .tc-group-thread-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:start}
+#tcGroupPanel .tc-group-control-details{width:auto!important;min-width:0!important;border:1px solid #829b9666!important;border-radius:11px!important;padding:0!important;background:transparent!important}
+#tcGroupPanel .tc-group-control-details>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:5px;padding:9px 11px;font-size:13px;font-weight:650;cursor:pointer}
+#tcGroupPanel .tc-group-control-details>summary::-webkit-details-marker{display:none}
+#tcGroupPanel .tc-group-control-body,#tcGroupPanel .tc-group-admin-controls{padding:8px!important;display:grid!important;gap:7px!important}
+#tcGroupPanel .tc-group-control-details button{width:100%;font-size:12px!important;min-height:36px!important;white-space:normal}
+#tcGroupPanel .tc-group-back{min-height:34px!important;padding:6px 10px!important;font-size:13px!important;width:max-content!important}
+#tcGroupPanel .tc-group-heading{padding:0 0 7px!important;margin:0!important}
+#tcGroupPanel .tc-group-heading h3{font-size:17px!important;line-height:1.3!important;margin:0!important}
+#tcGroupPanel .tc-group-heading p{font-size:12px!important;margin:3px 0!important}
+#tcGroupPanel #tcGroupMessages{margin:4px 0!important;gap:6px!important;min-height:0!important;max-height:45vh!important}
+#tcGroupPanel #tcGroupMessages>div{padding:7px 9px!important;border-radius:10px!important;font-size:13px!important}
+#tcGroupPanel #tcGroupThread{gap:9px!important}
+#tcGroupPanel #tcGroupThread form{display:flex!important;flex-wrap:nowrap!important;gap:7px!important}
+#tcGroupPanel #tcGroupThread form input{min-width:0!important;flex:1!important;font-size:14px!important;min-height:40px!important}
+#tcGroupPanel #tcGroupThread form button{flex:0 0 auto!important;min-height:40px!important;padding:8px 12px!important}
+#tcGroupPanel [hidden]{display:none!important}
+@media(max-width:380px){#tcGroupPanel .tc-group-thread-controls{grid-template-columns:1fr}}
 </style></body></html>
