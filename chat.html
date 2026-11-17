@@ -2292,7 +2292,7 @@ function callStatus(s){status('callStatus',s);if(window.tichorSyncFloatingCall){
 async function playRemoteSound(){
  const audio=$('remoteAudio'),video=$('remoteVideo');
  try{audio.muted=false;audio.volume=1;if(audio.srcObject)await audio.play();
- if(video.srcObject){video.muted=false;await video.play()}
+ if(video.srcObject){video.muted=true;await video.play()}
  $('audioHelp').textContent='Call sound enabled. If still silent, check speaker, volume and network connection.';
  }catch(err){$('audioHelp').textContent='Tap Enable call sound to allow audio playback ('+err.message+').'}
 }
@@ -2424,7 +2424,58 @@ $('tcFlipCamera')?.addEventListener('click',async()=>{
  }catch(e){callStatus('Camera switch unavailable: '+e.message)}
  finally{tcCameraSwitchBusy=false;btn.disabled=false}
 });
-async function prepareConnection(video){localStream=await navigator.mediaDevices.getUserMedia({audio:true,video});const c=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});pc=c;localStream.getTracks().forEach(t=>c.addTrack(t,localStream));$('localVideo').srcObject=localStream;show('localVideo',video);c.ontrack=e=>{const stream=e.streams[0]||new MediaStream([e.track]);if(video){$('remoteVideo').srcObject=stream;show('remoteVideo',true)}else{$('remoteAudio').srcObject=stream}playRemoteSound().catch(console.warn)};c.onicecandidate=e=>{if(e.candidate&&callId&&callPeer)emitCall('candidate',e.candidate.toJSON()).catch(err=>callStatus('Signaling error: '+err.message))};c.onconnectionstatechange=()=>{if(pc!==c)return;callStatus('Call: '+c.connectionState);if(c.connectionState==='connected'){stopRinging();emitCall('connected').catch(console.warn);playRemoteSound().catch(console.warn)}else if(c.connectionState==='failed'){$('audioHelp').textContent='Connection failed. Your networks may require a TURN relay for voice audio.'}};show('hangup',true);return c}
+async function prepareConnection(video){
+ localStream=await navigator.mediaDevices.getUserMedia({audio:true,video});
+ const c=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+ pc=c;
+ const remoteStream=new MediaStream();
+ const remoteVideo=$('remoteVideo'),remoteAudio=$('remoteAudio');
+ remoteVideo.srcObject=null;remoteAudio.srcObject=null;
+ show('remoteVideo',false);
+ const updateRemote=()=>{
+  if(pc!==c)return;
+  const videoTracks=remoteStream.getVideoTracks().filter(t=>t.readyState==='live');
+  const audioTracks=remoteStream.getAudioTracks().filter(t=>t.readyState==='live');
+  if(video&&videoTracks.length){
+   if(remoteVideo.srcObject!==remoteStream)remoteVideo.srcObject=remoteStream;
+   show('remoteVideo',true);
+   const waiting=$('tcVideoWaitingText');if(waiting)waiting.textContent='Receiving video…';
+   remoteVideo.play().catch(()=>{$('audioHelp').textContent='Tap Enable call sound to allow remote media playback.'});
+  }else{
+   show('remoteVideo',false);
+   const waiting=$('tcVideoWaitingText');if(waiting)waiting.textContent=c.connectionState==='connected'?'Waiting for recipient’s camera…':'Connecting…';
+  }
+  if(audioTracks.length){
+   if(remoteAudio.srcObject!==remoteStream)remoteAudio.srcObject=remoteStream;
+   remoteAudio.play().catch(()=>{$('audioHelp').textContent='Tap Enable call sound to allow remote audio playback.'});
+  }
+ };
+ localStream.getTracks().forEach(t=>c.addTrack(t,localStream));
+ $('localVideo').srcObject=localStream;show('localVideo',video);
+ c.ontrack=e=>{
+  if(pc!==c)return;
+  const track=e.track;
+  if(!remoteStream.getTracks().some(t=>t.id===track.id))remoteStream.addTrack(track);
+  track.addEventListener('unmute',updateRemote);
+  track.addEventListener('mute',updateRemote);
+  track.addEventListener('ended',()=>{remoteStream.removeTrack(track);updateRemote()});
+  updateRemote();
+  playRemoteSound().catch(console.warn);
+ };
+ c.onicecandidate=e=>{if(e.candidate&&callId&&callPeer)emitCall('candidate',e.candidate.toJSON()).catch(err=>callStatus('Signaling error: '+err.message))};
+ c.onicecandidateerror=e=>console.warn('Tichor ICE candidate error',e.errorCode,e.errorText);
+ c.oniceconnectionstatechange=()=>{if(pc!==c)return;if(c.iceConnectionState==='failed')callStatus('Connection failed: a relay (TURN) may be required on these networks.');else if(c.iceConnectionState==='disconnected')callStatus('Connection interrupted — attempting to reconnect…')};
+ c.onconnectionstatechange=()=>{
+  if(pc!==c)return;
+  if(c.connectionState==='connected'){
+   stopRinging();callStatus(video?'Connected — checking recipient’s video…':'Call connected');
+   emitCall('connected').catch(console.warn);updateRemote();playRemoteSound().catch(console.warn);
+  }else if(c.connectionState==='connecting')callStatus('Connecting media…');
+  else if(c.connectionState==='disconnected')callStatus('Connection interrupted — attempting to reconnect…');
+  else if(c.connectionState==='failed'){callStatus('Connection failed — please retry or switch networks.');$('audioHelp').textContent='This network may require a TURN relay for reliable calling.'}
+ };
+ show('hangup',true);return c;
+}
 async function startCall(video){if(!peer)return callStatus('Open a conversation first');if(tichorIsBlocked(peer))return callStatus('This contact is blocked on this device.');try{if(!await tichorEnsureContactAllowed(peer))return callStatus('Contact approval required before calling.')}catch(e){return callStatus(e.message)}if(pc||pendingOffer)return callStatus('Finish the current call first');try{callId=crypto.randomUUID();callPeer=peer;callIdentity('Calling',peer);const c=await prepareConnection(video);const offer=await c.createOffer();await c.setLocalDescription(offer);await emitCall('offer',{sdp:c.localDescription.sdp,type:'offer',video});startRinging('outgoing');callStatus('Ringing…')}catch(e){callStatus('Could not start call: '+e.message);await closeCall(false)}}
 $('voiceCall').onclick=()=>startCall(false);$('videoCall').onclick=()=>startCall(true);$('hangup').onclick=()=>closeCall();$('declineCall').onclick=async()=>{if(pendingOffer){try{await emitCall('decline',{},pendingOffer.sender_id,pendingOffer.call_id)}catch{}}pendingOffer=null;stopRinging();show('acceptCall',false);show('declineCall',false);$('callIdentity').textContent='Call declined';callStatus('Call declined')};
 $('acceptCall').onclick=async()=>{if(!pendingOffer)return;const e=pendingOffer;pendingOffer=null;stopRinging();callIdentity('Connecting with',e.sender_id);show('acceptCall',false);show('declineCall',false);try{callId=e.call_id;callPeer=e.sender_id;const video=!!e.payload.video;const c=await prepareConnection(video);playRemoteSound().catch(console.warn);await c.setRemoteDescription({type:'offer',sdp:e.payload.sdp});const answer=await c.createAnswer();await c.setLocalDescription(answer);await emitCall('answer',{type:'answer',sdp:c.localDescription.sdp});for(const cand of remoteCandidates)await c.addIceCandidate(cand);remoteCandidates=[];callStatus('Connecting…')}catch(err){callStatus('Unable to answer: '+err.message);await closeCall(false)}};
