@@ -2725,12 +2725,21 @@ async function tcGroupRefresh(){
    tcGroupFilter();
   }
   const box=$('tcGroupInvites');box.replaceChildren();
+  // Fetch real names for invited groups; do not substitute internal IDs for group names.
+  const invitedGroupNames=new Map();
+  const invitedIds=[...new Set((invites||[]).map(x=>x.group_id).filter(Boolean))];
+  if(invitedIds.length){
+   try{
+    const invitedGroups=await tcGroupQuery(supa.from('tichor_groups').select('id,name').in('id',invitedIds));
+    for(const g of invitedGroups||[])if(g.name)invitedGroupNames.set(g.id,g.name);
+   }catch(e){console.warn('Invited group names unavailable under current permissions',e)}
+  }
  const invitationHeading=$('tcGroupInvitesHeading');if(invitationHeading)invitationHeading.hidden=!(invites||[]).length;
   for(const invite of invites||[]){
    const row=tcGroupNode('div');row.className='tc-group-invite-card';
    const intro=tcGroupNode('div');intro.className='tc-group-invite-intro';
    const avatar=tcGroupNode('span','👥');avatar.className='tc-group-avatar';
-   const detail=tcGroupNode('span');detail.className='tc-group-invite-detail';detail.append(tcGroupNode('strong','Group invitation'),tcGroupNode('small','Invitation ID: '+invite.group_id.slice(0,8)));
+   const detail=tcGroupNode('span');detail.className='tc-group-invite-detail';detail.append(tcGroupNode('strong',invitedGroupNames.get(invite.group_id)||'Group name unavailable'),tcGroupNode('small','Group invitation'));
    intro.append(avatar,detail);
    const actions=tcGroupNode('div');actions.className='tc-group-invite-actions';
    const accept=tcGroupButton('✓ Accept',async()=>{await tcGroupRpc('tichor_group_respond',{invite_id:invite.id,accept_invite:true});await tcGroupRefresh()});accept.className='tc-group-invite-accept';
@@ -3646,4 +3655,32 @@ let queued=false;const observer=new MutationObserver(()=>{if(queued)return;queue
 function start(){compact();observer.observe(document.getElementById('t12Actions')||document.body,{subtree:true,childList:true})}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
-</script></body></html>
+</script><style id="tc-groups-compact-contrast-v2">
+/* Final cascade override: adapt to both bright and dark themes. */
+#tcGroupPanel{padding:12px!important;margin:8px 0!important;gap:9px!important;border-radius:16px!important;min-height:0!important;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important}
+#tcGroupPanel *,.tc-group-switch *{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important}
+#tcGroupPanel .tc-group-main-heading h3{font-size:19px!important;margin:0!important;padding:0!important}
+#tcGroupPanel #tcGroupSearch{min-height:40px!important;padding:8px 12px!important;font-size:14px!important}
+#tcGroupPanel .tc-group-toolbar{margin:0!important;padding:0!important}
+#tcGroupPanel .tc-group-create{min-height:38px!important;padding:7px 12px!important;font-size:13px!important}
+#tcGroupPanel #tcGroupInvitesHeading{margin:2px 0!important;font-size:14px!important}
+#tcGroupPanel #tcGroupInvites,#tcGroupPanel #tcGroupList{gap:7px!important}
+#tcGroupPanel .tc-group-invite-card{padding:10px!important;gap:9px!important;margin:0!important;border-radius:12px!important}
+#tcGroupPanel .tc-group-invite-intro{gap:9px!important}
+#tcGroupPanel .tc-group-avatar{width:36px!important;height:36px!important;font-size:16px!important}
+#tcGroupPanel .tc-group-invite-detail strong{font-size:14px!important;line-height:1.25!important}
+#tcGroupPanel .tc-group-invite-detail small{font-size:12px!important}
+#tcGroupPanel .tc-group-invite-actions{gap:8px!important}
+#tcGroupPanel .tc-group-invite-actions button{min-height:37px!important;padding:7px 8px!important;font-size:13px!important;font-weight:650!important}
+#tcGroupPanel .tc-group-invite-accept{background:#11694f!important;color:#fff!important;border-color:#11694f!important}
+#tcGroupPanel .tc-group-invite-decline{background:#e8f0f1!important;color:#19333d!important;border:1px solid #66838b!important}
+#tcGroupPanel .tc-group-row{min-height:0!important;padding:2px 6px!important}
+#tcGroupPanel .tc-group-row-open{min-height:49px!important;padding:5px 2px!important;gap:9px!important}
+#tcGroupPanel .tc-group-row-detail strong{font-size:14px!important}
+#tcGroupPanel .tc-group-row-detail small{font-size:12px!important;opacity:1!important}
+#tcGroupPanel .tc-group-menu{font-size:20px!important;color:inherit!important;min-width:30px!important}
+#tcGroupPanel .tc-group-row-detail small,#tcGroupPanel .tc-group-row-open time{color:inherit!important;opacity:.8!important}
+.tc-group-switch{margin:6px 0!important;gap:8px!important}
+.tc-group-switch button{min-height:40px!important;padding:7px 8px!important;font-size:14px!important}
+@media(max-width:480px){#tcGroupPanel{padding:11px!important}#tcGroupPanel .tc-group-invite-card{padding:9px!important}}
+</style></body></html>
