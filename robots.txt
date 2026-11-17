@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /chat.html
+Disallow: /guest.html
+Sitemap: https://chat.tichor.com/sitemap.xml
