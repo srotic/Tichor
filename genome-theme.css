@@ -17,3 +17,6 @@ button.gold{background:#31c9c4!important;color:#06283d!important}
 
 /* Brand watermark shared by the Light theme; retain high text contrast. */
 html[data-tichor-theme-preference="light"] body{background-color:#edf5f7!important;background-image:linear-gradient(135deg,rgba(242,250,251,.88),rgba(225,240,247,.90)),url('./icon-512.png?v=metallic-20261116-v2')!important;background-size:cover,clamp(280px,48vw,620px)!important;background-position:center,center!important;background-repeat:no-repeat,repeat!important;background-attachment:fixed!important}
+
+/* Full-page repeating Tichor identity, not a single centered watermark. */
+html[data-tichor-theme-preference="light"] body{background-image:linear-gradient(rgba(239,248,251,.76),rgba(231,243,249,.80)),url('./icon-512.png?v=metallic-20261116-v2')!important;background-size:100% 100%,clamp(220px,27vw,360px) clamp(220px,27vw,360px)!important;background-position:0 0,0 0!important;background-repeat:no-repeat,repeat!important;background-attachment:fixed,fixed!important}
