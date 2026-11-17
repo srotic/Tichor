@@ -1930,13 +1930,15 @@ async function load(){
 
   }
   const a=attached.get(m.id);
-  if(a&&['webm','m4a','mp4','ogg','wav'].includes(String(a.file_name||'').split('.').pop().toLowerCase())){
+  const isVoice=!!a&&['webm','m4a','mp4','ogg','wav'].includes(String(a.file_name||'').split('.').pop().toLowerCase());
+  if(isVoice){
+   // The audio player is the message: remove the redundant body and title.
+   if(content.parentElement===d)content.remove();
  const wrap=document.createElement('div');wrap.className='tc-voice-message';
- const label=document.createElement('span');label.textContent='🎙 Voice message';
  const player=document.createElement('audio');player.controls=true;player.preload='none';player.className='tc-voice-player';player.setAttribute('aria-label','Play voice message');
  const {data:signed,error:err}=await supa.storage.from('tichor-attachments').createSignedUrl(a.storage_path,3600);
  if(!err&&signed?.signedUrl)player.src=signed.signedUrl;
- wrap.append(label,player);d.append(wrap);
+ wrap.append(player);d.append(wrap);
 }
 if(a&&(/\\.(png|jpe?g|webp|pdf)$/i.test(a.file_name))){
    const isPdf=/\\.pdf$/i.test(a.file_name);
@@ -1983,11 +1985,11 @@ if(a&&(/\\.(png|jpe?g|webp|pdf)$/i.test(a.file_name))){
    };
    d.append(trigger);
   }
-  if(a){const link=document.createElement('button');link.type='button';link.className='tichor-file-link';link.textContent='📎 '+a.file_name+' · Download';link.onclick=async()=>{try{
+  if(a&&!isVoice){const link=document.createElement('button');link.type='button';link.className='tichor-file-link';link.textContent='📎 '+a.file_name+' · Download';link.onclick=async()=>{try{
    const {data:blob,error:err}=await supa.storage.from('tichor-attachments').download(a.storage_path);
    if(err)throw err;const url=URL.createObjectURL(blob);const anchor=document.createElement('a');anchor.href=url;anchor.download=a.file_name;document.body.append(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)
   }catch(e){status('chatStatus','Download failed: '+e.message)}};d.append(link)}
-  if(content.parentElement===d){
+  if(content.parentElement===d||isVoice){
    const options=document.createElement('details');options.className='tichor-message-more';
    const trigger=document.createElement('summary');trigger.textContent='⋮';trigger.title='Message options';trigger.setAttribute('aria-label','Message options');options.append(trigger);
    const remove=document.createElement('button');remove.type='button';remove.textContent='Delete message';remove.onclick=()=>{options.open=false;deleteTichorMessage(m,a,mine)};options.append(remove);
@@ -3049,4 +3051,12 @@ body.tc-call-floating>.tc-call-composer.tc-call-active #hangup{background:#d6384
 .tc-voice-message{display:flex!important;flex-direction:column!important;gap:5px!important;background:transparent!important;padding:2px 0!important;margin:2px 0!important;max-width:100%!important;color:inherit!important}
 .tc-voice-message>span{font-size:12px!important;opacity:.8}
 .tc-voice-player{display:block!important;width:min(100%,310px)!important;max-width:100%!important;height:44px!important}
+</style><style id="tc-voice-cleanup-v3">
+/* Compact voice bubbles: one player, one overflow menu, no duplicate download. */
+#messages .msg:has(.tc-voice-message){width:fit-content;max-width:min(92%,410px);min-width:0;padding:10px 12px!important}
+#messages .msg:has(.tc-voice-message) .tc-voice-message{margin:5px 0 0!important;padding:0!important}
+#messages .msg:has(.tc-voice-message) .tc-voice-player{width:min(72vw,330px)!important;height:40px!important}
+#messages .msg:has(.tc-voice-message) .tichor-message-more{margin-top:3px}
+#sendForm #body{min-height:62px!important;max-height:160px;resize:vertical}
+@media(max-width:600px){#messages .msg:has(.tc-voice-message){max-width:94%}#sendForm #body{min-height:52px!important}}
 </style></body></html>
