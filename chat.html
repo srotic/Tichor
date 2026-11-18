@@ -2805,10 +2805,15 @@ async function tcGroupOpen(id){
  if($('tcGroupInvites'))$('tcGroupInvites').hidden=true;
  if($('tcGroupInvitesHeading'))$('tcGroupInvitesHeading').hidden=true;
  if($('tcGroupPanel')?.querySelector('.tc-group-main-heading'))$('tcGroupPanel').querySelector('.tc-group-main-heading').hidden=true;
- const back=tcGroupButton('← All groups',()=>tcGroupBack());back.className='tc-group-back';view.append(back);
+ const header=tcGroupNode('header');header.className='tc-group-chat-header';
+ const back=tcGroupButton('←',()=>tcGroupBack());back.className='tc-group-back';back.title='Back to all groups';back.setAttribute('aria-label','Back to all groups');
+ const avatar=tcGroupNode('span','👥');avatar.className='tc-group-chat-avatar';avatar.setAttribute('aria-hidden','true');
  const heading=tcGroupNode('div');heading.className='tc-group-heading';
- heading.append(tcGroupNode('h3','👥 '+groups.name),tcGroupNode('p',(members||[]).length+' participants · '+(admin?'Administrator':'Member')));
- view.append(heading);
+ const count=(members||[]).length;
+ heading.append(tcGroupNode('h3',groups.name),tcGroupNode('p',count+' '+(count===1?'participant':'participants')+' · '+(admin?'Administrator':'Member')));
+ const settingsJump=tcGroupButton('⚙',()=>{const settings=view.querySelector('.tc-group-unified-settings');if(settings){settings.open=!settings.open;if(settings.open)settings.scrollIntoView({block:'nearest',behavior:'smooth'})}});
+ settingsJump.className='tc-group-settings-toggle';settingsJump.title='Toggle group settings';settingsJump.setAttribute('aria-label','Toggle group settings');
+ header.append(back,avatar,heading,settingsJump);view.append(header);
  const controls=tcGroupNode('details');controls.className='tc-group-unified-settings';
  controls.append(tcGroupNode('summary','⚙ Group settings'));
  const controlsBody=tcGroupNode('div');controlsBody.className='tc-group-unified-body';
@@ -2825,10 +2830,11 @@ async function tcGroupOpen(id){
  }));
  controls.append(controlsBody);
  view.append(controls);
- const messages=tcGroupNode('div');messages.id='tcGroupMessages';messages.style.cssText='max-height:320px;overflow:auto;display:grid;gap:8px;margin:12px 0';view.append(messages);
- const form=tcGroupNode('form');form.style.cssText='display:flex;gap:8px;flex-wrap:wrap';
- const input=tcGroupNode('input');input.required=true;input.maxLength=5000;input.placeholder='Message group…';input.style.flex='1';
- const send=tcGroupNode('button','Send');send.type='submit';form.append(input,send);
+ const messages=tcGroupNode('div');messages.id='tcGroupMessages';messages.setAttribute('role','log');messages.setAttribute('aria-label','Group messages');view.append(messages);
+ const form=tcGroupNode('form');form.className='tc-group-composer';
+ const input=tcGroupNode('input');input.required=true;input.maxLength=5000;input.placeholder='Message group…';input.setAttribute('aria-label','Message group');
+ const send=tcGroupNode('button','➤');send.type='submit';send.className='tc-group-send';send.title='Send message';send.setAttribute('aria-label','Send message');
+ form.append(input,send);
  form.onsubmit=async e=>{e.preventDefault();const body=input.value.trim();if(!body)return;send.disabled=true;try{await tcGroupQuery(supa.from('tichor_group_messages').insert({group_id:id,sender_id:user.id,body}));input.value='';await tcGroupMessages(id)}catch(err){tcGroupStatus(err.message)}finally{send.disabled=false}};
  view.append(form);
  await tcGroupMessages(id);
@@ -2858,7 +2864,21 @@ async function tcGroupMessages(id){
   const line=tcGroupNode('div');line.className='tc-group-message '+(mine?'tc-group-message-mine':'tc-group-message-other');
   const label=tcGroupNode('strong',mine?'You':(names.get(m.sender_id)||'Member · '+m.sender_id.slice(0,6)));
   label.className='tc-group-sender';if(!mine)label.style.color=colorFor(m.sender_id);
-  const content=tcGroupNode('div',m.body);content.className='tc-group-message-text';
+  const content=tcGroupNode('div');content.className='tc-group-message-text';
+  // Render URL spans as safe links without interpreting message content as HTML.
+  const linkPattern=/\\bhttps?:\\/\\/[^\\s<>"']+/gi;
+  const body=String(m.body||'');let pos=0;let match;
+  while((match=linkPattern.exec(body))!==null){
+   if(match.index>pos)content.append(document.createTextNode(body.slice(pos,match.index)));
+   const raw=match[0];const clean=raw.replace(/[.,!?;:]+$/,'');
+   if(clean){
+    const a=tcGroupNode('a',clean);a.href=clean;a.target='_blank';a.rel='noopener noreferrer';a.className='tc-group-message-link';
+    content.append(a);
+   }
+   if(raw.length>clean.length)content.append(document.createTextNode(raw.slice(clean.length)));
+   pos=match.index+raw.length;
+  }
+  if(pos<body.length)content.append(document.createTextNode(body.slice(pos)));
   const time=tcGroupNode('time');time.className='tc-group-message-time';
   const date=new Date(m.created_at);if(!Number.isNaN(date.getTime())){time.dateTime=m.created_at;time.textContent=date.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}
   line.append(label,content,time);box.append(line);
@@ -3766,4 +3786,30 @@ html[data-tichor-theme="light"] #tcGroupPanel.tc-group-fullscreen,html[data-tich
 #tcGroupPanel #tcGroupMessages .tc-group-message-other .tc-group-message-time{color:#c4d4dc!important}
 #tcGroupPanel #tcGroupMessages .tc-group-message button{max-width:100%}
 @media(max-width:480px){#tcGroupPanel #tcGroupMessages>.tc-group-message{max-width:88%!important}}
+</style><style id="tc-group-mobile-polish-v2">
+#tcGroupPanel.tc-group-fullscreen #tcGroupThread{gap:0!important}
+#tcGroupPanel.tc-group-fullscreen .tc-group-chat-header{display:flex;align-items:center;gap:10px;min-height:54px;padding:4px 0 11px;border-bottom:1px solid #829b9655;flex-shrink:0}
+#tcGroupPanel.tc-group-fullscreen .tc-group-chat-header .tc-group-back,#tcGroupPanel.tc-group-fullscreen .tc-group-settings-toggle{flex:0 0 auto!important;min-width:38px!important;width:38px!important;height:38px!important;padding:0!important;border-radius:50%!important;font-size:20px!important;display:grid!important;place-items:center}
+#tcGroupPanel.tc-group-fullscreen .tc-group-chat-avatar{width:38px;height:38px;display:grid;place-items:center;border-radius:50%;background:#2b6170;font-size:19px;flex:0 0 auto}
+#tcGroupPanel.tc-group-fullscreen .tc-group-chat-header .tc-group-heading{flex:1;min-width:0}
+#tcGroupPanel.tc-group-fullscreen .tc-group-chat-header .tc-group-heading h3{font-size:16px!important;line-height:1.25!important;margin:0!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#tcGroupPanel.tc-group-fullscreen .tc-group-chat-header .tc-group-heading p{font-size:11px!important;margin:3px 0 0!important;opacity:.78}
+#tcGroupPanel.tc-group-fullscreen .tc-group-unified-settings{margin-top:5px!important}
+#tcGroupPanel.tc-group-fullscreen .tc-group-unified-settings:not([open]){border:0!important;display:none!important}
+#tcGroupPanel.tc-group-fullscreen .tc-group-unified-settings[open]{margin-bottom:7px!important}
+#tcGroupPanel.tc-group-fullscreen .tc-group-unified-settings>summary{padding:7px 10px!important;font-size:12px!important}
+#tcGroupPanel.tc-group-fullscreen .tc-group-unified-body{display:grid!important;grid-template-columns:1fr!important;gap:5px!important;padding:7px!important}
+#tcGroupPanel.tc-group-fullscreen .tc-group-unified-body button{width:100%!important;text-align:left!important;min-height:32px!important;padding:6px 9px!important;font-size:12px!important}
+#tcGroupPanel.tc-group-fullscreen #tcGroupMessages{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;display:flex!important;flex-direction:column!important;gap:7px!important;padding:10px 0 8px!important}
+#tcGroupPanel.tc-group-fullscreen #tcGroupMessages:before{content:'';margin-top:auto;flex:0 0 auto}
+#tcGroupPanel.tc-group-fullscreen #tcGroupMessages>.tc-group-message{padding:7px 10px!important;min-width:60px!important;border-radius:12px 12px 12px 3px!important}
+#tcGroupPanel.tc-group-fullscreen #tcGroupMessages>.tc-group-message-mine{border-radius:12px 12px 3px 12px!important}
+#tcGroupPanel.tc-group-fullscreen #tcGroupMessages .tc-group-sender{font-size:11px!important;margin-bottom:2px!important}
+#tcGroupPanel.tc-group-fullscreen #tcGroupMessages .tc-group-message-text{font-size:14px!important;line-height:1.35!important}
+#tcGroupPanel.tc-group-fullscreen #tcGroupMessages .tc-group-message-time{font-size:10px!important;margin-top:2px!important}
+#tcGroupPanel.tc-group-fullscreen #tcGroupMessages a.tc-group-message-link{color:#a9dcff!important;text-decoration:underline!important;overflow-wrap:anywhere;cursor:pointer;pointer-events:auto}
+#tcGroupPanel.tc-group-fullscreen #tcGroupMessages .tc-group-message-mine a.tc-group-message-link{color:#dcf7ff!important}
+#tcGroupPanel.tc-group-fullscreen #tcGroupThread>form.tc-group-composer{display:flex!important;align-items:center!important;gap:7px!important;padding:8px 0 2px!important;margin:0!important;flex-shrink:0!important}
+#tcGroupPanel.tc-group-fullscreen #tcGroupThread>form.tc-group-composer input{flex:1!important;min-width:0!important;border-radius:22px!important;min-height:42px!important;padding:10px 14px!important}
+#tcGroupPanel.tc-group-fullscreen #tcGroupThread>form.tc-group-composer .tc-group-send{width:43px!important;min-width:43px!important;height:43px!important;border-radius:50%!important;padding:0!important;display:grid!important;place-items:center!important;font-size:21px!important}
 </style></body></html>
