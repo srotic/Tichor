@@ -2270,7 +2270,7 @@ if(a&&(isPhoto||/\.pdf$/i.test(a.file_name))){
    const {data:blob,error:err}=await supa.storage.from('tichor-attachments').download(a.storage_path);
    if(err)throw err;const url=URL.createObjectURL(blob);const anchor=document.createElement('a');anchor.href=url;anchor.download=a.file_name;document.body.append(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)
   }catch(e){status('chatStatus','Download failed: '+e.message)}};d.append(link)}
-  if(content.parentElement===d||isVoice){
+  if(true){ // All message types, including inline photos, retain message actions.
    const options=document.createElement('details');options.className='tichor-message-more';
    const trigger=document.createElement('summary');trigger.textContent='⋮';trigger.title='Message options';trigger.setAttribute('aria-label','Message options');options.append(trigger);
    if(a){
@@ -2285,7 +2285,10 @@ if(a&&(isPhoto||/\.pdf$/i.test(a.file_name))){
     const copy=document.createElement('button');copy.type='button';copy.textContent='Copy text';copy.onclick=async()=>{options.open=false;try{await navigator.clipboard.writeText(content.textContent)}catch(e){status('chatStatus','Unable to copy message: '+e.message)}};options.append(copy);
     const reply=document.createElement('button');reply.type='button';reply.textContent='Reply';reply.onclick=()=>{options.open=false;const input=$('body');input.value='↳ '+senderName+': '+content.textContent.slice(0,100).replace(/\s+/g,' ')+'\n';input.dispatchEvent(new Event('input'));input.focus()};options.append(reply);
    }
-   const remove=document.createElement('button');remove.type='button';remove.textContent='Delete message';remove.onclick=()=>{options.open=false;deleteTichorMessage(m,a,mine)};options.append(remove);
+   if(mine&&!a&&content.parentElement===d&&!content.textContent.startsWith('🔒')&&!content.textContent.startsWith(TICHOR_POLL_PREFIX)&&!content.textContent.startsWith(TICHOR_ACTION_PREFIX)){
+    const edit=document.createElement('button');edit.type='button';edit.textContent='✎ Edit message';edit.onclick=()=>{options.open=false;editTichorMessage(m)};options.append(edit);
+   }
+   const remove=document.createElement('button');remove.type='button';remove.textContent=mine?'Delete / Unsend':'Delete for me';remove.onclick=()=>{options.open=false;deleteTichorMessage(m,a,mine)};options.append(remove);
    const block=document.createElement('button');block.type='button';block.textContent=tichorIsBlocked(peer)?'Unblock contact':'Block contact';block.onclick=()=>{options.open=false;$('tichorQuickBlock')?.click()};options.append(block);d.append(options);
   }
   box.append(d);
@@ -2311,6 +2314,21 @@ if(a&&(isPhoto||/\.pdf$/i.test(a.file_name))){
   }
  }
  }catch(e){status('chatStatus','Messages: '+e.message)}finally{refreshBusy=false}
+}
+async function editTichorMessage(message){
+ if(!user||message.sender_id!==user.id)return status('chatStatus','Only your own messages can be edited.');
+ const previous=message.body||'';
+ const revised=prompt('Edit sent message:',previous);
+ if(revised===null||revised===previous)return;
+ const next=revised.trim();
+ if(!next||next.length>5000){status('chatStatus','Enter a message between 1 and 5000 characters.');return}
+ if(!confirm('Save changes to this sent message?'))return;
+ try{
+  const {data,error}=await supa.from('chat_messages').update({body:next}).eq('id',message.id).eq('sender_id',user.id).select('id,body');
+  if(error)throw error;
+  if(!data?.some(row=>row.id===message.id&&row.body===next))throw Error('Edit was not saved. Check database update permissions.');
+  await load();await refreshFolder();status('chatStatus','Message updated.');
+ }catch(e){status('chatStatus','Edit failed: '+e.message)}
 }
 function tichorChooseDelete(mine){
  return new Promise(resolve=>{
