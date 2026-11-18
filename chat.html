@@ -665,25 +665,43 @@ const taskAdd=document.createElement('button');taskAdd.type='submit';taskAdd.tex
 taskForm.append(taskInput,taskDate,taskAdd);
 const taskList=document.createElement('div');taskList.className='tichor-task-list';
 tasksPanel.append(taskTitle,taskNote,taskForm,taskList);
-const taskKey=()=> 'tichor-tasks-v1:'+((document.getElementById('who')?.textContent||'').trim()||'local');
-const taskSyncStatus=document.createElement('p');taskSyncStatus.className='muted';taskSyncStatus.setAttribute('role','status');taskSyncStatus.textContent='Tasks are stored on this device until cloud sync connects.';taskList.before(taskSyncStatus);
-let taskCache=[];let taskOwner=null;let taskSyncTimer=null;let taskBusy=false;
-const taskLocal=()=>{try{const v=JSON.parse(localStorage.getItem(taskKey())||'[]');return Array.isArray(v)?v:[]}catch{return []}};
-const taskSaveLocal=v=>{try{localStorage.setItem(taskKey(),JSON.stringify(v))}catch{taskSyncStatus.textContent='Could not save tasks on this device.'}};
+const taskSyncStatus=document.createElement('p');taskSyncStatus.className='muted';taskSyncStatus.setAttribute('role','status');taskSyncStatus.textContent='Tasks saved locally; cloud synchronization pending.';taskList.before(taskSyncStatus);
 const taskClient=()=>typeof supa!=='undefined'&&supa&&typeof user!=='undefined'&&user?.id?supa:null;
-const taskCloudRow=t=>({id:t.id,user_id:user.id,description:t.text,due_at:t.due?new Date(t.due).toISOString():null,completed:!!t.done});
-const taskFromCloud=t=>({id:t.id,text:t.description,due:t.due_at?new Date(t.due_at).toISOString().slice(0,16):'',done:!!t.completed});
-const taskPersist=async(t,deleted=false)=>{
- taskSaveLocal(taskCache);
- const client=taskClient();if(!client){taskSyncStatus.textContent='Saved on this device; sign in for cloud sync.';return}
- try{
-  const query=deleted?client.from('tichor_tasks').delete().eq('id',t.id).eq('user_id',user.id):client.from('tichor_tasks').upsert(taskCloudRow(t),{onConflict:'id'});
-  const {error}=await query;if(error)throw error;
-  taskSyncStatus.textContent='Tasks synced to your account.';
- }catch(e){taskSyncStatus.textContent='Saved locally; cloud sync unavailable: '+e.message}
+const taskIdentity=()=>taskClient()?String(user.id):null;
+const taskKeyFor=id=>'tichor-tasks-v2:'+(id||'guest');
+const taskPendingKey=id=>'tichor-tasks-pending-v2:'+(id||'guest');
+const taskRead=(key,fallback=[])=>{try{const v=JSON.parse(localStorage.getItem(key)||'null');return Array.isArray(v)?v:fallback}catch{return fallback}};
+const taskWrite=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));return true}catch{taskSyncStatus.textContent='Browser storage unavailable; tasks may not persist.';return false}};
+let taskOwner=taskIdentity(),taskCache=[],taskPending=[],taskBusy=false,taskRevision=0;
+const taskValid=t=>t&&typeof t.id==='string'&&typeof t.text==='string'&&t.text.trim();
+const taskNormalize=t=>({id:t.id,text:t.text,due:t.due||'',done:!!t.done});
+const taskLegacyKeys=()=>{const keys=[];const who=(document.getElementById('who')?.textContent||'').trim();if(who)keys.push('tichor-tasks-v1:'+who);keys.push('tichor-tasks-v1:local');try{for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key?.startsWith('tichor-tasks-v1:')&&!keys.includes(key))keys.push(key)}}catch{}return keys};
+const taskLoad=()=>{
+ const key=taskKeyFor(taskOwner);const existing=taskRead(key).filter(taskValid).map(taskNormalize);
+ const merged=new Map(existing.map(t=>[t.id,t]));
+ // Legacy data is imported without deleting its original browser copy.
+ // Only import legacy keys into the first signed-in account or a guest session.
+ const marker=key+':legacy-imported';
+ if(!localStorage.getItem(marker)){
+  for(const legacy of taskLegacyKeys())for(const t of taskRead(legacy).filter(taskValid))if(!merged.has(t.id))merged.set(t.id,taskNormalize(t));
+  taskWrite(key,[...merged.values()]);
+  try{localStorage.setItem(marker,'1')}catch{}
+ }
+ taskCache=[...merged.values()];
+ taskPending=taskRead(taskPendingKey(taskOwner)).filter(p=>p&&p.id&&['upsert','delete'].includes(p.op));
 };
+const taskSave=()=>{taskWrite(taskKeyFor(taskOwner),taskCache);taskWrite(taskPendingKey(taskOwner),taskPending)};
+const taskQueue=(t,op)=>{
+ taskPending=taskPending.filter(p=>p.id!==t.id);
+ taskPending.push({id:t.id,op,task:op==='upsert'?{...t}:null});
+ taskRevision++;taskSave();
+ taskSyncStatus.textContent=taskClient()?'Saved locally; syncing…':'Saved on this device; sign in to sync.';
+ taskSync().catch(console.warn);
+};
+const taskCloudRow=t=>({id:t.id,user_id:user.id,description:t.text,due_at:t.due?new Date(t.due).toISOString():null,completed:!!t.done});
+const taskFromCloud=t=>({id:t.id,text:t.description,due:t.due_at?new Date(t.due_at).toLocaleString('sv-SE',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(' ','T'):'',done:!!t.completed});
 const renderTasks=()=>{
- const tasks=[...taskCache].sort((a,b)=>(a.done-b.done)||((a.due||'9999').localeCompare(b.due||'9999')));
+ const tasks=[...taskCache].sort((a,b)=>(Number(a.done)-Number(b.done))||((a.due||'9999').localeCompare(b.due||'9999')));
  taskList.replaceChildren();
  if(!tasks.length){const empty=document.createElement('p');empty.className='muted';empty.textContent='No tasks yet. Add your first reminder above.';taskList.append(empty)}
  for(const item of tasks){
@@ -693,33 +711,49 @@ const renderTasks=()=>{
   const name=document.createElement('strong');name.textContent=item.text;if(item.done)name.style.textDecoration='line-through';content.append(name);
   if(item.due){const due=document.createElement('small');const overdue=!item.done&&new Date(item.due).getTime()<Date.now();due.textContent=(overdue?'Overdue · ':'Due · ')+new Date(item.due).toLocaleString();if(overdue)due.className='tichor-task-overdue';content.append(due)}
   const del=document.createElement('button');del.type='button';del.textContent='Delete';del.setAttribute('aria-label','Delete '+item.text);
-  check.onchange=()=>{item.done=check.checked;taskPersist(item);renderTasks()};
-  del.onclick=()=>{taskCache=taskCache.filter(t=>t.id!==item.id);taskPersist(item,true);renderTasks()};
+  check.onchange=()=>{item.done=check.checked;taskQueue(item,'upsert');renderTasks()};
+  del.onclick=()=>{taskCache=taskCache.filter(t=>t.id!==item.id);taskQueue(item,'delete');renderTasks()};
   row.append(check,content,del);taskList.append(row);
  }
 };
 const taskSync=async()=>{
- const client=taskClient();if(!client){if(taskOwner!==null){taskOwner=null;taskCache=taskLocal();renderTasks()}return}
- if(taskBusy)return;
- if(taskOwner!==user.id){taskOwner=user.id;taskCache=taskLocal();renderTasks()}
- taskBusy=true;
+ const nextOwner=taskIdentity();
+ if(nextOwner!==taskOwner){taskOwner=nextOwner;taskLoad();renderTasks()}
+ const client=taskClient();if(!client||taskBusy)return;
+ taskBusy=true;const owner=taskOwner;
  try{
-  const {data,error}=await client.from('tichor_tasks').select('id,description,due_at,completed').eq('user_id',user.id).limit(500);
+  // Persist pending changes first; do not overwrite local edits with stale cloud reads.
+  for(const pending of [...taskPending]){
+   if(taskIdentity()!==owner)break;
+   const query=pending.op==='delete'?client.from('tichor_tasks').delete().eq('id',pending.id).eq('user_id',owner):client.from('tichor_tasks').upsert(taskCloudRow(pending.task),{onConflict:'id'});
+   const {error}=await query;if(error)throw error;
+   if(taskOwner!==owner)break;
+   const current=taskPending.find(p=>p.id===pending.id);
+   if(current===pending){taskPending=taskPending.filter(p=>p!==pending);taskSave()}
+  }
+  if(taskIdentity()!==owner||taskPending.length)return;
+  const before=taskRevision;
+  const {data,error}=await client.from('tichor_tasks').select('id,description,due_at,completed').eq('user_id',owner).limit(1000);
   if(error)throw error;
-  const cloud=new Map((data||[]).map(t=>[t.id,taskFromCloud(t)]));
-  const local=taskLocal();
-  const missing=local.filter(t=>t.id&&t.text&&!cloud.has(t.id));
-  if(missing.length){const {error:uploadError}=await client.from('tichor_tasks').upsert(missing.map(taskCloudRow),{onConflict:'id'});if(uploadError)throw uploadError}
-  taskCache=[...cloud.values(),...missing];taskSaveLocal(taskCache);renderTasks();
+  if(taskOwner!==owner||taskRevision!==before)return;
+  const remote=new Map((data||[]).map(t=>[t.id,taskFromCloud(t)]));
+  // Keep local-only tasks and upload them, including items migrated from older browser storage.
+  const missing=taskCache.filter(t=>!remote.has(t.id));
+  if(missing.length){
+   const {error:uploadError}=await client.from('tichor_tasks').upsert(missing.map(taskCloudRow),{onConflict:'id'});
+   if(uploadError)throw uploadError;
+  }
+  if(taskOwner!==owner||taskRevision!==before)return;
+  taskCache=[...remote.values(),...missing];taskSave();renderTasks();
   taskSyncStatus.textContent='Tasks synced to your account.';
- }catch(e){taskSyncStatus.textContent='Saved on this device; cloud sync unavailable: '+e.message}
+ }catch(e){taskSyncStatus.textContent='Saved locally; cloud sync unavailable: '+(e?.message||String(e))}
  finally{taskBusy=false}
 };
-taskCache=taskLocal();renderTasks();
-taskSyncTimer=setInterval(()=>{if(!document.hidden)taskSync().catch(console.warn)},12000);
+taskLoad();renderTasks();
+setInterval(()=>{if(!document.hidden)taskSync().catch(console.warn)},12000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)taskSync().catch(console.warn)});
 setTimeout(()=>taskSync().catch(console.warn),1500);
-taskForm.onsubmit=e=>{e.preventDefault();const text=taskInput.value.trim();if(!text)return;const t={id:crypto.randomUUID(),text,due:taskDate.value||'',done:false};taskCache.push(t);taskPersist(t);taskForm.reset();renderTasks();taskInput.focus()};
+taskForm.onsubmit=e=>{e.preventDefault();const text=taskInput.value.trim();if(!text)return;const t={id:crypto.randomUUID(),text,due:taskDate.value||'',done:false};taskCache.push(t);taskQueue(t,'upsert');taskForm.reset();renderTasks();taskInput.focus()};
 // Device Vault: files remain in browser IndexedDB, never uploaded to Supabase.
 const vaultPanel=document.createElement('section');vaultPanel.className='t12-section tichor-vault-panel';vaultPanel.hidden=true;
 vaultPanel.innerHTML='<h2>Device Vault</h2><p class="muted">Files are stored only in this browser on this device. Clearing website data, using private browsing, or losing this device may erase them. Export backups regularly. No cloud sync or PIN protection in this release.</p><div class="tichor-vault-controls"><label class="tichor-vault-upload">Add files <input id="tichorVaultUpload" type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.doc,.docx" /></label><label>Folder <select id="tichorVaultFolder"><option>Documents</option><option>Identification</option><option>Certificates</option><option>Receipts</option><option>Other</option></select></label><label>Search <input id="tichorVaultSearch" type="search" placeholder="Find a file" /></label><button id="tichorVaultExport" type="button">Export backup</button><label class="tichor-vault-import">Restore backup <input id="tichorVaultImport" type="file" accept=".json,application/json" /></label></div><p id="tichorVaultStatus" class="muted" role="status"></p><div id="tichorVaultList" class="tichor-vault-list"></div>';
