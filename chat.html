@@ -2165,8 +2165,8 @@ async function load(){
  if(!err&&signed?.signedUrl)player.src=signed.signedUrl;
  wrap.append(player,controls);d.append(wrap);
 }
-if(a&&(/\\.(png|jpe?g|webp|pdf)$/i.test(a.file_name))){
-   const isPdf=/\\.pdf$/i.test(a.file_name);
+if(a&&(isPhoto||/\.pdf$/i.test(a.file_name))){
+   const isPdf=/\.pdf$/i.test(a.file_name);
    const trigger=document.createElement('button');trigger.type='button';trigger.className='tichor-preview-trigger';
    trigger.setAttribute('aria-label','Preview '+a.file_name);
    if(isPdf){trigger.textContent='📄 Preview PDF · '+a.file_name;trigger.classList.add('tichor-file-link')}
