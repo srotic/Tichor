@@ -1,11 +1,11 @@
 {
-  "name": "Tichor — Messages & Calls",
-  "short_name": "Tichor",
+  "name": "TichorConnect — Messaging, Calls & Tasks",
+  "short_name": "TichorConnect",
   "start_url": "./chat.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#07172f",
-  "theme_color": "#07172f",
+  "background_color": "#103c2c",
+  "theme_color": "#103c2c",
   "icons": [
     {
       "src": "icon-192.png?v=metallic-20261116-v2",
@@ -25,5 +25,10 @@
     "standalone",
     "minimal-ui"
   ],
-  "description": "Tichor messaging, voice calls and video calls."
+  "description": "Private messaging, voice and video calls, translation, and synced tasks.",
+  "categories": [
+    "social",
+    "productivity"
+  ],
+  "lang": "en"
 }
