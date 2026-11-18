@@ -2866,7 +2866,7 @@ async function tcGroupMessages(id){
   label.className='tc-group-sender';if(!mine)label.style.color=colorFor(m.sender_id);
   const content=tcGroupNode('div');content.className='tc-group-message-text';
   // Render URL spans as safe links without interpreting message content as HTML.
-  const linkPattern=/\\bhttps?:\\/\\/[^\\s<>"']+/gi;
+  const linkPattern=/\bhttps?:\/\/[^\s<>"']+/gi;
   const body=String(m.body||'');let pos=0;let match;
   while((match=linkPattern.exec(body))!==null){
    if(match.index>pos)content.append(document.createTextNode(body.slice(pos,match.index)));
