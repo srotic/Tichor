@@ -665,7 +665,9 @@ const taskAdd=document.createElement('button');taskAdd.type='submit';taskAdd.tex
 taskForm.append(taskInput,taskDate,taskAdd);
 const taskList=document.createElement('div');taskList.className='tichor-task-list';
 tasksPanel.append(taskTitle,taskNote,taskForm,taskList);
-const taskSyncStatus=document.createElement('p');taskSyncStatus.className='muted';taskSyncStatus.setAttribute('role','status');taskSyncStatus.textContent='Tasks saved locally; cloud synchronization pending.';taskList.before(taskSyncStatus);
+const taskSyncStatus=document.createElement('p');taskSyncStatus.className='muted';taskSyncStatus.setAttribute('role','status');taskSyncStatus.textContent='Tasks saved locally; cloud synchronization pending.';const taskSyncBar=document.createElement('div');taskSyncBar.className='tichor-task-sync-bar';taskSyncBar.style.cssText='display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:10px 12px;margin:10px 0;border:1px solid #8895a5;border-radius:10px';
+taskSyncStatus.style.cssText='display:block!important;visibility:visible!important;margin:0;flex:1 1 190px;overflow-wrap:anywhere';
+const taskSyncNow=document.createElement('button');taskSyncNow.type='button';taskSyncNow.textContent='↻ Sync now';taskSyncBar.append(taskSyncStatus,taskSyncNow);taskList.before(taskSyncBar);
 const taskSession=()=>window.__tichorTaskSession||null;
 const taskClient=()=>taskSession()?.client||null;
 const taskIdentity=()=>taskSession()?.userId||null;
@@ -722,7 +724,7 @@ const renderTasks=()=>{
 const taskSync=async()=>{
  const nextOwner=taskIdentity();
  if(nextOwner!==taskOwner){taskOwner=nextOwner;taskLoad();renderTasks()}
- const client=taskClient();if(!client||taskBusy)return;
+ const client=taskClient();if(!client){taskSyncStatus.textContent='Not connected to your account. Sign in and refresh to sync tasks.';return}if(taskBusy){taskSyncStatus.textContent='Synchronization already in progress…';return}taskSyncStatus.textContent='Synchronizing tasks…';
  taskBusy=true;const owner=taskOwner;
  try{
   // Persist pending changes first; do not overwrite local edits with stale cloud reads.
@@ -753,6 +755,7 @@ const taskSync=async()=>{
  finally{taskBusy=false}
 };
 taskLoad();renderTasks();
+taskSyncNow.onclick=()=>taskSync().catch(e=>{taskSyncStatus.textContent='Sync failed: '+(e?.message||String(e))});
 setInterval(()=>{if(!document.hidden)taskSync().catch(console.warn)},12000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)taskSync().catch(console.warn)});
 setTimeout(()=>taskSync().catch(console.warn),1500);
@@ -798,7 +801,7 @@ const tabs=[["language","<svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" f
 const showTab=which=>{
  if(which==='language'){window.tichorQuickLanguage?.();return}
  for(const b of nav.querySelectorAll('button[data-tab]')){const active=b.dataset.tab===(which==='chat'?'inbox':which==='translate-chat'?'translate':which);b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active))}
- vaultPanel.hidden=which!=='vault';if(which==='vault')vaultRender();tasksPanel.hidden=which!=='tasks';if(which==='tasks')renderTasks();inbox.hidden=which!=='inbox'&&which!=='requests';translateWorkspace.hidden=which!=='translate';notifications.hidden=true;contacts.hidden=which!=='contacts';settings.hidden=which!=='profile'&&which!=='settings';conversation.hidden=which!=='chat'&&which!=='translate-chat';calls.hidden=which!=='calls';actions.hidden=which!=='actions';
+ vaultPanel.hidden=which!=='vault';if(which==='vault')vaultRender();tasksPanel.hidden=which!=='tasks';if(which==='tasks'){renderTasks();taskSync().catch(console.warn)}inbox.hidden=which!=='inbox'&&which!=='requests';translateWorkspace.hidden=which!=='translate';notifications.hidden=true;contacts.hidden=which!=='contacts';settings.hidden=which!=='profile'&&which!=='settings';conversation.hidden=which!=='chat'&&which!=='translate-chat';calls.hidden=which!=='calls';actions.hidden=which!=='actions';
  if(which==='settings'){window.tichorEnsureTranslationControls?.();}
  if(which==='calls')window.tichorLoadCallHistory?.();
  if(which==='actions'){window.tichorRefreshAutonomous?.();window.tichorLoadActions?.();}
