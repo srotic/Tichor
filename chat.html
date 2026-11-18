@@ -3947,19 +3947,19 @@ html[data-tichor-theme="light"] #tcGroupPanel.tc-group-fullscreen,html[data-tich
 body>header #tichorOfficialHeaderIcon{display:none!important}
 body>header::before,body>header:before,body>header strong::before,body>header strong:before{content:none!important;display:none!important;background-image:none!important}
 body>header{gap:10px!important}
-</style><script id="tichor-pwa-install-v1">
-(()=>{let deferred=null;const standalone=()=>window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
-const ios=/iPad|iPhone|iPod/.test(navigator.userAgent);
-const box=document.createElement('div');box.id='tichor-install-banner';box.style.cssText='position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);width:min(92vw,430px);z-index:99990;background:#103c2c;color:white;border:1px solid #d7b76a;border-radius:14px;padding:13px;box-shadow:0 8px 30px #0007;font:14px system-ui;display:none';
-const label=document.createElement('span');label.textContent='Install TichorConnect for quick home-screen access.';
-const install=document.createElement('button');install.type='button';install.textContent='Install';install.style.cssText='margin:8px 8px 0 0;padding:9px 14px;background:#d7b76a;color:#103c2c;border:0;border-radius:8px;font-weight:700';
-const dismiss=document.createElement('button');dismiss.type='button';dismiss.textContent='Not now';dismiss.style.cssText='padding:9px;background:transparent;color:white;border:1px solid #aaa;border-radius:8px';
-box.append(label,document.createElement('br'),install,dismiss);
-const hidden=()=>standalone()||sessionStorage.getItem('tichor-install-dismissed')==='1';
-const show=()=>{if(!hidden()&&(deferred||ios))box.style.display='block'};
+</style><script id="tichor-pwa-install-v2">
+(()=>{let deferred=null;const standalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+const ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const box=document.createElement('aside');box.id='tichor-install-banner';box.setAttribute('aria-label','Install TichorConnect');box.style.cssText='position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);width:min(92vw,430px);z-index:99990;background:#103c2c;color:white;border:1px solid #d7b76a;border-radius:14px;padding:14px;box-shadow:0 8px 30px #0007;font:14px system-ui;display:none';
+const label=document.createElement('p');label.style.cssText='margin:0 0 10px;line-height:1.5';
+const primary=document.createElement('button');primary.type='button';primary.style.cssText='margin:0 8px 0 0;padding:9px 14px;background:#d7b76a;color:#103c2c;border:0;border-radius:8px;font-weight:700';
+const dismiss=document.createElement('button');dismiss.type='button';dismiss.textContent='Not now';dismiss.style.cssText='margin:0;padding:9px;background:transparent;color:white;border:1px solid #aaa;border-radius:8px';
+box.append(label,primary,dismiss);
+const isHidden=()=>standalone()||sessionStorage.getItem('tichor-install-dismissed')==='1';
+const instructions=()=>{label.textContent='On iPhone: tap the browser Share icon (square with an upward arrow), choose Add to Home Screen, then tap Add. If that option is missing, open chat.tichor.com in Safari and use Share → Add to Home Screen.';primary.textContent='Got it'};
+const show=()=>{if(isHidden())return;if(ios){label.textContent='Add TichorConnect to your iPhone Home Screen. iOS requires a few browser steps; this button cannot install the app automatically.';primary.textContent='Show installation steps';box.style.display='block'}else if(deferred){label.textContent='Install TichorConnect for quick home-screen access.';primary.textContent='Install app';box.style.display='block'}};
+primary.onclick=async()=>{if(ios){if(primary.textContent==='Got it'){box.style.display='none'}else instructions();return}if(deferred){const prompt=deferred;deferred=null;box.style.display='none';await prompt.prompt()}};
 dismiss.onclick=()=>{sessionStorage.setItem('tichor-install-dismissed','1');box.style.display='none'};
-install.onclick=async()=>{if(deferred){const prompt=deferred;deferred=null;box.style.display='none';await prompt.prompt();return}
-if(ios){label.textContent='In Safari, tap Share, then Add to Home Screen. Open the installed icon to use TichorConnect.';install.style.display='none'}};
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;show()});
 window.addEventListener('appinstalled',()=>{deferred=null;box.style.display='none'});
 const mount=()=>{document.body.append(box);show()};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
