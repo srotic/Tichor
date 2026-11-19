@@ -832,9 +832,11 @@ const renderTasks=()=>{
  }
 };
 const taskSync=async()=>{
+ // Never switch the owner/cache while an earlier account's async sync is running.
+ if(taskBusy){taskSyncStatus.textContent='Synchronization already in progress…';return}
  const nextOwner=taskIdentity();
  if(nextOwner!==taskOwner){taskOwner=nextOwner;taskLoad();renderTasks()}
- const client=taskClient();if(!client){taskSyncStatus.textContent='Not connected to your account. Sign in and refresh to sync tasks.';return}if(taskBusy){taskSyncStatus.textContent='Synchronization already in progress…';return}taskSyncStatus.textContent='Synchronizing tasks…';
+ const client=taskClient();if(!client){taskSyncStatus.textContent='Not connected to your account. Sign in and refresh to sync tasks.';return}taskSyncStatus.textContent='Synchronizing tasks…';
  taskBusy=true;const owner=taskOwner;
  try{
   // Persist pending changes first; do not overwrite local edits with stale cloud reads.
@@ -842,11 +844,13 @@ const taskSync=async()=>{
    if(taskIdentity()!==owner)break;
    const query=pending.op==='delete'?client.from('tichor_tasks').delete().eq('id',pending.id).eq('user_id',owner):client.from('tichor_tasks').upsert(taskCloudRow(pending.task),{onConflict:'id'});
    const {error}=await query;if(error)throw error;
-   if(taskOwner!==owner)break;
+   // An account may sign out while the request is in flight. Never save its
+   // queue under the next account or continue reconciliation after that.
+   if(taskIdentity()!==owner||taskOwner!==owner)break;
    const current=taskPending.find(p=>p.id===pending.id);
    if(current===pending){taskPending=taskPending.filter(p=>p!==pending);taskSave()}
   }
-  if(taskIdentity()!==owner||taskPending.length)return;
+  if(taskIdentity()!==owner||taskOwner!==owner||taskPending.length)return;
   const before=taskRevision;
   const {data,error}=await client.from('tichor_tasks').select('id,description,due_at,completed').eq('user_id',owner).limit(1000);
   if(error)throw error;
@@ -869,7 +873,11 @@ const taskSync=async()=>{
   renderTasks();
   taskSyncStatus.textContent='Tasks synced to your account.';
  }catch(e){taskSyncStatus.textContent='Saved locally; cloud sync unavailable: '+(e?.message||String(e))}
- finally{taskBusy=false}
+ finally{
+  taskBusy=false;
+  // Rebind to the current account after the previous request has settled.
+  if(taskIdentity()!==taskOwner)queueMicrotask(()=>taskSync().catch(console.warn));
+ }
 };
 taskLoad();renderTasks();
 taskSyncNow.onclick=()=>taskSync().catch(e=>{taskSyncStatus.textContent='Sync failed: '+(e?.message||String(e))});
