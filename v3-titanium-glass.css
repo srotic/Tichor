@@ -1,0 +1,114 @@
+/* TichorConnect V3 — Titanium Glass. Staging-only visual layer.
+   No external fonts, scripts, assets, or WebGL dependencies. */
+html[data-tichor-theme="dark"] {
+  color-scheme:dark;
+  --v3-ink:#f0f7fb;--v3-muted:#b8cbd6;--v3-line:rgba(169,219,236,.25);
+  --v3-glass:linear-gradient(145deg,rgba(49,77,96,.84),rgba(13,31,46,.90) 54%,rgba(8,23,35,.94));
+  --v3-glow:rgba(52,211,211,.25);
+}
+html[data-tichor-theme="dark"] body {
+  background:radial-gradient(ellipse at 12% 5%,rgba(22,102,125,.32),transparent 42%),
+    radial-gradient(ellipse at 92% 55%,rgba(11,110,102,.21),transparent 44%),
+    linear-gradient(145deg,#03080f,#081824 55%,#071019)!important;
+  color:var(--v3-ink)!important;
+}
+html[data-tichor-theme="dark"] main{max-width:1280px!important}
+html[data-tichor-theme="dark"] header {
+  background:linear-gradient(115deg,rgba(6,15,24,.97),rgba(18,39,55,.96) 56%,rgba(5,18,26,.97))!important;
+  border-bottom:1px solid rgba(99,218,221,.36)!important;
+  box-shadow:0 15px 35px rgba(0,0,0,.42),inset 0 1px rgba(255,255,255,.13)!important;
+}
+html[data-tichor-theme="dark"] .t12-shell{gap:18px}
+html[data-tichor-theme="dark"] .t12-profile,
+html[data-tichor-theme="dark"] .t12-section,
+html[data-tichor-theme="dark"] .tichor-mailbox,
+html[data-tichor-theme="dark"] .card,
+html[data-tichor-theme="dark"] #auth,
+html[data-tichor-theme="dark"] #entry {
+  background:var(--v3-glass)!important;
+  border:1px solid var(--v3-line)!important;
+  box-shadow:inset 0 1px rgba(255,255,255,.17),inset 0 -1px rgba(0,0,0,.28),
+    0 18px 44px rgba(0,0,0,.32),0 4px 13px rgba(0,0,0,.25)!important;
+  border-radius:22px!important;
+  color:var(--v3-ink)!important;
+}
+@supports (backdrop-filter:blur(12px)){
+  html[data-tichor-theme="dark"] .t12-profile,
+  html[data-tichor-theme="dark"] .t12-section,
+  html[data-tichor-theme="dark"] .tichor-mailbox,
+  html[data-tichor-theme="dark"] #auth,
+  html[data-tichor-theme="dark"] #entry{backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+}
+html[data-tichor-theme="dark"] .t12-nav button {
+  position:relative;
+  isolation:isolate;
+  background:linear-gradient(155deg,#c8e0e8 0%,#8daeba 23%,#41687c 56%,#1b3c50 100%)!important;
+  color:#071d2b!important;
+  border:1px solid rgba(204,240,248,.75)!important;
+  border-bottom:3px solid #1a394b!important;
+  border-radius:17px!important;
+  box-shadow:inset 0 2px 2px rgba(255,255,255,.75),
+    inset 0 -7px 13px rgba(8,32,49,.25),0 10px 20px rgba(0,0,0,.32),
+    0 2px 0 rgba(175,224,237,.16)!important;
+  text-shadow:0 1px rgba(255,255,255,.26);
+  transition:transform .18s ease,box-shadow .18s ease,filter .18s ease!important;
+}
+html[data-tichor-theme="dark"] .t12-nav button::before{
+  content:"";pointer-events:none;position:absolute;inset:2px 4px auto;height:42%;
+  border-radius:14px 14px 40% 40%;
+  background:linear-gradient(180deg,rgba(255,255,255,.39),rgba(255,255,255,0));
+  z-index:-1;
+}
+html[data-tichor-theme="dark"] .t12-nav button:hover{
+  transform:translateY(-3px);
+  filter:brightness(1.08);
+  box-shadow:inset 0 2px 2px rgba(255,255,255,.8),0 16px 28px rgba(0,0,0,.4),0 0 18px var(--v3-glow)!important;
+}
+html[data-tichor-theme="dark"] .t12-nav button.active {
+  background:linear-gradient(155deg,#9ff5e6,#34c8b8 28%,#126d68 68%,#06403e)!important;
+  color:#032e2e!important;
+  border:1px solid #b2fff0!important;
+  border-bottom:3px solid #074d49!important;
+  box-shadow:inset 0 2px 2px rgba(255,255,255,.65),0 11px 23px rgba(0,0,0,.37),0 0 0 2px rgba(35,225,200,.30)!important;
+}
+html[data-tichor-theme="dark"] .t12-nav .tichor-nav-icon{
+  filter:drop-shadow(0 2px 2px rgba(0,22,33,.28));
+}
+html[data-tichor-theme="dark"] .t12-nav .tichor-nav-label{font-weight:800!important;letter-spacing:.01em}
+html[data-tichor-theme="dark"] .t12-section h1,
+html[data-tichor-theme="dark"] .t12-section h2,
+html[data-tichor-theme="dark"] .t12-section h3,
+html[data-tichor-theme="dark"] .t12-profile strong,
+html[data-tichor-theme="dark"] #auth h2{color:#f2faff!important}
+html[data-tichor-theme="dark"] .muted,
+html[data-tichor-theme="dark"] .folder-preview,
+html[data-tichor-theme="dark"] .folder-meta{color:var(--v3-muted)!important}
+html[data-tichor-theme="dark"] .folder-row,
+html[data-tichor-theme="dark"] .contact-entry{
+  background:linear-gradient(120deg,rgba(40,74,89,.78),rgba(18,43,58,.75))!important;
+  color:#eef9ff!important;border:1px solid rgba(150,212,227,.22)!important;
+  border-radius:13px!important;margin:6px 0!important;
+  box-shadow:inset 0 1px rgba(255,255,255,.09),0 5px 12px rgba(0,0,0,.15)!important;
+}
+html[data-tichor-theme="dark"] .folder-row:hover,
+html[data-tichor-theme="dark"] .contact-entry:hover{background:rgba(46,100,115,.82)!important}
+html[data-tichor-theme="dark"] input:not([type="checkbox"]),
+html[data-tichor-theme="dark"] textarea,
+html[data-tichor-theme="dark"] select{
+  background:rgba(5,22,32,.86)!important;color:#f1faff!important;
+  border:1px solid rgba(150,212,227,.43)!important;border-radius:12px!important;
+}
+html[data-tichor-theme="dark"] input::placeholder,
+html[data-tichor-theme="dark"] textarea::placeholder{color:#a7c1ca!important}
+html[data-tichor-theme="dark"] button:focus-visible,
+html[data-tichor-theme="dark"] a:focus-visible,
+html[data-tichor-theme="dark"] input:focus-visible{outline:3px solid #72f4e5!important;outline-offset:3px}
+@media(max-width:700px){
+  html[data-tichor-theme="dark"] .t12-section,
+  html[data-tichor-theme="dark"] .t12-profile{border-radius:17px!important}
+  html[data-tichor-theme="dark"] .t12-nav button{min-height:70px}
+}
+@media(prefers-reduced-motion:reduce){
+  html[data-tichor-theme="dark"] .t12-nav button{transition:none!important}
+  html[data-tichor-theme="dark"] .t12-nav button:hover{transform:none}
+}
