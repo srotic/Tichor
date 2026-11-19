@@ -36,6 +36,10 @@ const needle="navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}
 if(!chat.includes(needle))throw Error('Service worker registration marker changed; review before building');
 chat=chat.replace(needle,"Promise.reject(new Error('Service worker disabled in V3 staging'))");
 chat=chat.replace(/storageKey:'tichor-auth-session'/g,"storageKey:'tichor-v3-staging-auth-session'");
+// Load the V3-only titanium/glass visual layer after existing inline styles.
+if(!fs.existsSync(path.join(out,'v3-titanium-glass.css')))throw Error('V3 titanium glass stylesheet missing');
+if(!chat.includes('</head>'))throw Error('Chat document head marker missing');
+chat=chat.replace('</head>','<link rel="stylesheet" href="v3-titanium-glass.css?v=1"></head>');
 fs.writeFileSync(chatPath,chat);
 // No service worker in staging output; avoid stale browser cache and cross-app scope.
 fs.rmSync(path.join(out,'sw.js'),{force:true});
