@@ -16,6 +16,14 @@ test('staging build is isolated from production configuration',()=>{
  assert.match(chat,/tichor-v3-staging-auth-session/);
  assert.doesNotMatch(chat,/navigator\.serviceWorker\.register\('\.\/sw\.js'/);
  assert.equal(fs.existsSync(path.join(out,'sw.js')),false);
+ const forbidden=[];
+ function walk(dir){for(const entry of fs.readdirSync(dir,{withFileTypes:true})){
+  const p=path.join(dir,entry.name);
+  if(entry.isDirectory())walk(p);
+  else if(/\.(sql|ts|tsx|map|cjs|md)$/i.test(entry.name))forbidden.push(path.relative(out,p));
+ }}
+ walk(out);
+ assert.deepEqual(forbidden,[],'Staging must not publish source, SQL or documentation');
  assert.equal(fs.existsSync(path.join(out,'manifest.webmanifest')),false);
  assert.equal(fs.readFileSync(path.join(root,'public-config.js'),'utf8'),prod);
 });
