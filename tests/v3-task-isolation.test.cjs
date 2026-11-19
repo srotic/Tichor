@@ -77,3 +77,15 @@ test('task synchronization remains account-filtered and exposes sync status',()=
   assert.match(sync,/taskPending\.length/);
   assert.match(sync,/Tasks synced to your account/);
 });
+
+test('previously synchronized tasks are not re-uploaded after remote deletion',()=>{
+  const sync=extract('const taskSync=async()=>{','taskLoad();renderTasks();');
+  assert.match(sync,/const seen=taskRead\(taskSeenKey\(owner\)\)/);
+  assert.match(sync,/!seenIds\.has\(t\.id\)/);
+  assert.match(sync,/taskWrite\(taskSeenKey\(owner\)/);
+  const remoteIds=new Set(['still-remote']);
+  const seenIds=new Set(['deleted-elsewhere','still-remote']);
+  const cache=[task('deleted-elsewhere','Old'),task('new-offline','New')];
+  const missing=cache.filter(t=>!remoteIds.has(t.id)&&!seenIds.has(t.id));
+  assert.deepEqual(missing.map(t=>t.id),['new-offline']);
+});
