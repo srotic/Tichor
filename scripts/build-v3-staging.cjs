@@ -7,10 +7,24 @@ const out=path.join(root,'dist','v3-staging');
 const ignored=new Set(['.git','.github','node_modules','dist','tests','docs','scripts','supabase']);
 fs.rmSync(out,{recursive:true,force:true});
 fs.mkdirSync(out,{recursive:true});
-for(const item of fs.readdirSync(root,{withFileTypes:true})){
- if(ignored.has(item.name)||item.name.startsWith('.'))continue;
- fs.cpSync(path.join(root,item.name),path.join(out,item.name),{recursive:true});
+// Publish only browser-deliverable assets, not repository source or SQL.
+const allowed=new Set(['.html','.css','.js','.mjs','.json','.svg','.png','.jpg','.jpeg','.gif','.webp','.ico','.woff','.woff2','.ttf','.otf','.webmanifest','.txt','.xml','.wasm','.mp3','.mp4','.webm','.pdf']);
+const excludedNames=new Set(['staging-public-config.js','package.json','package-lock.json','tsconfig.json','wrangler.toml','wrangler.json','wrangler.jsonc']);
+function copyStatic(src,dest,topLevel=false){
+ for(const item of fs.readdirSync(src,{withFileTypes:true})){
+  const name=item.name;
+  if(name.startsWith('.')||excludedNames.has(name)||(topLevel&&ignored.has(name)))continue;
+  const from=path.join(src,name),to=path.join(dest,name);
+  if(item.isDirectory()){
+   // Never publish migration files, tooling, or private directories.
+   if(['supabase','migrations','sql','tests','docs','scripts','node_modules','src','types'].includes(name.toLowerCase()))continue;
+   fs.mkdirSync(to,{recursive:true});copyStatic(from,to);
+  }else if(item.isFile()&&allowed.has(path.extname(name).toLowerCase())){
+   fs.copyFileSync(from,to);
+  }
+ }
 }
+copyStatic(root,out,true);
 const stage=fs.readFileSync(path.join(root,'staging-public-config.js'),'utf8');
 if(!stage.includes('SUPABASE_URL')||!stage.includes('SUPABASE_PUBLISHABLE_KEY'))throw Error('Staging configuration missing');
 fs.writeFileSync(path.join(out,'public-config.js'),stage);
