@@ -1,0 +1,20 @@
+name: TichorConnect V3 regression checks
+on:
+  push:
+    branches: [v3-development]
+  pull_request:
+    branches: [main, v3-development]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  task-isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Task isolation and synchronization regression checks
+        run: node --test tests/v3-task-isolation.test.cjs
