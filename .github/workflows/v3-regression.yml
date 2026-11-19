@@ -17,4 +17,4 @@ jobs:
         with:
           node-version: '22'
       - name: Task isolation and synchronization regression checks
-        run: node --test tests/v3-task-isolation.test.cjs
+        run: node --test tests/v3-task-isolation.test.cjs tests/v3-staging-build.test.cjs
