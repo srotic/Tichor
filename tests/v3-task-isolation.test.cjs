@@ -89,3 +89,13 @@ test('previously synchronized tasks are not re-uploaded after remote deletion',(
   const missing=cache.filter(t=>!remoteIds.has(t.id)&&!seenIds.has(t.id));
   assert.deepEqual(missing.map(t=>t.id),['new-offline']);
 });
+
+test('in-flight synchronization cannot rebind a task cache to a different account',()=>{
+  const sync=extract('const taskSync=async()=>{','taskLoad();renderTasks();');
+  const busy=sync.indexOf('if(taskBusy)');
+  const ownerSwitch=sync.indexOf('if(nextOwner!==taskOwner)');
+  assert.ok(busy>=0 && busy<ownerSwitch,'busy guard must precede owner switch');
+  assert.match(sync,/if\(taskIdentity\(\)!==owner\|\|taskOwner!==owner\)break/);
+  assert.match(sync,/if\(taskIdentity\(\)!==owner\|\|taskOwner!==owner\|\|taskPending\.length\)return/);
+  assert.match(sync,/if\(taskIdentity\(\)!==taskOwner\)queueMicrotask/);
+});
