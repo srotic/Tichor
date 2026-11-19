@@ -794,20 +794,15 @@ const taskValid=t=>t&&typeof t.id==='string'&&typeof t.text==='string'&&t.text.t
 const taskNormalize=t=>({id:t.id,text:t.text,due:t.due||'',done:!!t.done});
 const taskLegacyKeys=()=>{const keys=[];const who=(document.getElementById('who')?.textContent||'').trim();if(who)keys.push('tichor-tasks-v1:'+who);keys.push('tichor-tasks-v1:local');try{for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key?.startsWith('tichor-tasks-v1:')&&!keys.includes(key))keys.push(key)}}catch{}return keys};
 const taskLoad=()=>{
- const key=taskKeyFor(taskOwner);const existing=taskRead(key).filter(taskValid).map(taskNormalize);
- const merged=new Map(existing.map(t=>[t.id,t]));
- // Legacy data is imported without deleting its original browser copy.
- // Only import legacy keys into the first signed-in account or a guest session.
- const marker=key+':legacy-imported';
- if(taskOwner){for(const t of taskRead(taskKeyFor('guest')).filter(taskValid))if(!merged.has(t.id))merged.set(t.id,taskNormalize(t));}
- if(!localStorage.getItem(marker)){
-  for(const legacy of taskLegacyKeys())for(const t of taskRead(legacy).filter(taskValid))if(!merged.has(t.id))merged.set(t.id,taskNormalize(t));
-  taskWrite(key,[...merged.values()]);
-  try{localStorage.setItem(marker,'1')}catch{}
- }
- taskCache=[...merged.values()];
+ const key=taskKeyFor(taskOwner);
+ // V3 isolation safeguard: never automatically merge guest or legacy browser
+ // tasks into an authenticated account. Previous code scanned all v1 keys,
+ // including keys left by other people using the same browser.
+ // Existing account-scoped v2 tasks and pending operations remain intact.
+ // Guest/legacy copies are preserved in localStorage for a future explicit,
+ // owner-confirmed import flow; no browser data is deleted here.
+ taskCache=taskRead(key).filter(taskValid).map(taskNormalize);
  taskPending=taskRead(taskPendingKey(taskOwner)).filter(p=>p&&p.id&&['upsert','delete'].includes(p.op));
- if(taskOwner){for(const p of taskRead(taskPendingKey('guest')))if(p?.id&&!taskPending.some(x=>x.id===p.id))taskPending.push(p)}
 };
 const taskSave=()=>{taskWrite(taskKeyFor(taskOwner),taskCache);taskWrite(taskPendingKey(taskOwner),taskPending)};
 const taskQueue=(t,op)=>{
