@@ -8,7 +8,7 @@ const ignored=new Set(['.git','.github','node_modules','dist','tests','docs','sc
 fs.rmSync(out,{recursive:true,force:true});
 fs.mkdirSync(out,{recursive:true});
 for(const item of fs.readdirSync(root,{withFileTypes:true})){
- if(ignored.has(item.name))continue;
+ if(ignored.has(item.name)||item.name.startsWith('.'))continue;
  fs.cpSync(path.join(root,item.name),path.join(out,item.name),{recursive:true});
 }
 const stage=fs.readFileSync(path.join(root,'staging-public-config.js'),'utf8');
@@ -26,6 +26,13 @@ fs.writeFileSync(chatPath,chat);
 // No service worker in staging output; avoid stale browser cache and cross-app scope.
 fs.rmSync(path.join(out,'sw.js'),{force:true});
 fs.rmSync(path.join(out,'manifest.webmanifest'),{force:true});
+// Prevent production PWA metadata from being advertised by the staging bundle.
+for(const html of fs.readdirSync(out).filter(x=>x.endsWith('.html'))){
+ const p=path.join(out,html);
+ let content=fs.readFileSync(p,'utf8');
+ content=content.replace(/<link[^>]*rel=[\"']manifest[\"'][^>]*>/gi,'');
+ fs.writeFileSync(p,content);
+}
 const config=fs.readFileSync(path.join(out,'public-config.js'),'utf8');
 if(config.includes('gblbxcrqumiraaxknwpc'))throw Error('Production Supabase URL detected in staging config');
 console.log('V3 staging static bundle built at dist/v3-staging. Deploy only to a separate staging origin.');
