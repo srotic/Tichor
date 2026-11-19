@@ -1181,7 +1181,7 @@ async function refreshFolder(){if(!user||folderBusy||activeFolder==='requests')r
  let visibleCount=0;for(const [id,m] of latest){visibleCount++;let preview=m.body||'';if(preview.startsWith('e2ee1.'))preview='🔒 Older encrypted message';addFolderRow(box,id,labels.get(id)||'Username unavailable',preview,folderTime(m.created_at),isNew(m))}
  if(!visibleCount)box.innerHTML='<div class="folder-empty">No conversations to display.</div>';
  }catch(e){status('folderStatus','Could not load '+activeFolder+': '+e.message)}finally{folderBusy=false}}
-function addFolderRow(box,id,label,preview,when,unread){const b=document.createElement('button');b.type='button';b.className='folder-row';b.dataset.contactId=id;const avatar=document.createElement('span');avatar.className='folder-avatar';avatar.textContent=initials(label);const mid=document.createElement('span');mid.className='folder-main';const n=document.createElement('div');n.className='folder-name';n.textContent=label;const p=document.createElement('div');p.className='folder-preview';p.textContent=preview;mid.append(n,p);const meta=document.createElement('span');meta.className='folder-meta';meta.textContent=when;if(unread){const dot=document.createElement('span');dot.className='folder-unread';dot.textContent='New';meta.append(' ',dot)}b.append(avatar,mid,meta);b.onclick=async()=>{peer=id;tichorMarkConversationViewed(id);tichorPrivacyRender();$('recipient').value=label;window.tichorShowTab?.('chat');$('messages').dataset.openedPeer='';await load();requestAnimationFrame(()=>{const messages=$('messages'),composer=$('sendForm');messages.scrollTop=messages.scrollHeight;composer?.scrollIntoView({block:'end',behavior:'instant'});});if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>{load();refreshFolder()}).subscribe();setTimeout(refreshFolder,500)};box.append(b)}
+function addFolderRow(box,id,label,preview,when,unread){const b=document.createElement('button');b.type='button';b.className='folder-row';b.dataset.contactId=id;const avatar=document.createElement('span');avatar.className='folder-avatar';avatar.textContent=initials(label);const mid=document.createElement('span');mid.className='folder-main';const n=document.createElement('div');n.className='folder-name';n.textContent=label;const p=document.createElement('div');p.className='folder-preview';p.textContent=preview;mid.append(n,p);const meta=document.createElement('span');meta.className='folder-meta';meta.textContent=when;if(unread){const dot=document.createElement('span');dot.className='folder-unread';dot.textContent='New';meta.append(' ',dot)}b.append(avatar,mid,meta);b.onclick=async()=>{peer=id;tichorMarkConversationViewed(id);tichorPrivacyRender();$('recipient').value=label;window.tichorShowTab?.('chat');$('messages').dataset.openedPeer='';await load();tichorScrollToLatest($('messages'),$('sendForm'));if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>{load();refreshFolder()}).subscribe();setTimeout(refreshFolder,500)};box.append(b)}
 for(const [id,tab] of [['tabInbox','inbox'],['tabSent','sent'],['tabContacts','contacts'],['tabRequests','requests']]){const btn=$(id);if(btn)btn.onclick=()=>chooseFolder(tab)}
 
 $('enablePush').onclick=()=>enableNotifications(supa,user,msg=>status('pushStatus',msg));$('disablePush').onclick=()=>disableNotifications(supa,user,msg=>status('pushStatus',msg));
@@ -2146,6 +2146,22 @@ const tichorChatHeaderStyle=document.createElement('style');tichorChatHeaderStyl
 #tichorActiveChatHeader small{color:#c2e5e5!important;font-size:12px}
 #tichorActiveChatHeader .tichor-chat-back{background:#ffffff18!important;border:1px solid #ffffff45!important;color:#fff!important;padding:2px 11px!important;font-size:27px!important;border-radius:13px!important;min-height:40px}
 `;document.head.append(tichorChatHeaderStyle);
+// Open each conversation at the newest message, with its composer visible.
+// Do not pull readers away from older messages during ordinary background refreshes.
+function tichorScrollToLatest(box,composer){
+ if(!box)return;
+ const move=()=>{
+  if(!box.isConnected)return;
+  box.scrollTop=box.scrollHeight;
+  if(composer?.isConnected){
+   const rect=composer.getBoundingClientRect();
+   if(rect.bottom>window.innerHeight||rect.top<0)composer.scrollIntoView({block:'end',behavior:'instant'});
+  }
+ };
+ move();
+ requestAnimationFrame(()=>requestAnimationFrame(move));
+ setTimeout(move,180);
+}
 async function load(){
  tichorUpdateChatHeader();
  tichorTranslationRoutingControl();
@@ -2329,7 +2345,7 @@ if(a&&(isPhoto||/\.pdf$/i.test(a.file_name))){
  // Translate recent incoming messages sequentially, without blocking the conversation UI.
  if(autoQueue.length){(async()=>{for(const task of autoQueue){if(!box.isConnected||tichorTranslationMode()!=='automatic')break;await task()}})()}
 
- if(atBottom||forceBottom){box.scrollTop=box.scrollHeight;requestAnimationFrame(()=>{if(box.dataset.openedPeer===peer)box.scrollTop=box.scrollHeight;});}
+ if(forceBottom)tichorScrollToLatest(box,$('sendForm'));else if(atBottom){box.scrollTop=box.scrollHeight;requestAnimationFrame(()=>{if(box.dataset.openedPeer===peer)box.scrollTop=box.scrollHeight;});}
  } // End of changed-message render; preserve audio playback during receipt updates.
  if(document.visibilityState==='visible'&&!$('t12Conversation')?.hidden&&peer){
   // Opening the conversation marks every received unread message from this contact as read.
@@ -3051,6 +3067,7 @@ async function tcGroupOpen(id){
  form.onsubmit=async e=>{e.preventDefault();const body=input.value.trim();if(!body)return;send.disabled=true;try{await tcGroupQuery(supa.from('tichor_group_messages').insert({group_id:id,sender_id:user.id,body}));input.value='';await tcGroupMessages(id)}catch(err){tcGroupStatus(err.message)}finally{send.disabled=false}};
  view.append(form);
  await tcGroupMessages(id);
+ tichorScrollToLatest($('tcGroupMessages'),form);
  clearInterval(tcGroupTimer);tcGroupTimer=setInterval(()=>{if(user&&tcGroupId===id&&!document.hidden)tcGroupMessages(id).catch(console.warn)},4000);
 }
 const tcGroupTranslateQueue=[];let tcGroupTranslateRunning=false;
@@ -3060,6 +3077,8 @@ async function tcGroupMessages(id){
  if(tcGroupId!==id)return;
  const box=$('tcGroupMessages');if(!box)return;
  const atBottom=box.scrollTop+box.clientHeight>=box.scrollHeight-35;
+ const opening=box.dataset.openedGroup!==id;
+ box.dataset.openedGroup=id;
  const senderIds=[...new Set((data||[]).map(m=>m.sender_id).filter(id=>id&&id!==user.id))];
  const names=new Map();
  if(senderIds.length){
@@ -3097,7 +3116,7 @@ async function tcGroupMessages(id){
   line.append(label,content,time);box.append(line);
   tichorAddTranslateButton(line,content,mine,'group:'+m.id,tcGroupTranslateQueue);
  }
- if(atBottom)box.scrollTop=box.scrollHeight;
+ if(opening)tichorScrollToLatest(box,box.nextElementSibling);else if(atBottom)box.scrollTop=box.scrollHeight;
  tcGroupRunTranslations().catch(console.warn);
 }
 function tcGroupPickContact(contacts){
