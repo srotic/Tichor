@@ -787,6 +787,7 @@ const taskClient=()=>taskSession()?.client||null;
 const taskIdentity=()=>taskSession()?.userId||null;
 const taskKeyFor=id=>'tichor-tasks-v2:'+(id||'guest');
 const taskPendingKey=id=>'tichor-tasks-pending-v2:'+(id||'guest');
+const taskSeenKey=id=>'tichor-tasks-seen-v3:'+(id||'guest');
 const taskRead=(key,fallback=[])=>{try{const v=JSON.parse(localStorage.getItem(key)||'null');return Array.isArray(v)?v:fallback}catch{return fallback}};
 const taskWrite=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));return true}catch{taskSyncStatus.textContent='Browser storage unavailable; tasks may not persist.';return false}};
 let taskOwner=taskIdentity(),taskCache=[],taskPending=[],taskBusy=false,taskRevision=0;
@@ -851,14 +852,21 @@ const taskSync=async()=>{
   if(error)throw error;
   if(taskOwner!==owner||taskRevision!==before)return;
   const remote=new Map((data||[]).map(t=>[t.id,taskFromCloud(t)]));
-  // Keep local-only tasks and upload them, including items migrated from older browser storage.
-  const missing=taskCache.filter(t=>!remote.has(t.id));
+  // A previously synchronized task missing from the server may have been
+  // deleted on another device. Do not recreate it from a stale local cache.
+  // Keep genuinely local-only records eligible for recovery on older clients.
+  const seen=taskRead(taskSeenKey(owner)).filter(id=>typeof id==='string');
+  const seenIds=new Set(seen);
+  const missing=taskCache.filter(t=>!remote.has(t.id)&&!seenIds.has(t.id));
   if(missing.length){
    const {error:uploadError}=await client.from('tichor_tasks').upsert(missing.map(taskCloudRow),{onConflict:'id'});
    if(uploadError)throw uploadError;
   }
   if(taskOwner!==owner||taskRevision!==before)return;
-  taskCache=[...remote.values(),...missing];taskSave();renderTasks();
+  taskCache=[...remote.values(),...missing];taskSave();
+  // Save observed IDs only after a successful reconciliation.
+  taskWrite(taskSeenKey(owner),[...new Set([...seen,...remote.keys(),...missing.map(t=>t.id)])]);
+  renderTasks();
   taskSyncStatus.textContent='Tasks synced to your account.';
  }catch(e){taskSyncStatus.textContent='Saved locally; cloud sync unavailable: '+(e?.message||String(e))}
  finally{taskBusy=false}
