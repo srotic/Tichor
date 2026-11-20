@@ -1,6 +1,7 @@
 'use strict';
 (()=> {
- const EXAMS=[window.TICHOR_CARS_BANK||[],...Array.from({length:9},(_,i)=>window.TICHOR_CARS_EXAMS?.[i+1]||[])];
+ const base=(window.TICHOR_CARS_BANK||[]).map(p=>({...p,q:p.q.map(q=>q.length===8?[q[0],q.slice(1,5),q[5],q[6],q[7]]:q)}));
+ const EXAMS=[base,...Array.from({length:9},(_,i)=>window.TICHOR_CARS_EXAMS?.[i+1]||[])];
  const BANK=EXAMS.flat();
  const $=id=>document.getElementById(id);
  if(EXAMS.length!==10||EXAMS.some(group=>!Array.isArray(group)||group.length!==9||group.reduce((n,p)=>n+p.q.length,0)!==53)||new Set(BANK.map(p=>p.title)).size!==90){
