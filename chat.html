@@ -1190,10 +1190,7 @@ async function connect(){try{
 }catch(e){show('setup',true);status('setupStatus','Unable to initialize Tichor: '+e.message)}}
 // Email-link verification: the redirect must ALSO be allowlisted in Supabase Auth > URL Configuration.
 function tichorEmailRedirect(){
- const host=window.location.hostname.toLowerCase();
- const origin=(host==='v3.tichor.com'||host==='chat.tichor.com')?window.location.origin
-   :window.location.origin;
- return new URL('/chat.html',origin).href;
+ return new URL('/chat.html',window.location.origin).href;
 }
 for(const mode of ['signin','signup'])$(mode).onclick=async()=>{
  const button=$(mode);button.disabled=true;
