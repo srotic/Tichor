@@ -525,3 +525,40 @@ html[data-v3-titanium] #chat .tichor-mailbox .muted,
 html[data-v3-titanium] #chat .t12-section .muted{
  color:#c1d5dd!important;-webkit-text-fill-color:#c1d5dd!important;
 }
+
+/* V3 contrast hotfix: retain icon dimensions, brighten text only. */
+html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open>button[data-tab],
+html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open>button[data-tab] .tichor-nav-label,
+html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open>button[data-tab] .tichor-nav-label *,
+html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open>.tichor-menu-user-tile .tichor-user-word {
+ color:#f6fbff!important;-webkit-text-fill-color:#f6fbff!important;
+ opacity:1!important;text-shadow:0 1px 2px rgba(0,0,0,.65)!important;
+}
+html[data-v3-titanium] #chat .t12-section,
+html[data-v3-titanium] #chat .t12-section p,
+html[data-v3-titanium] #chat .t12-section label,
+html[data-v3-titanium] #chat .t12-section h1,
+html[data-v3-titanium] #chat .t12-section h2,
+html[data-v3-titanium] #chat .t12-section h3,
+html[data-v3-titanium] #chat .t12-section small,
+html[data-v3-titanium] #chat .t12-section .muted,
+html[data-v3-titanium] #chat .t12-profile,
+html[data-v3-titanium] #chat .tichor-mailbox,
+html[data-v3-titanium] #chat .tichor-mailbox p,
+html[data-v3-titanium] #chat .tichor-mailbox h2 {
+ color:#edf7fc!important;-webkit-text-fill-color:#edf7fc!important;
+ opacity:1!important;
+}
+html[data-v3-titanium] #chat .t12-section input:not([type="checkbox"]),
+html[data-v3-titanium] #chat .t12-section textarea,
+html[data-v3-titanium] #chat .t12-section select{
+ color:#f6fbff!important;-webkit-text-fill-color:#f6fbff!important;
+}
+html[data-v3-titanium] #chat .t12-section input::placeholder,
+html[data-v3-titanium] #chat .t12-section textarea::placeholder{
+ color:#c4d5de!important;-webkit-text-fill-color:#c4d5de!important;opacity:1!important;
+}
+html[data-v3-titanium] #chat .t12-section option{color:#142c35!important;background:#f5fafc!important}
+html[data-v3-titanium] #chat .t12-section button:not([data-tab]){
+ color:#f7fcff!important;-webkit-text-fill-color:#f7fcff!important;
+}
