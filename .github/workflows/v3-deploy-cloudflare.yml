@@ -1,0 +1,43 @@
+name: Deploy TichorConnect V3 staging to Cloudflare Pages
+on:
+  push:
+    branches: [v3-development]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: tichor-v3-staging-deploy
+  cancel-in-progress: true
+jobs:
+  deploy:
+    name: Build, test and deploy V3 staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: v3-staging
+    steps:
+      - name: Check out v3-development
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run staging regression tests
+        run: node --test tests/v3-task-isolation.test.cjs tests/v3-staging-build.test.cjs
+      - name: Build isolated staging site
+        run: node scripts/build-v3-staging.cjs
+      - name: Validate Cloudflare credentials
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CF_TOKEN" ] || [ -z "$CF_ACCOUNT" ]; then
+            echo "::error::Configure CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in GitHub's v3-staging environment secrets."
+            exit 1
+          fi
+      - name: Deploy to existing staging Pages project
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4 pages deploy dist/v3-staging --project-name=tichor-v3-staging --branch=v3-development --commit-dirty=true
