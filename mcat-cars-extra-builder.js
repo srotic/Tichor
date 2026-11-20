@@ -20,18 +20,21 @@ window.tcRegisterCarsExam=function(number,entries){
    const [options,answer]=makeOptions(right,wrong,(passageIndex+q.length+number)%4);
    q.push([stem,options,answer,category,why]);
   };
-  add('Which statement most accurately captures the author’s central argument?',
-   s.thesis,[s.orthodox,'No interpretation can be more defensible than any other.','The familiar approach must be rejected in every possible circumstance.'],'Comprehension','The thesis distinguishes the author’s qualified proposal from the conventional view and from more sweeping extremes.');
-  add('The author’s treatment of the conventional approach is best described as:',
+  const take=(a)=>(a[(passageIndex+number)%a.length]);
+  const mainCorrect=s.summaryCorrect||s.thesis;
+  const mainWrong=s.summaryWrong||[s.orthodox,'No interpretation can be more defensible than any other.','The familiar approach must be rejected in every possible circumstance.'];
+  add(take(['Which claim best expresses the author’s overall position?','Which conclusion is best supported by the passage as a whole?','The author’s argument is most accurately summarized by which statement?']),
+   mainCorrect,mainWrong,'Comprehension','The preferred interpretation balances the shortcomings of an established view against the possibilities and limits of a proposed alternative.');
+  add(take(['The author’s treatment of the conventional approach is best described as:','The tone of the discussion of the established approach is primarily:','The second and fourth paragraphs characterize the traditional position as:']),
    'It acknowledges practical merits while questioning its claim to general sufficiency.',
    ['It rejects the approach as knowingly dishonest in all cases.','It accepts the approach as a complete explanation requiring no revision.','It treats the approach as irrelevant to the issue under discussion.'],'Comprehension','The second and fourth paragraphs recognize achievements without accepting an unlimited claim.');
-  add('The principal function of the specific example in the third paragraph is to:',
+  add(take(['The principal function of the specific example in the third paragraph is to:','Why does the author introduce the case discussed in paragraph three?','The third paragraph advances the argument chiefly by:']),
    'Reveal a tension that a general account tends to overlook.',
    ['Establish that the proposed alternative is always successful.','Prove the conventional approach has never worked.','Replace the author’s argument with an unrelated historical anecdote.'],'Within the Text','The example illustrates the limits of the broad claim, rather than serving as decisive proof of an extreme conclusion.');
-  add('Which assumption is most important to the author’s proposed alternative?',
+  add(take(['Which assumption is most important to the author’s proposed alternative?','The author’s proposal depends most directly on which premise?','Which condition is most necessary for the alternative approach to be persuasive?']),
    'Exposing the reasons behind decisions can make them more accountable to criticism.',
    ['All participants necessarily hold identical values.','Technical efficiency by itself determines whether a choice is justified.','Uncertainty makes reasoned evaluation impossible.'],'Within the Text','The fifth paragraph’s case rests on open criteria that can be questioned and revised.');
-  add(s.application+' Which response is most consistent with the author’s reasoning?',
+  add(s.application+' '+take(['Which response is most consistent with the author’s reasoning?','Which approach would the author most likely favor?','Which response follows most directly from the argument in the passage?']),
    'Examine the stated purpose and affected perspectives before judging the new case.',
    ['Apply the conventional rule automatically without considering context.','Assume an alternative is correct merely because it is unfamiliar.','Treat disagreement as proof that no evidence can matter.'],'Beyond the Text','The author urges contextual and evidence-based judgment rather than automatic acceptance or rejection.');
   if(passageIndex!==8)add('Which finding would most directly challenge the author’s preferred account?',
@@ -47,6 +50,12 @@ window.tcMakeCarsSeed=function(title,discipline,subject,convention,caseStudy,cri
  const stem='The disagreement about '+subject+' illustrates a broader problem:';
  return {
  title,discipline,
+ summaryCorrect:'A defensible approach to '+subject+' should recognize '+critique+' while considering '+reform,
+ summaryWrong:[
+  'The prevailing solution to '+subject+' should generally be preserved because '+convention,
+  'A satisfactory response to '+subject+' should reject formal criteria and depend exclusively on personal impressions.',
+  'The dispute about '+subject+' can be resolved by concentrating on '+tradeoff+' rather than the underlying interpretive questions.'
+ ],
  open:stem+' different people may describe the same arrangement as an achievement or as an obstacle depending on the question they are asking.',
  thesis:'The most defensible reading of '+subject+' requires acknowledging '+critique+' while taking seriously '+reform,
  orthodox:'A familiar defense holds that '+convention+' Its practical appeal should not be underestimated, since predictable rules and recognizable standards often make cooperation possible.',
