@@ -562,3 +562,21 @@ html[data-v3-titanium] #chat .t12-section option{color:#142c35!important;backgro
 html[data-v3-titanium] #chat .t12-section button:not([data-tab]){
  color:#f7fcff!important;-webkit-text-fill-color:#f7fcff!important;
 }
+
+/* V3 chat surface polish: avoid duplicate Inbox title and preserve existing folder logic. */
+html[data-v3-titanium] #t12Inbox #folderHeading,
+html[data-v3-titanium] #t12Inbox #folderHint{display:none!important}
+html[data-v3-titanium] #t12Inbox #tichorMailbox{min-width:0!important;max-width:100%!important;box-sizing:border-box!important;overflow:hidden!important;padding:16px!important}
+html[data-v3-titanium] #t12Inbox #folderItems{min-width:0!important;max-width:100%!important;box-sizing:border-box!important;overflow-wrap:anywhere!important}
+html[data-v3-titanium] #t12Inbox #folderItems .folder-row{max-width:100%!important;min-width:0!important;box-sizing:border-box!important}
+html[data-v3-titanium] #t12Inbox #folderItems .folder-main{min-width:0!important}
+/* Subtle T + DNA signature from the existing Tichor artwork, under the content. */
+html[data-v3-titanium] #chat{position:relative!important;isolation:isolate!important}
+html[data-v3-titanium] #chat::before{
+ content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+ background-image:linear-gradient(90deg,rgba(3,15,25,.68),rgba(3,15,25,.68)),url("assets/tichor-space-dna-horizon.svg");
+ background-size:cover, min(980px,95vw) auto;background-position:center,center 20%;
+ background-repeat:no-repeat;opacity:.28;
+}
+html[data-v3-titanium] #t12Inbox .t12-section,
+html[data-v3-titanium] #t12Inbox .tichor-mailbox{position:relative}
