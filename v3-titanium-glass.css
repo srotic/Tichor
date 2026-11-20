@@ -354,3 +354,57 @@ html[data-v3-titanium] #chat .tichor-menu-user-popover .tichor-account-username{
   html[data-v3-titanium] #chat .t12-nav.tichor-menu-open>button[data-tab],
   html[data-v3-titanium] #chat .t12-nav.tichor-menu-open>.tichor-menu-user-tile>.tichor-menu-user-button{min-height:76px!important;padding:9px 4px!important}
 }
+
+
+/* V3 toolbar specificity and account dropdown accessibility. */
+html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open{
+  overflow:visible!important;isolation:auto!important;z-index:30!important;
+  background:linear-gradient(155deg,#19313e,#061722)!important;
+  border:1px solid rgba(165,217,221,.43)!important;border-radius:22px!important;
+  box-shadow:inset 0 2px rgba(240,255,255,.14),0 22px 45px rgba(0,0,0,.5)!important;
+}
+html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open>button[data-tab],
+html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open>.tichor-menu-user-tile>.tichor-menu-user-button{
+  min-height:83px!important;
+  background:radial-gradient(ellipse at 18% 0%,rgba(232,255,255,.24),transparent 58%),linear-gradient(145deg,#56717b,#2c4752 22%,#102630 54%,#36515d 85%,#10222c)!important;
+  color:#f4fbff!important;-webkit-text-fill-color:#f4fbff!important;
+  border:1px solid rgba(210,237,240,.58)!important;border-bottom:4px solid #06131c!important;
+  border-radius:24px 11px 22px 12px!important;
+  box-shadow:inset 0 2px rgba(255,255,255,.31),inset 0 -6px 12px rgba(0,0,0,.25),0 6px 0 #06141c,0 14px 24px rgba(0,0,0,.45)!important;
+}
+html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open>button[data-tab].active{
+  background:radial-gradient(ellipse at 18% 0%,rgba(174,255,222,.28),transparent 58%),linear-gradient(145deg,#477c72,#245a50 23%,#103c35 55%,#1b6652 85%,#0a2a25)!important;
+  border-color:#7af4ce!important;
+}
+html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open>.tichor-menu-user-tile{
+  overflow:visible!important;isolation:auto!important;z-index:60!important;
+}
+html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open>.tichor-menu-user-tile>.tichor-menu-user-button{
+  width:100%!important;height:100%!important;min-height:83px!important;
+}
+html[data-v3-titanium] #chat .tichor-menu-user-popover:not([hidden]){
+  position:absolute!important;top:calc(100% + 10px)!important;right:0!important;left:auto!important;
+  display:flex!important;flex-direction:column!important;gap:8px!important;
+  min-width:200px!important;max-width:min(290px,85vw)!important;z-index:9999!important;
+  overflow:visible!important;clip-path:none!important;
+  padding:14px!important;border-radius:15px!important;
+  background:linear-gradient(145deg,#173b46,#071c27)!important;
+  border:1px solid rgba(138,239,216,.75)!important;
+  box-shadow:0 16px 38px rgba(0,0,0,.7)!important;
+  color:#f5ffff!important;-webkit-text-fill-color:#f5ffff!important;
+}
+html[data-v3-titanium] #chat .tichor-menu-user-popover .tichor-toolbar-signout{
+  display:block!important;visibility:visible!important;opacity:1!important;
+  width:100%!important;min-height:44px!important;padding:11px 14px!important;
+  background:#dffaf0!important;color:#073d31!important;-webkit-text-fill-color:#073d31!important;
+  border:1px solid #91e9cc!important;border-radius:10px!important;
+  font:700 15px/1.35 system-ui,sans-serif!important;text-align:center!important;
+  cursor:pointer!important;text-shadow:none!important;
+}
+html[data-v3-titanium] #chat .tichor-menu-user-popover .tichor-toolbar-signout .tichor-signout-label{
+  display:inline!important;color:#073d31!important;-webkit-text-fill-color:#073d31!important;
+}
+@media(max-width:700px){
+ html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open>button[data-tab],
+ html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open>.tichor-menu-user-tile>.tichor-menu-user-button{min-height:72px!important}
+}
