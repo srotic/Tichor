@@ -15,7 +15,7 @@ test('staging build is isolated from production configuration',()=>{
  assert.doesNotMatch(config,/gblbxcrqumiraaxknwpc/);
  assert.match(chat,/tichor-v3-staging-auth-session/);
  assert.match(chat,/data-v3-titanium/);
- assert.match(chat,/v3-titanium-glass\.css\?v=5/);
+ assert.match(chat,/v3-titanium-glass\.css\?v=6/);
  assert.equal(fs.existsSync(path.join(out,'v3-titanium-glass.css')),true);
  assert.doesNotMatch(fs.readFileSync(path.join(root,'chat.html'),'utf8'),/v3-titanium-glass\.css/);
  assert.doesNotMatch(chat,/navigator\.serviceWorker\.register\('\.\/sw\.js'/);
