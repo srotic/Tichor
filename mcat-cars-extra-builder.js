@@ -42,3 +42,19 @@ window.tcRegisterCarsExam=function(number,entries){
  if(generated.reduce((n,p)=>n+p.q.length,0)!==53)throw Error('Exam must contain exactly 53 questions');
  window.TICHOR_CARS_EXAMS[number-1]=generated;
 };
+
+window.tcMakeCarsSeed=function(title,discipline,subject,convention,caseStudy,critique,reform,tradeoff,application){
+ const stem='The disagreement about '+subject+' illustrates a broader problem:';
+ return {
+ title,discipline,
+ open:stem+' different people may describe the same arrangement as an achievement or as an obstacle depending on the question they are asking.',
+ thesis:'The most defensible reading of '+subject+' requires acknowledging '+critique+' while taking seriously '+reform,
+ orthodox:'A familiar defense holds that '+convention+' Its practical appeal should not be underestimated, since predictable rules and recognizable standards often make cooperation possible.',
+ example:'Consider the following case: '+caseStudy+' The example forces a distinction between what an institution claims to achieve and what participants actually experience.',
+ limitation:'Even critics must admit that '+tradeoff+' This difficulty complicates any effortless celebration of reform and makes the preferred approach vulnerable to its own blind spots.',
+ alternative:'A different response would be to '+reform+' Such a change would demand careful explanation of the criteria used to decide between competing values.',
+ implication:'If this proposal were taken seriously, judgments about '+subject+' would need to draw on more than a single headline measure or familiar institutional story.',
+ boundary:'The point is not to dismiss the insight that '+convention+' but to specify when that insight stops answering the question at issue.',
+ application:'Imagine a related setting in which '+application+'.'
+ };
+};
