@@ -408,3 +408,59 @@ html[data-v3-titanium] #chat .tichor-menu-user-popover .tichor-toolbar-signout .
  html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open>button[data-tab],
  html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open>.tichor-menu-user-tile>.tichor-menu-user-button{min-height:72px!important}
 }
+
+
+/* V3 Horizon navigation — space/DNA backdrop retained, panels replaced by top tabs. */
+@media(min-width:901px){
+ html[data-v3-titanium] #chat .tichor-toolbar-clean{
+  position:relative!important;z-index:80!important;overflow:visible!important;
+  padding:4px 0!important;background:transparent!important;border:0!important;
+  box-shadow:none!important;
+ }
+ html[data-v3-titanium] #chat .tichor-toolbar-clean>.tichor-main-menu-toggle{display:none!important}
+ html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open{
+  display:flex!important;flex-wrap:wrap!important;align-items:center!important;justify-content:flex-start!important;
+  gap:4px!important;width:100%!important;margin:0!important;padding:8px 12px!important;
+  border:1px solid rgba(205,239,244,.19)!important;border-radius:12px!important;
+  background:linear-gradient(90deg,rgba(7,17,30,.86),rgba(12,30,42,.78))!important;
+  box-shadow:0 12px 32px rgba(0,0,0,.22)!important;
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+ }
+ html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open>button[data-tab],
+ html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open>.tichor-menu-user-tile>.tichor-menu-user-button{
+  width:auto!important;min-width:0!important;height:42px!important;min-height:42px!important;
+  padding:8px 13px!important;display:inline-flex!important;flex-direction:row!important;gap:7px!important;
+  border-radius:8px!important;clip-path:none!important;transform:none!important;
+  background:transparent!important;border:1px solid transparent!important;
+  box-shadow:none!important;color:#eaf6f9!important;-webkit-text-fill-color:#eaf6f9!important;
+  font:600 13px/1.25 system-ui,sans-serif!important;
+ }
+ html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open>button[data-tab]:hover,
+ html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open>.tichor-menu-user-tile>.tichor-menu-user-button:hover{
+  background:rgba(184,225,232,.13)!important;border-color:rgba(205,239,244,.19)!important;
+ }
+ html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open>button[data-tab].active{
+  background:rgba(51,145,120,.27)!important;border-color:rgba(113,236,202,.4)!important;
+  box-shadow:inset 0 -2px #6ff0c4!important;
+ }
+ html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open .tichor-nav-icon{
+  display:inline-flex!important;transform:none!important;filter:none!important;
+ }
+ html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open .tichor-nav-icon svg{width:18px!important;height:18px!important}
+ html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open .tichor-nav-label{
+  display:inline!important;font:600 13px/1.25 system-ui,sans-serif!important;letter-spacing:0!important;
+ }
+ html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open>.tichor-menu-user-tile{
+  width:auto!important;min-height:42px!important;height:42px!important;margin-left:auto!important;
+  padding:0!important;position:relative!important;z-index:90!important;
+ }
+ html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open>.tichor-menu-user-tile>.tichor-menu-user-button{
+  width:auto!important;height:42px!important;min-height:42px!important;padding:7px 13px!important;
+ }
+ html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open>.tichor-menu-user-tile>.tichor-menu-user-button::before,
+ html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open>.tichor-menu-user-tile>.tichor-menu-user-button::after{display:none!important}
+ html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open>.tichor-menu-user-tile>.tichor-menu-user-button .tichor-user-word{
+  color:#eaf6f9!important;-webkit-text-fill-color:#eaf6f9!important;font:600 13px system-ui,sans-serif!important;
+ }
+ html[data-v3-titanium] #chat .tichor-toolbar-clean>.t12-nav.tichor-menu-open>.tichor-menu-user-tile>.tichor-menu-user-button svg{width:19px!important;height:19px!important}
+}
