@@ -995,7 +995,9 @@ const syncMenuNotice=()=>{
 new MutationObserver(syncMenuNotice).observe(nav,{subtree:true,childList:true,characterData:true});
 syncMenuNotice();
 toolbar.append(menuToggle,nav);
-setMenuOpen(false);
+// Desktop V3 hides the menu toggle in its titanium theme, so start with navigation visible.
+// Mobile retains the collapsible menu shown in the phone layout.
+setMenuOpen(window.matchMedia('(min-width:901px)').matches);
 // Translation workspace is a view of the same message records, not a second inbox.
 const translateTitle=document.createElement('h2');translateTitle.textContent='🌐 Translate';
 const translateNote=document.createElement('p');translateNote.className='muted';translateNote.textContent='Cross-language conversations. Replies are sent exactly as written; translations are for reading only.';
