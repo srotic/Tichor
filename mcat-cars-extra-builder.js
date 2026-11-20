@@ -14,7 +14,7 @@ window.tcRegisterCarsExam=function(number,entries){
  ];
  const makeOptions=(correct,wrong,offset)=>{const all=[correct,...wrong];const rot=offset%4;const choices=all.slice(rot).concat(all.slice(0,rot));return [choices,choices.indexOf(correct)]};
  const generated=entries.map((s,passageIndex)=>{
-  if(!s||['title','discipline','open','thesis','orthodox','example','limitation','alternative','implication','boundary','application'].some(k=>typeof s[k]!=='string'||s[k].trim().length<20))throw Error('Missing substantive passage content in exam '+number);
+  if(!s||['title','discipline'].some(k=>typeof s[k]!=='string'||!s[k].trim())||['open','thesis','orthodox','example','limitation','alternative','implication','boundary','application'].some(k=>typeof s[k]!=='string'||s[k].trim().length<20))throw Error('Missing substantive passage content in exam '+number);
   const ps=paragraphs(s),q=[];
   const add=(stem,right,wrong,category,why)=>{
    const [options,answer]=makeOptions(right,wrong,(passageIndex+q.length+number)%4);
