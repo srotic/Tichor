@@ -39,7 +39,7 @@ chat=chat.replace(/storageKey:'tichor-auth-session'/g,"storageKey:'tichor-v3-sta
 // Load the V3-only titanium/glass visual layer after existing inline styles.
 if(!fs.existsSync(path.join(out,'v3-titanium-glass.css')))throw Error('V3 titanium glass stylesheet missing');
 if(!chat.includes('</head>'))throw Error('Chat document head marker missing');
-chat=chat.replace('</head>','<script>document.documentElement.setAttribute("data-v3-titanium","");</script><link rel="stylesheet" href="v3-titanium-glass.css?v=6"></head>');
+chat=chat.replace('</head>','<script>document.documentElement.setAttribute("data-v3-titanium","");</script><link rel="stylesheet" href="v3-titanium-glass.css?v=7"></head>');
 fs.writeFileSync(chatPath,chat);
 // No service worker in staging output; avoid stale browser cache and cross-app scope.
 fs.rmSync(path.join(out,'sw.js'),{force:true});
