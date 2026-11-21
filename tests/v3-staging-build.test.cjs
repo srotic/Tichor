@@ -28,6 +28,13 @@ test('staging build is isolated from production configuration',()=>{
  }}
  walk(out);
  assert.deepEqual(forbidden,[],'Staging must not publish source, SQL or documentation');
+ const headers=fs.readFileSync(path.join(out,'_headers'),'utf8');
+ assert.match(headers,/Strict-Transport-Security: max-age=15552000/);
+ assert.match(headers,/X-Frame-Options: DENY/);
+ assert.match(headers,/Content-Security-Policy: frame-ancestors 'none'/);
+ assert.match(headers,/X-Content-Type-Options: nosniff/);
+ assert.match(headers,/\/chat\.html\s+Cache-Control: no-store/);
+ assert.match(headers,/\/public-config\.js\s+Cache-Control: no-store/);
  assert.equal(fs.existsSync(path.join(out,'manifest.webmanifest')),false);
  assert.equal(fs.readFileSync(path.join(root,'public-config.js'),'utf8'),prod);
 });
