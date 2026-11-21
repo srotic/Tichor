@@ -1390,6 +1390,13 @@ $('openConversation').onclick=async()=>{
   if(identities.error)throw identities.error;
   const byId=new Map((identities.data||[]).map(row=>[row.user_id,String(row.username||'').toLowerCase()]));
   const matched=(requests.data||[]).find(row=>byId.get(row.recipient_id)===lookup);
+  const {data:alreadyConnected,error:approvalError}=await supa.rpc('tichor_contact_allowed',{other_id:matched?.recipient_id||null});
+  if(approvalError)throw approvalError;
+  if(alreadyConnected===true){
+   status('tichorContactRequestStatus','@'+lookup+' is already connected to you. Find this person in Contacts; no additional request is needed.');
+   await loadContacts();
+   return;
+  }
   if(matched?.status==='pending'){
    status('tichorContactRequestStatus','Request sent to @'+lookup+'. Waiting for them to approve it in Requests.');
   }else if(matched?.status==='accepted'){
@@ -1428,7 +1435,7 @@ async function tichorRefreshRequests(){
   const title=document.createElement('span');title.className='tichor-request-identity';title.textContent=identity(r.requester_id);const detail=document.createElement('small');detail.textContent='Incoming contact request · '+tichorLocalDateTime(r.created_at,true);title.append(detail);row.append(title);
   for(const [label,decision] of [['Accept','accepted'],['Decline','declined'],['Block','blocked']]){
    const button=document.createElement('button');button.type='button';button.textContent=label;
-   button.onclick=async()=>{button.disabled=true;const {error}=await supa.rpc('tichor_respond_contact',{request_id:r.id,decision});if(error){status('chatStatus',error.message);button.disabled=false;return;}if(decision==='accepted')await saveContact(r.requester_id,usernames.get(r.requester_id)||identity(r.requester_id));await tichorRefreshRequests();};row.append(button);
+   button.onclick=async()=>{button.disabled=true;const {error}=await supa.rpc('tichor_respond_contact',{request_id:r.id,decision});if(error){status('chatStatus',error.message);button.disabled=false;return;}if(decision==='accepted'){await loadContacts();status('chatStatus','Contact accepted. Both accounts now have each other in Contacts.');}await tichorRefreshRequests();};row.append(button);
   }box.append(row);
  }
  for(const r of outgoing){const line=document.createElement('p');line.className='tichor-request-row';line.textContent='To '+identity(r.recipient_id)+' · Request pending approval · '+tichorLocalDateTime(r.created_at,true);box.append(line);}
