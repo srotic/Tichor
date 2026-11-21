@@ -581,6 +581,10 @@ body.tc-immersive-chat #t12Conversation:not([hidden]) #tichorEmojiPicker:not([hi
 body.tc-immersive-chat #t12Conversation:not([hidden]) #tichorEmojiGrid{max-height:18dvh!important}
 body.tc-immersive-chat #t12Conversation:not([hidden]) #tichorActiveChatHeader~p.muted,body.tc-immersive-chat #t12Conversation:not([hidden]) #chatStatus:empty{display:none!important}
 @media(max-width:600px){body.tc-immersive-chat #t12Conversation:not([hidden]){padding:env(safe-area-inset-top) 6px max(6px,env(safe-area-inset-bottom))!important}body.tc-immersive-chat #t12Conversation:not([hidden]) #sendForm{max-height:42dvh!important}}
+body.tc-immersive-chat #t12Conversation:not([hidden]) .tichor-e2ee-experimental{display:block!important;flex:0 0 auto;max-height:28dvh;overflow:auto;font-size:12px;margin:4px 0!important;padding:8px!important}
+body.tc-immersive-chat #t12Conversation:not([hidden]) .tichor-e2ee-experimental label{display:block!important}
+body.tc-immersive-chat #t12Conversation:not([hidden]) .tichor-e2ee-experimental input[type=checkbox]{display:inline-block!important;width:auto!important}
+body.tc-immersive-chat #t12Conversation:not([hidden]) .tichor-e2ee-experimental button{display:inline-flex!important}
 </style><style id="tc-dna-adaptive-20261118">
 :root{--tc-glass-highlight:rgba(226,255,255,.37);--tc-glass-edge:rgba(155,233,237,.36);--tc-glow:rgba(54,215,191,.24)}
 body{--tc-motion-duration:220ms}
@@ -777,7 +781,7 @@ const profileNodes=[profileStart,profileStart?.nextElementSibling,get('myUsernam
 profileNodes.forEach(n=>{if(n)settings.append(n)});
 const contactNodes=[searchStart,get('recipient'),get('openConversation')];contactNodes.forEach(n=>{if(n)contacts.append(n)});
 const callbar=chat.querySelector('.callbar');
-const convNodes=[get('chatStatus'),get('messages'),get('sendForm'),get('refresh')];convNodes.forEach(n=>{if(n)conversation.append(n)});
+const convNodes=[get('chatStatus'),get('tichorE2EEStatus'),chat.querySelector('.tichor-e2ee-experimental'),get('messages'),get('sendForm'),get('refresh')];convNodes.forEach(n=>{if(n)conversation.append(n)});
 const calls=document.createElement('section');calls.className='t12-section';calls.id='t12Calls';
 calls.hidden=true;const callsHeading=document.createElement('h2');callsHeading.textContent='☎ Calls';
 const callsHelp=document.createElement('p');callsHelp.className='muted';callsHelp.textContent='Voice and video calls only. Call history shows answered, declined, missed and unanswered attempts.';
