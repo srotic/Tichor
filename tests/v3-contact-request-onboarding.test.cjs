@@ -18,3 +18,10 @@ test('V3 does not mistake generic RPC message for a confirmed contact request',(
  assert.match(chat,/matched\?\.status==='pending'/);
  assert.match(chat,/onConflict:'user_id'/);
 });
+
+test('Accepting a request refreshes reciprocal saved contacts without another request',()=>{
+ assert.match(chat,/tichor_respond_contact/);
+ assert.match(chat,/Both accounts now have each other in Contacts/);
+ assert.match(chat,/already connected to you/);
+ assert.match(chat,/tichor_contact_allowed/);
+});
