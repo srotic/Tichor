@@ -7,6 +7,8 @@
  if(EXAMS.length!==10||EXAMS.some(group=>!Array.isArray(group)||group.length!==9||group.reduce((n,p)=>n+p.q.length,0)!==53)||new Set(BANK.map(p=>p.title)).size!==90){
   $('status').textContent='Question bank could not load. Refresh the page.';return;
  }
+ // Initialize the passage highlighter before the exam reader mounts its first passage.
+ window.CarsHighlighter?.init();
  const STORE='tichor-cars-practice-v1',ROTATE='tichor-cars-rotation-v1';
  let history=[];try{history=JSON.parse(localStorage.getItem(STORE)||'[]');if(!Array.isArray(history))history=[]}catch{history=[]}
  const exam={items:[],answers:[],flags:new Set(),index:0,timed:true,tutor:false,seconds:0,started:0,interval:null,submitted:false,scope:'one',examNumber:1};
@@ -63,6 +65,7 @@
    displayed.replaceChildren();
    for(const para of p.text.trim().split(/\n\s*\n/)){const el=document.createElement('p');el.textContent=para;displayed.append(el)}
    displayed.dataset.passageKey=String(entry.passageIndex);
+   window.CarsHighlighter?.showPassage(entry.passageIndex);
    document.querySelector('.reading-pane').scrollTop=0;
   }
   $('q-position').textContent='Question '+(exam.index+1)+' of '+exam.items.length;
