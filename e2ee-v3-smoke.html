@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>TichorConnect V3 E2EE Crypto Smoke Test</title>
+<style>body{font:16px system-ui;background:#071c19;color:#e8faf5;padding:28px;max-width:850px;margin:auto}pre{white-space:pre-wrap;padding:15px;background:#112e29;border-radius:10px}button{padding:12px 22px} .ok{color:#80ffbf}.bad{color:#ff8787}</style></head>
+<body><h1>TichorConnect V3 — E2EE beta self-test</h1><p>Runs locally in this browser. Does not read or write production Supabase. Uses synthetic identities only; never enter real credentials here.</p><button id="go">Run encryption tests</button><pre id="output">Not run</pre>
+<script type="module">
+import {ensureIdentity,encryptDirectText,decryptDirectText,isEncrypted,encryptionStatus} from './e2ee-v3.js';
+const out=document.getElementById('output');
+const rows=new Map();
+const mock={
+  from(table){
+    if(table!=='tichor_e2ee_identity_keys')throw Error('Unexpected table '+table);
+    return {
+      select(){return {eq(column,id){return {async maybeSingle(){return {data:rows.get(id)||null,error:null}}}}}},
+      async insert(row){if(rows.has(row.user_id))return {error:{message:'duplicate identity'}};rows.set(row.user_id,row);return {error:null}}
+    };
+  }
+};
+document.getElementById('go').onclick=async()=>{
+ const results=[];const log=(name,ok,detail='')=>{results.push(ok);const line=document.createElement('div');line.className=ok?'ok':'bad';line.textContent=(ok?'PASS':'FAIL')+' — '+name+(detail?' · '+detail:'');out.append(line)};
+ out.replaceChildren();
+ try{
+   const a=crypto.randomUUID(),b=crypto.randomUUID();
+   await ensureIdentity(mock,a);await ensureIdentity(mock,b);
+   log('Two device identities created',rows.size===2);
+   const sample='TICHOR-E2EE-BETA-TEST-'+crypto.randomUUID();
+   const ct=await encryptDirectText(mock,a,b,sample);
+   log('Message encrypted before storage',isEncrypted(ct)&&!ct.includes(sample));
+   const msg={sender_id:a,recipient_id:b,body:ct};
+   log('Recipient decrypts',await decryptDirectText(mock,b,msg)===sample);
+   log('Sender decrypts sent history',await decryptDirectText(mock,a,msg)===sample);
+   const bogus={...msg,sender_id:b};
+   let bound=false;try{await decryptDirectText(mock,b,bogus)}catch{bound=true}log('Envelope cannot be reassigned',bound);
+   const corrupt=JSON.parse(atob(ct.slice('tc-e2ee2.'.length)));corrupt.forRecipient.ct=corrupt.forRecipient.ct.slice(0,-2)+'AA';
+   const corrupted={...msg,body:'tc-e2ee2.'+btoa(JSON.stringify(corrupt))};
+   let rejected=false;try{await decryptDirectText(mock,b,corrupted)}catch{rejected=true}log('Tampered envelope rejected',rejected);
+   const info=await encryptionStatus(mock,a,b);log('Peer fingerprint displayed',info.ready&&typeof info.fingerprint==='string'&&info.fingerprint.length>20);
+   log('No plaintext in published keys',!JSON.stringify([...rows.values()]).includes(sample));
+ }catch(e){log('Unexpected failure',false,e.message)}
+ const title=document.createElement('strong');title.textContent=results.every(Boolean)?'All checks passed. This is NOT a security audit.':'One or more checks failed.';out.prepend(title);
+};
+</script></body></html>
