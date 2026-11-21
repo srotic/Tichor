@@ -44,6 +44,9 @@ chat=chat.replace('</head>','<script>document.documentElement.setAttribute("data
 if(!fs.existsSync(path.join(out,'v3-chat-mobile-polish.css'))||!fs.existsSync(path.join(out,'v3-chat-message-menu.js')))throw Error('V3 mobile chat assets missing');
 chat=chat.replace('</head>','<link rel="stylesheet" href="v3-chat-mobile-polish.css?v=1"></head>');
 chat=chat.replace('</body>','<script src="v3-chat-message-menu.js?v=1" defer></script></body>');
+if(!fs.existsSync(path.join(out,'v3-chat-compose-tools.css'))||!fs.existsSync(path.join(out,'v3-chat-compose-tools.js')))throw Error('V3 composer tools assets missing');
+chat=chat.replace('</head>','<link rel="stylesheet" href="v3-chat-compose-tools.css?v=1"></head>');
+chat=chat.replace('</body>','<script src="v3-chat-compose-tools.js?v=1" defer></script></body>');
 fs.writeFileSync(chatPath,chat);
 // No service worker in staging output; avoid stale browser cache and cross-app scope.
 fs.rmSync(path.join(out,'sw.js'),{force:true});
