@@ -7,6 +7,9 @@ const b64 = bytes => btoa(String.fromCharCode(...new Uint8Array(bytes)));
 const ub64 = str => Uint8Array.from(atob(str), c => c.charCodeAt(0));
 const DB_NAME = 'tichor-v3-e2ee-identity';
 const PREFIX = 'tc-e2ee2.';
+// Supabase chat_messages.body has a 5,000-character limit. Two encrypted copies expand text.
+const MAX_PLAINTEXT_BYTES = 1100;
+const MAX_CIPHERTEXT_CHARS = 5000;
 const KEY_STORE = 'identities';
 const cryptoAPI = globalThis.crypto?.subtle;
 function mustCrypto(){if(!cryptoAPI || !globalThis.indexedDB)throw Error('Secure cryptography and IndexedDB are required on this device.');}
@@ -29,6 +32,7 @@ async function dbPut(id,value){
   finally{db.close()}
 }
 function canonicalJwk(jwk){return JSON.stringify({kty:jwk.kty,crv:jwk.crv,x:jwk.x,y:jwk.y});}
+function assertPublicKey(jwk){if(!jwk || jwk.kty!=='EC'||jwk.crv!=='P-256'||typeof jwk.x!=='string'||typeof jwk.y!=='string'||jwk.x.length!==43||jwk.y.length!==43||jwk.d!==undefined)throw Error('Invalid public identity key. Message blocked.');}
 async function fingerprint(row){
   const hashed=await cryptoAPI.digest('SHA-256',E.encode(canonicalJwk(row.encryption_public_jwk)+'|'+canonicalJwk(row.signing_public_jwk)));
   return Array.from(new Uint8Array(hashed),x=>x.toString(16).padStart(2,'0')).join('').match(/.{1,4}/g).join(' ');
@@ -43,6 +47,8 @@ async function fetchPublic(supa,id){
   const {data,error}=await supa.from('tichor_e2ee_identity_keys').select('user_id,encryption_public_jwk,signing_public_jwk').eq('user_id',id).maybeSingle();
   if(error)throw Error('E2EE directory unavailable: '+error.message);
   if(!data)throw Error('This contact has not enabled encrypted messages yet.');
+  if(data.user_id!==id)throw Error('Public identity does not match the requested account.');
+  assertPublicKey(data.encryption_public_jwk);assertPublicKey(data.signing_public_jwk);
   pinIdentity(id,await fingerprint(data));
   return data;
 }
@@ -89,6 +95,8 @@ async function sealTo(text,publicJwk,senderId,recipientId){
 export function isEncrypted(body){return typeof body==='string'&&body.startsWith(PREFIX)}
 export async function encryptDirectText(supa,senderId,recipientId,text){
   if(!text||typeof text!=='string')throw Error('An encrypted text message is required.');
+  mustCrypto();
+  if(E.encode(text).byteLength>MAX_PLAINTEXT_BYTES)throw Error('Encrypted text exceeds the 1,100-byte safety limit. Split it into smaller messages.');
   const mine=await dbGet(senderId);
   if(!mine)throw Error('Enable encryption on this device before sending.');
   const receiver=await fetchPublic(supa,recipientId);
@@ -97,12 +105,16 @@ export async function encryptDirectText(supa,senderId,recipientId,text){
     forRecipient:await sealTo(text,receiver.encryption_public_jwk,senderId,recipientId),
     forSender:await sealTo(text,sender.encryption_public_jwk,senderId,recipientId)};
   const signature=await cryptoAPI.sign({name:'ECDSA',hash:'SHA-256'},mine.sign.privateKey,E.encode(JSON.stringify(envelope)));
-  return PREFIX+b64(E.encode(JSON.stringify({...envelope,sig:b64(signature)})));
+  const payload=PREFIX+b64(E.encode(JSON.stringify({...envelope,sig:b64(signature)})));
+  if(payload.length>MAX_CIPHERTEXT_CHARS)throw Error('Encrypted payload is too long for the server message limit. No message was sent.');
+  return payload;
 }
 export async function decryptDirectText(supa,userId,message){
   if(!isEncrypted(message.body))throw Error('This message is not encrypted.');
+  mustCrypto();
+  if(message.body.length>MAX_CIPHERTEXT_CHARS)throw Error('Encrypted message exceeds allowed size.');
   const obj=JSON.parse(D.decode(ub64(message.body.slice(PREFIX.length))));
-  if(obj.v!==2||obj.from!==message.sender_id||obj.to!==message.recipient_id)throw Error('Encrypted message identity mismatch.');
+  if(!obj||obj.v!==2||obj.from!==message.sender_id||obj.to!==message.recipient_id||!obj.forSender||!obj.forRecipient||typeof obj.sig!=='string')throw Error('Encrypted message identity mismatch.');
   if(userId!==obj.from&&userId!==obj.to)throw Error('Not a participant.');
   const me=await dbGet(userId);
   if(!me)throw Error('Encryption key unavailable on this device.');
