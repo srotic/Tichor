@@ -8,7 +8,7 @@ function escapeHTML(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':
 function stopSpeech(){if('speechSynthesis'in window)try{window.speechSynthesis.cancel()}catch{}}
 function speak(s){if(muted||!voiceEnabled||!('speechSynthesis'in window)||typeof SpeechSynthesisUtterance==='undefined')return;stopSpeech();try{const msg=new SpeechSynthesisUtterance(s);msg.rate=.9;msg.lang='en-CA';window.speechSynthesis.speak(msg)}catch{}}
 function view(id){if(id!=='play'){clearTimeout(state.timer);stopSpeech()}document.querySelectorAll('.screen').forEach(x=>x.classList.toggle('active',x.id===id));document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===id)));if(id==='progress')renderHistory()}
-document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>view(b.dataset.tab));
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{view(b.dataset.tab);if(b.dataset.tab==='play'&&state.game>=0&&!state.done)render()});
 const title=()=>BANK[state.game]?.title||'Brain Games';
 const total=()=>history.reduce((n,x)=>n+x.score,0);
 function update(){ $('total-stars').textContent=total()+' ★';$('best-accuracy').textContent=history.length?Math.max(...history.map(x=>Math.round(x.score/8*100)))+'%':'—'}
@@ -59,6 +59,7 @@ function showMemoryQuestion(item){
  $('visual').replaceChildren();const row=document.createElement('span');row.className='sequence';row.textContent=item.seq.map((v,i)=>i===item.position?'❓':v).join('   ');$('visual').append(row);
  $('choices').classList.remove('hidden');
  createChoices(item.options,item.correct,'The hidden symbol was '+item.correct+'.');
+ speak('Which picture was in position '+(item.position+1)+'?');
 }
 function createChoices(options,correct,why){
  const chosen=options.map(String);
