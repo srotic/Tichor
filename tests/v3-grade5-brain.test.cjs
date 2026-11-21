@@ -24,7 +24,7 @@ test('Grade 5 Brain Games contains eight categories and 64 challenge rounds',()=
  }
  const app=read('grade5-brain-games.js');
  assert.match(app,/function memoryRound/);
- assert.match(app,/round<4/);
+ assert.match(app,/state\.round===7/);
  assert.match(app,/4000/);
  assert.match(app,/localStorage\.setItem/);
  assert.doesNotThrow(()=>new Function(app));
