@@ -1383,22 +1383,24 @@ $('openConversation').onclick=async()=>{
   // The RPC intentionally returns a generic privacy-preserving message. Only
   // show "sent" if a pending request was actually saved for this user.
   const [requests,identities]=await Promise.all([
-   supa.from('tichor_contact_requests').select('recipient_id,status').eq('requester_id',user.id).limit(200),
+   supa.from('tichor_contact_requests').select('requester_id,recipient_id,status').or('requester_id.eq.'+user.id+',recipient_id.eq.'+user.id).limit(200),
    supa.rpc('tichor_request_usernames')
   ]);
   if(requests.error)throw requests.error;
   if(identities.error)throw identities.error;
   const byId=new Map((identities.data||[]).map(row=>[row.user_id,String(row.username||'').toLowerCase()]));
-  const matched=(requests.data||[]).find(row=>byId.get(row.recipient_id)===lookup);
-  const {data:alreadyConnected,error:approvalError}=await supa.rpc('tichor_contact_allowed',{other_id:matched?.recipient_id||null});
-  if(approvalError)throw approvalError;
+  const matched=(requests.data||[]).find(row=>byId.get(row.requester_id===user.id?row.recipient_id:row.requester_id)===lookup);
+  const otherId=matched?(matched.requester_id===user.id?matched.recipient_id:matched.requester_id):null;
+  const approval=otherId?await supa.rpc('tichor_contact_allowed',{other_id:otherId}):{data:false,error:null};
+  if(approval.error)throw approval.error;
+  const alreadyConnected=approval.data;
   if(alreadyConnected===true){
    status('tichorContactRequestStatus','@'+lookup+' is already connected to you. Find this person in Contacts; no additional request is needed.');
    await loadContacts();
    return;
   }
   if(matched?.status==='pending'){
-   status('tichorContactRequestStatus','Request sent to @'+lookup+'. Waiting for them to approve it in Requests.');
+   status('tichorContactRequestStatus',matched.requester_id===user.id?'Request sent to @'+lookup+'. Waiting for them to approve it in Requests.':'@'+lookup+' has already requested you. Open Requests to accept; no second request is needed.');
   }else if(matched?.status==='accepted'){
    status('tichorContactRequestStatus','@'+lookup+' has already approved your contact request. Open Contacts to start a conversation.');
   }else{
