@@ -10,6 +10,7 @@ fs.mkdirSync(out,{recursive:true});
 // Publish only browser-deliverable assets, not repository source or SQL.
 const allowed=new Set(['.html','.css','.js','.mjs','.json','.svg','.png','.jpg','.jpeg','.gif','.webp','.ico','.woff','.woff2','.ttf','.otf','.webmanifest','.txt','.xml','.wasm','.mp3','.mp4','.webm','.pdf']);
 const excludedNames=new Set(['staging-public-config.js','package.json','package-lock.json','tsconfig.json','wrangler.toml','wrangler.json','wrangler.jsonc']);
+const cloudflareMetadataNames=new Set(['_headers']);
 function copyStatic(src,dest,topLevel=false){
  for(const item of fs.readdirSync(src,{withFileTypes:true})){
   const name=item.name;
@@ -19,7 +20,7 @@ function copyStatic(src,dest,topLevel=false){
    // Never publish migration files, tooling, or private directories.
    if(['supabase','migrations','sql','tests','docs','scripts','node_modules','src','types'].includes(name.toLowerCase()))continue;
    fs.mkdirSync(to,{recursive:true});copyStatic(from,to);
-  }else if(item.isFile()&&allowed.has(path.extname(name).toLowerCase())){
+  }else if(item.isFile()&&(allowed.has(path.extname(name).toLowerCase())||cloudflareMetadataNames.has(name))){
    fs.copyFileSync(from,to);
   }
  }
