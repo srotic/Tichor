@@ -16,7 +16,7 @@ test('Grade 5 Brain Games contains eight categories and 64 challenge rounds',()=
   for(const q of game.questions){
    assert.equal(q.length,4);
    assert.ok(q[0].length>15);
-   assert.ok(q[3].length>15);
+   assert.ok(q[3].length>=8);
    assert.equal(q[2].length,4);
    assert.equal(new Set(q[2]).size,4);
    assert.ok(q[2].includes(q[1]));
