@@ -1161,7 +1161,7 @@ window.addEventListener('load',()=>showTab(new URLSearchParams(location.search).
 import {enableNotifications,disableNotifications} from "./notifications.js";
 import {ensureIdentity,encryptDirectText,decryptDirectText,isEncrypted,encryptionStatus} from "./e2ee-v3.js";
 import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
-import {SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY} from './public-config.js';
+import {SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY} from './v3-staging-config.js';
 const enc = new TextEncoder(), dec = new TextDecoder();
 const b64 = b => btoa(String.fromCharCode(...new Uint8Array(b)));
 const unb64 = s => Uint8Array.from(atob(s),c=>c.charCodeAt(0));
@@ -1827,6 +1827,7 @@ function tichorParseAction(body){
  }catch{}return null;
 }
 async function tichorSendAction(payload){
+ if(tcE2EESelected())throw Error('Actions are not end-to-end encrypted in this beta.');
  if(!user||!peer)throw Error('Open a conversation first.');
  if(tichorIsBlocked(peer))throw Error('This contact is blocked on this device.');
  tichorCheckSendGuard();
@@ -1911,7 +1912,7 @@ async function tichorLoadActions(){
     const recipient=m.recipient_id===user.id;
     const allowed=recipient?(state==='pending'?['accepted','declined','more-time']:['accepted','in-progress'].includes(state)?['in-progress','completed','more-time']:[]):state==='more-time'?['accepted','declined']:[];
     for(const next of allowed){const change=document.createElement('button');change.type='button';change.textContent=({'accepted':'Accept','declined':'Decline','more-time':'Request more time','in-progress':'In progress','completed':'Complete'})[next];
-     change.onclick=async()=>{change.disabled=true;try{tichorCheckSendGuard();const other=m.sender_id===user.id?m.recipient_id:m.sender_id;const {error}=await supa.from('chat_messages').insert({sender_id:user.id,recipient_id:other,body:TICHOR_ACTION_PREFIX+JSON.stringify({type:'status',id:m.id,status:next})});if(error)throw error;tichorRecordSend();await tichorLoadActions()}catch(e){alert('Could not update action: '+e.message)}finally{change.disabled=false}};card.append(change)}
+     change.onclick=async()=>{change.disabled=true;try{if(tcE2EESelected())throw Error('Action updates are not end-to-end encrypted.');tichorCheckSendGuard();const other=m.sender_id===user.id?m.recipient_id:m.sender_id;const {error}=await supa.from('chat_messages').insert({sender_id:user.id,recipient_id:other,body:TICHOR_ACTION_PREFIX+JSON.stringify({type:'status',id:m.id,status:next})});if(error)throw error;tichorRecordSend();await tichorLoadActions()}catch(e){alert('Could not update action: '+e.message)}finally{change.disabled=false}};card.append(change)}
     const open=document.createElement('button');open.type='button';open.textContent='Open conversation';open.onclick=async()=>{
       const other=m.sender_id===user.id?m.recipient_id:m.sender_id;
       if(tichorIsBlocked(other))return alert('Unblock this contact in Settings first.');
@@ -1960,7 +1961,7 @@ document.head.append(tichorActionsStyle);
 
 const TICHOR_POLL_PREFIX='[tichor-poll-v1]';
 function parseTichorPoll(body){if(typeof body!=='string'||!body.startsWith(TICHOR_POLL_PREFIX))return null;try{const p=JSON.parse(body.slice(TICHOR_POLL_PREFIX.length));if(p.type==='create'&&typeof p.question==='string'&&p.question.trim()&&p.question.length<=300&&Array.isArray(p.options)&&p.options.length>=2&&p.options.length<=6&&p.options.every(x=>typeof x==='string'&&x.trim()&&x.length<=100))return p;if(p.type==='vote'&&typeof p.id==='string'&&Number.isInteger(p.choice)&&p.choice>=0&&p.choice<6)return p}catch{}return null}
-async function sendTichorPoll(payload){if(!user||!peer)throw Error('Open a conversation first');if(tichorIsBlocked(peer))throw Error('Contact blocked');tichorCheckSendGuard();const {error}=await supa.from('chat_messages').insert({sender_id:user.id,recipient_id:peer,body:TICHOR_POLL_PREFIX+JSON.stringify(payload)});if(error)throw error;tichorRecordSend();await load()}
+async function sendTichorPoll(payload){if(tcE2EESelected())throw Error('Decision polls are not end-to-end encrypted in this beta.');if(!user||!peer)throw Error('Open a conversation first');if(tichorIsBlocked(peer))throw Error('Contact blocked');tichorCheckSendGuard();const {error}=await supa.from('chat_messages').insert({sender_id:user.id,recipient_id:peer,body:TICHOR_POLL_PREFIX+JSON.stringify(payload)});if(error)throw error;tichorRecordSend();await load()}
 function tichorPollComposer(){const form=$('sendForm');if(!form||$('tichorPollComposer'))return;const panel=document.createElement('section');panel.id='tichorPollComposer';panel.className='t12-preference';const toggle=document.createElement('button');toggle.type='button';toggle.textContent='◉ Decision';const fields=document.createElement('div');fields.hidden=true;const question=document.createElement('textarea');question.maxLength=300;question.placeholder='Decision question';question.setAttribute('aria-label','Decision question');const options=document.createElement('textarea');options.rows=4;options.placeholder='2–6 options, one per line';options.setAttribute('aria-label','Decision options');const send=document.createElement('button');send.type='button';send.textContent='Send decision';toggle.onclick=()=>{fields.hidden=!fields.hidden};send.onclick=async()=>{const list=options.value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);if(!question.value.trim()||list.length<2||list.length>6||list.some(x=>x.length>100)||new Set(list.map(x=>x.toLowerCase())).size!==list.length)return alert('Provide a question and 2–6 unique options under 100 characters.');send.disabled=true;try{await sendTichorPoll({type:'create',question:question.value.trim(),options:list});question.value='';options.value='';fields.hidden=true}catch(e){alert(e.message)}finally{send.disabled=false}};fields.append(question,options,send);panel.append(toggle,fields);form.before(panel)}
 function tichorPollCard(m,p,votes){const card=document.createElement('section');card.className='t12-preference';card.style.margin='8px 0';const title=document.createElement('strong');title.textContent='◉ Decision: '+p.question;card.append(title);const selected=votes.get(user.id);p.options.forEach((label,index)=>{const count=[...votes.values()].filter(x=>x===index).length;const b=document.createElement('button');b.type='button';b.style.cssText='display:block;width:100%;text-align:left;margin:8px 0;min-height:44px';b.textContent=(selected===index?'✓ ':'')+label+' · '+count+' vote'+(count===1?'':'s');b.setAttribute('aria-pressed',String(selected===index));b.onclick=async()=>{b.disabled=true;try{await sendTichorPoll({type:'vote',id:m.id,choice:index})}catch(e){alert(e.message)}finally{b.disabled=false}};card.append(b)});const note=document.createElement('small');note.className='muted';note.textContent=votes.size+' participant(s) voted · Tap to '+(selected===undefined?'vote':'change your vote');card.append(note);return card}
 
@@ -1985,6 +1986,7 @@ function tichorVoiceComposer(toolbar,attach){
   try{
    if(tichorIsBlocked(currentPeer))throw Error('Contact blocked');
    if(!await tichorEnsureContactAllowed(currentPeer))throw Error('Contact approval required');
+   if(tcE2EESelected())throw Error('Encrypted voice notes are not yet supported; no plaintext fallback.');
    tichorCheckSendGuard();
    const type=blob.type.split(';')[0]||'audio/mp4';
    const ext=type==='audio/mp4'?'m4a':type==='audio/ogg'?'ogg':type==='audio/wav'?'wav':'webm';
