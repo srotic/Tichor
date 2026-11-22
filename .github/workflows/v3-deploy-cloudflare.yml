@@ -39,6 +39,8 @@ jobs:
           node --check tsa-signed-roster.mjs
           node --check tsa-active-device-grant.mjs
           node --check e2ee-v3.js
+      - name: Validate live-chat ES module syntax
+        run: node scripts/check-v3-inline-module.cjs
       - name: Build isolated staging site
         run: node scripts/build-v3-staging.cjs
       - name: Validate Cloudflare credentials
