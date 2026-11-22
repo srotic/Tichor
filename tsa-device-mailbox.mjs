@@ -39,3 +39,23 @@ export async function receiveEncryptedMailbox(){
 export async function decryptLocalTsaPacket(args){
  return decryptDeviceCopy(args);
 }
+
+/**
+ * Staging-only local cryptographic fanout preflight.
+ * Verifies sender signature, packet membership and one recipient ciphertext
+ * before presenting a batch preview. This is NOT server-side authorization:
+ * other device copies and current revocations still need independent checks.
+ * Neither plaintext nor mailbox inserts leave this function.
+ */
+export async function previewVerifiedEncryptedMailboxBatch({packet,localDevice}){
+ if(!localDevice||typeof localDevice!=='object')throw Error('Local device verification required');
+ const rows=prepareDeviceEnvelopeRows({packet});
+ // Authenticated decryption rejects forged signatures, modified ciphertext,
+ // modified routing identifiers, or unavailable local device keys.
+ await decryptDeviceCopy({packet,...localDevice});
+ return Object.freeze({
+  state:'locally-verified-ciphertext-preview-not-sent',
+  rowCount:rows.length,
+  deliveryAuthorized:false
+ });
+}
