@@ -1,4 +1,4 @@
-// Pending device enrollment only. Never use these keys for message encryption.
+// Device enrollment and non-extractable local-key retrieval for staging TSA.\n// Pending keys are NOT usable for messaging; activation requires server-backed root grants.
 const table='tichor_e2ee_devices';
 const dbName='tichor-v3-pending-devices';
 function openDB(){return new Promise((resolve,reject)=>{const r=indexedDB.open(dbName,1);r.onupgradeneeded=()=>r.result.createObjectStore('devices');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);r.onblocked=()=>reject(Error('Close other Tichor tabs and retry.'));});}
