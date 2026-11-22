@@ -66,3 +66,14 @@ test('TSA contact fingerprint pin is explicit, account-scoped, immutable and fai
  assert.throws(()=>confirmContactRootPin(store,account,account,fp,fp),/different account/);
  assert.throws(()=>confirmContactRootPin(store,'invalid',contact,fp,fp),/identifier/);
 });
+
+test('TSA multi-device envelope is staging-only and cannot claim production E2EE',()=>{
+ const primitive=read('tsa-multidevice-envelope.mjs');
+ const html=read('chat.html');
+ assert.match(primitive,/NOT a Signal Double Ratchet/);
+ assert.match(primitive,/authorized/);
+ assert.match(primitive,/revoked/);
+ assert.match(primitive,/encryptDeviceCopies/);
+ assert.match(primitive,/decryptDeviceCopy/);
+ assert.doesNotMatch(html,/tsa-multidevice-envelope\.mjs/);
+});
