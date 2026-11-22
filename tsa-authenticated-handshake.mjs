@@ -37,3 +37,24 @@ export async function verifyTsaHandshake({request,signature,response,responseSig
  // vetted ratchet and independent device authorization.
  return Object.freeze({state:'authenticated-transcript-only-no-delivery',nonce:p.nonce,initiatorDevice:p.initiatorDevice,responderDevice:p.responderDevice,expiresAt:p.expiresAt});
 }
+
+async function deriveHandshakeKey({request,signature,response,responseSignature,privateEphemeral,peerEphemeral,initiatorSigningPublic,responderSigningPublic,expectedInitiatorAccount,expectedInitiatorDevice,expectedResponderAccount,expectedResponderDevice,now}){
+ const verified=await verifyTsaHandshake({request,signature,response,responseSignature,initiatorSigningPublic,responderSigningPublic,expectedInitiatorAccount,expectedInitiatorDevice,expectedResponderAccount,expectedResponderDevice,now});
+ if(privateEphemeral?.type!=='private'||privateEphemeral.algorithm?.name!=='ECDH'||privateEphemeral.extractable)throw Error('Missing non-extractable ephemeral session key');
+ const other=await crypto.subtle.importKey('jwk',jwk(peerEphemeral),{name:'ECDH',namedCurve:'P-256'},false,[]);
+ const shared=await crypto.subtle.deriveBits({name:'ECDH',public:other},privateEphemeral,256);
+ const material=await crypto.subtle.importKey('raw',shared,'HKDF',false,['deriveKey']);
+ const context=E.encode(JSON.stringify({request,response,signature,responseSignature}));
+ const salt=await crypto.subtle.digest('SHA-256',context);
+ const key=await crypto.subtle.deriveKey({name:'HKDF',hash:'SHA-256',salt,info:E.encode('TSA authenticated ephemeral session prototype v1')},material,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+ return Object.freeze({state:'ephemeral-session-prototype-not-delivery-authorized',key,nonce:verified.nonce,expiresAt:verified.expiresAt});
+}
+// Caller must independently trust BOTH signing public keys and enforce
+// a unique nonce, device authorization, expiration, and revocation.
+// Never persist or use the derived key in the live V3 chat path.
+export async function deriveInitiatorTsaSession(args){
+ return deriveHandshakeKey({...args,peerEphemeral:args.response?.responderEphemeral});
+}
+export async function deriveResponderTsaSession(args){
+ return deriveHandshakeKey({...args,peerEphemeral:args.request?.initiatorEphemeral});
+}
