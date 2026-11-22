@@ -77,3 +77,18 @@ test('TSA multi-device envelope is staging-only and cannot claim production E2EE
  assert.match(primitive,/decryptDeviceCopy/);
  assert.doesNotMatch(html,/tsa-multidevice-envelope\.mjs/);
 });
+
+test('Verified original-device direct text encrypts automatically and refuses plaintext downgrade',()=>{
+ const html=read('chat.html');
+ assert.match(html,/id="tcVerifyContactRoot"/);
+ assert.match(html,/confirmContactRootPin\(localStorage,account,target,typed,info\.fingerprint\)/);
+ assert.match(html,/tcVerifiedRootPinned=\(\)=>/);
+ assert.match(html,/tcE2EESelected=\(\)=>Boolean\(user&&peer&&\(tcVerifiedRootPinned\(\)/);
+ assert.match(html,/toggle\.disabled=pinned/);
+ assert.match(html,/requireContactRootPin\(localStorage,sender,target,info\.fingerprint\)/);
+ assert.match(html,/encrypted\?await encryptDirectText\(client,sender,target,body\):body/);
+ assert.match(html,/if\(encrypted&&!isEncrypted\(outgoingBody\)\)/);
+ assert.match(html,/if\(encrypted&&file\)throw Error/);
+ assert.match(html,/Other devices, attachments, calls and groups remain outside this protection/);
+ assert.doesNotMatch(html,/import.*tsa-multidevice-envelope\.mjs/);
+});
