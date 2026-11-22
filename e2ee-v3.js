@@ -200,3 +200,28 @@ export async function getConfirmedRootPreview(supa,account,typed){
  }
  return (previous===fp||typed!==undefined)?fp:null;
 }
+
+ // Verify the approval against the same root whose fingerprint was confirmed.
+ // This is enrollment evidence only, never a message-delivery authorization.
+export async function verifyConfirmedEnrollmentPreview(supa,account,request){
+ if(request.user_id!==account||request.state!=='pending')return 'inactive';
+ const {data:session,error:authError}=await supa.auth.getUser();
+ if(authError||session?.user?.id!==account)throw Error('Session mismatch.');
+ const pinned=localStorage.getItem('tichor-v3-confirmed-root-preview:'+account);
+ if(!pinned)return 'root-unconfirmed';
+ const root=await fetchPublic(supa,account);
+ if((await fingerprint(root)).replace(/\s/g,'')!==pinned)throw Error('Confirmed original identity changed.');
+ const {requestFingerprint,verifyDeviceApproval}=await import('./e2ee-device-approval.mjs');
+ const {data:current,error:deviceError}=await supa.from('tichor_e2ee_devices').select('user_id,device_id,state,encryption_public_jwk,signing_public_jwk').eq('user_id',account).eq('device_id',request.device_id).maybeSingle();
+ if(deviceError)throw deviceError;
+ if(!current||current.state!=='pending')return 'inactive';
+ if(await requestFingerprint(current)!==await requestFingerprint(request))throw Error('Device identity changed.');
+ const {data,error}=await supa.from('tichor_e2ee_approval_previews').select('signature').eq('user_id',account).eq('device_id',request.device_id).maybeSingle();
+ if(error)throw error;
+ if(!data)return 'missing';
+ if(!/^[A-Za-z0-9+/]{86}==$/.test(data.signature))return 'invalid';
+ if(!await verifyDeviceApproval(current,ub64(data.signature),root.signing_public_jwk))return 'invalid';
+ const {data:latest,error:latestError}=await supa.from('tichor_e2ee_devices').select('state').eq('user_id',account).eq('device_id',request.device_id).maybeSingle();
+ if(latestError)throw latestError;
+ return latest?.state==='pending'?'confirmed-root-preview':'inactive';
+}
