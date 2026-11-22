@@ -183,3 +183,20 @@ export async function saveEnrollmentPreview(supa,account,request,confirmedFinger
  if(result!=='directory-verified-preview')throw Error('Stored preview could not be verified.');
  return result;
 }
+
+ // Local trust preview: the original browser's complete fingerprint must be
+ // confirmed out of band. Directory-only verification never establishes trust.
+export async function getConfirmedRootPreview(supa,account,typed){
+ const {data,error}=await supa.auth.getUser();
+ if(error||data?.user?.id!==account)throw Error('Session mismatch.');
+ const root=await fetchPublic(supa,account);
+ const fp=(await fingerprint(root)).replace(/\s/g,'');
+ const storageKey='tichor-v3-confirmed-root-preview:'+account;
+ const previous=localStorage.getItem(storageKey);
+ if(previous&&previous!==fp)throw Error('Confirmed original identity changed.');
+ if(typed!==undefined){
+  if(typeof typed!=='string'||typed.toLowerCase().replace(/\s/g,'')!==fp)throw Error('Original device fingerprint mismatch.');
+  localStorage.setItem(storageKey,fp);
+ }
+ return (previous===fp||typed!==undefined)?fp:null;
+}
