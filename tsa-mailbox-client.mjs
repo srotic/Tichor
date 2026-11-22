@@ -52,7 +52,7 @@ export async function publishTsaCiphertextStaging(client,account,packet){
 // Receive only signed packets. Caller must resolve the EXACT sending-device
 // public key from a trusted, root-signed active-device roster, never from
 // untrusted mailbox contents. A sender ACCOUNT key alone is insufficient.
-export async function receiveTsaCiphertextStaging(client,account,resolvePinnedSenderKey,replayStore){
+export async function receiveTsaCiphertextStaging(client,account,resolvePinnedSenderKey,replayStore,conversationPeer){
  if(typeof resolvePinnedSenderKey!=='function')throw Error('Verified sender key resolver required');
  const {data,device}=await perform(client,account,'receive');
  if(!Array.isArray(data.messages)||data.messages.length>30)
@@ -60,6 +60,7 @@ export async function receiveTsaCiphertextStaging(client,account,resolvePinnedSe
  const results=[];
  for(const message of data.messages){
   id(message.message_id);id(message.sender_id);id(message.peer_id);id(message.signing_device_id);
+  if(conversationPeer&&(message.sender_id!==conversationPeer&&message.peer_id!==conversationPeer))continue;
   if(typeof message.packet_text!=='string'||message.packet_text.length>32768)
    throw Error('Malformed ciphertext mailbox row');
   const packet=JSON.parse(message.packet_text);
@@ -133,7 +134,7 @@ export async function encryptAndPublishTsaTextStaging(client,{account,recipient,
 // Convenience inbox for staging: verify each sender's ROOT-SIGNED roster and
 // the contact's independently pinned identity before selecting the signer key.
 // rosterResolver must supply a signed roster; an unsigned directory row fails.
-export async function receiveTsaVerifiedTextStaging(client,account,rosterResolver,store=localStorage){
+export async function receiveTsaVerifiedTextStaging(client,account,rosterResolver,store=localStorage,conversationPeer){
  id(account);
  if(typeof rosterResolver!=='function')throw Error('Signed roster resolver required');
  const {requireContactRootPin}=await import('./tsa-contact-root-pin.mjs');
@@ -158,5 +159,5 @@ export async function receiveTsaVerifiedTextStaging(client,account,rosterResolve
   cache.set(token,record.signingKey);
   return record.signingKey;
  }
- return receiveTsaCiphertextStaging(client,account,senderKey);
+ return receiveTsaCiphertextStaging(client,account,senderKey,undefined,conversationPeer);
 }
