@@ -72,3 +72,32 @@ test('experimental mailbox defaults collapsed, preserving chat viewport and immu
  assert.match(html,/\.update\(\{read_at:new Date\(\)\.toISOString\(\)\}\)/);
  assert.doesNotMatch(html,/\.update\(\{read_at:new Date\(\)\.toISOString\(\),delivered_at:/);
 });
+
+test('explicit secure mode survives peer reload and never silently resumes plaintext',async()=>{
+ const fs=await import('node:fs');
+ const html=fs.readFileSync(new URL('../chat.html',import.meta.url),'utf8');
+ assert.match(html,/tichor-v3-tsa-secure-opt-in:/);
+ assert.match(html,/localStorage\.setItem\(tcTsaStorageKey\(user\.id,peer\),toggle\.checked\?'1':'0'\)/);
+ assert.match(html,/localStorage\.getItem\(tcTsaStorageKey\(user\.id,peer\)\)==='1'/);
+ assert.match(html,/await tcMaintainTsaRoster\(sender\)/);
+ assert.match(html,/renewOwnTsaRosterIfNeeded/);
+ assert.match(html,/if\(\$\('tcTsaSecureMode'\)\?\.checked&&!secureMailbox\)/);
+});
+test('short-lived device rosters are reused while valid and cannot renew without authorization',async()=>{
+ const {renewOwnTsaRosterIfNeeded}=await import('../tsa-roster-directory.mjs');
+ const account='11111111-1111-4111-8111-111111111111';
+ const now=1700000000000;
+ const client={
+  auth:{getUser:async()=>({data:{user:{id:account}},error:null})},
+  from:table=>{
+   assert.equal(table,'tsa_signed_device_rosters');
+   return {select:()=>({eq:()=>({maybeSingle:async()=>({
+    data:{roster:{expiresAt:now+130000}},error:null
+   })})})};
+  }
+ };
+ assert.deepEqual(await renewOwnTsaRosterIfNeeded(client,account,{now}),{
+  state:'signed-roster-current',expiresAt:now+130000,renewed:false
+ });
+ await assert.rejects(renewOwnTsaRosterIfNeeded(client,account,{now,renewBeforeMs:200000}),/Invalid TSA renewal window/);
+});
