@@ -157,7 +157,8 @@ export async function signEnrollmentPreview(supa,account,request,confirmedFinger
  // The immutable original account identity is the root signer, identified by account UUID.
  const approved=await proto.approveDeviceRequest(proof,account,account,local.sign.privateKey,await proto.requestFingerprint(proof));
  await proto.verifyDeviceApproval(approved,account,current.device_id,proof.request.nonce,account,published.signing_public_jwk);
- return {nonce:proof.request.nonce,signature:approved.signature};
+ const eligibility=await proto.createEligibilityCertificate(approved,account,current.device_id,proof.request.nonce,published.signing_public_jwk,local.sign.privateKey);
+ return {nonce:proof.request.nonce,signature:approved.signature,eligibility};
 }
 
 // Fresh nonce-bound evidence only; legacy previews cannot confer this status.
@@ -187,11 +188,13 @@ export async function saveEnrollmentPreview(supa,account,request,confirmedFinger
  const {requestFingerprint}=await import('./e2ee-device-approval.mjs');
  if(await requestFingerprint(request)!==confirmedFingerprint)throw Error('Fingerprint mismatch.');
  const previous=await readEnrollmentPreview(supa,account,request);
- if(previous==='directory-verified-preview')return previous;
- if(previous!=='missing')throw Error('Invalid or inactive preview; refresh or revoke the request.');
+ if(previous!=='missing'&&previous!=='directory-verified-preview')throw Error('Invalid or inactive preview; refresh or revoke the request.');
  const approved=await signEnrollmentPreview(supa,account,request,confirmedFingerprint);
  const {error}=await supa.from('tichor_e2ee_nonce_approvals').insert({user_id:account,nonce:approved.nonce,signature:approved.signature});
  if(error&&error.code!=='23505')throw error;
+ const cert=approved.eligibility;
+ const {error:certificateError}=await supa.from('tichor_e2ee_eligibility_certificates').insert({user_id:account,nonce:approved.nonce,issued_at_ms:cert.certificate.issuedAt,expires_at_ms:cert.certificate.expiresAt,signature:cert.signature});
+ if(certificateError&&certificateError.code!=='23505')throw certificateError;
  const result=await readEnrollmentPreview(supa,account,request);
  if(result!=='directory-verified-preview')throw Error('Stored nonce-bound preview could not be verified. Refresh registration.');
  return result;
@@ -226,4 +229,32 @@ export async function verifyConfirmedEnrollmentPreview(supa,account,request){
  if((await fingerprint(root)).replace(/\s/g,'')!==pinned)throw Error('Confirmed original identity changed.');
  const result=await checkNoncePreview(supa,account,request,root);
  return result==='directory-verified-preview'?'confirmed-root-preview':result;
+}
+
+// Owner-only certificate verification preview. The root fingerprint must have
+// been independently confirmed. No certificate authorizes message distribution.
+export async function readEligibilityCertificatePreview(supa,account,device){
+ const {data:session,error:authError}=await supa.auth.getUser();
+ if(authError||session?.user?.id!==account)throw Error('Session mismatch.');
+ const pinned=localStorage.getItem('tichor-v3-confirmed-root-preview:'+account);
+ if(!pinned)return {state:'root-unconfirmed'};
+ const root=await fetchPublic(supa,account);
+ if((await fingerprint(root)).replace(/\s/g,'')!==pinned)throw Error('Confirmed original identity changed.');
+ const {data:row,error:rowError}=await supa.from('tichor_e2ee_devices').select('user_id,device_id,state,encryption_public_jwk,signing_public_jwk').eq('user_id',account).eq('device_id',device).maybeSingle();
+ if(rowError)throw rowError;
+ if(row?.state!=='pending')return {state:'inactive'};
+ const {data:evidence,error:evidenceError}=await supa.from('tichor_e2ee_link_evidence').select('nonce,issued_at_ms,expires_at_ms').eq('user_id',account).eq('device_id',device).order('issued_at_ms',{ascending:false}).limit(50);
+ if(evidenceError)throw evidenceError;
+ const proto=await import('./device-link-proof.mjs');
+ for(const e of evidence||[]){
+  const {data:cert,error}=await supa.from('tichor_e2ee_eligibility_certificates').select('issued_at_ms,expires_at_ms,signature').eq('user_id',account).eq('nonce',e.nonce).gt('expires_at_ms',Date.now()).maybeSingle();
+  if(error)throw error;
+  if(!cert)continue;
+  const request={account,device,nonce:e.nonce,issuedAt:Number(e.issued_at_ms),expiresAt:Number(e.expires_at_ms),encryptionKey:row.encryption_public_jwk,signingKey:row.signing_public_jwk};
+  const {data:latest,error:latestError}=await supa.from('tichor_e2ee_devices').select('user_id,device_id,state,encryption_public_jwk,signing_public_jwk').eq('user_id',account).eq('device_id',device).maybeSingle();
+  if(latestError)throw latestError;
+  if(latest?.state!=='pending')return {state:'inactive'};
+  try{return await proto.verifyEligibilityCertificate({certificate:{domain:'TichorConnect V3 device eligibility preview v1',request,issuedAt:Number(cert.issued_at_ms),expiresAt:Number(cert.expires_at_ms)},signature:cert.signature},account,device,root.signing_public_jwk,latest);}catch{}
+ }
+ return {state:'missing-or-invalid'};
 }
