@@ -276,10 +276,39 @@ export async function readEligibilityCertificatePreview(supa,account,device){
 // Discovery is intentionally diagnostic. It cannot supply encryption targets.
 // Independently confirmed contact root, live revocation and delivery authorization
 // are separate requirements. Directory evidence alone never satisfies them.
-export async function discoverRecipientCertificatePreviews(supa,sender,recipient){
+// TSA discovery verification: a count is never evidence of device authorization.
+// The root fingerprint MUST be independently compared with the recipient
+// out-of-band; directory key substitution must fail closed. This does not
+// establish current device state, so these keys must not be used for delivery.
+export async function discoverRecipientCertificatePreviews(supa,sender,recipient,confirmedRootFingerprint){
  const {data:session,error:authError}=await supa.auth.getUser();
  if(authError||session?.user?.id!==sender||sender===recipient)throw Error('Invalid discovery session.');
- const {data,error}=await supa.from('tichor_e2ee_recipient_directory').select('user_id,device_id,nonce,certificate,signature,expires_at_ms').eq('user_id',recipient).gt('expires_at_ms',Date.now()).limit(50);
+ if(typeof confirmedRootFingerprint!=='string'||!/^[a-f0-9]{64}$/i.test(confirmedRootFingerprint.replace(/\\s/g,'')))
+  throw Error('Recipient root fingerprint must be independently confirmed before discovery.');
+ const root=await fetchPublic(supa,recipient);
+ const actual=(await fingerprint(root)).replace(/\\s/g,'');
+ if(actual!==confirmedRootFingerprint.toLowerCase().replace(/\\s/g,''))
+  throw Error('Recipient root identity mismatch. Discovery blocked.');
+ const {data,error}=await supa.from('tichor_e2ee_recipient_directory')
+  .select('user_id,device_id,nonce,certificate,signature,expires_at_ms')
+  .eq('user_id',recipient).gt('expires_at_ms',Date.now()).limit(50);
  if(error)throw Error('Recipient certificate directory unavailable.');
- return {state:'discovery-preview-not-authorized',candidateCount:(data||[]).filter(row=>row.user_id===recipient&&row.certificate?.request?.account===recipient&&row.certificate?.request?.device===row.device_id&&row.certificate?.request?.nonce===row.nonce&&row.certificate?.expiresAt===Number(row.expires_at_ms)).length};
+ const proto=await import('./device-link-proof.mjs');
+ const verified=new Set();
+ for(const row of data||[]){
+  const request=row.certificate?.request;
+  if(row.user_id!==recipient||request?.account!==recipient||
+     request?.device!==row.device_id||request?.nonce!==row.nonce||
+     row.certificate?.expiresAt!==Number(row.expires_at_ms))continue;
+  // Verify signatures, certificate lifetimes and key structure. The registry
+  // projection below is NOT a live revocation check or delivery authorization.
+  const projection={user_id:recipient,device_id:row.device_id,state:'pending',
+    encryption_public_jwk:request.encryptionKey,signing_public_jwk:request.signingKey};
+  try{
+   await proto.verifyEligibilityCertificate({certificate:row.certificate,signature:row.signature},
+      recipient,row.device_id,root.signing_public_jwk,projection);
+   verified.add(row.device_id);
+  }catch{}
+ }
+ return {state:'verified-certificate-preview-not-authorized',verifiedCertificateDevices:verified.size};
 }
