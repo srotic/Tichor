@@ -1171,7 +1171,7 @@ window.addEventListener('load',()=>showTab(new URLSearchParams(location.search).
 import {enableNotifications,disableNotifications} from "./notifications.js";
 import {ensureIdentity,encryptDirectText,decryptDirectText,isEncrypted,encryptionStatus,readEnrollmentPreview,saveEnrollmentPreview,getConfirmedRootPreview,verifyConfirmedEnrollmentPreview} from "./e2ee-v3.js";
 import {requestFingerprint} from "./e2ee-device-approval.mjs";
-import {requestDevice,listDeviceRequests,revokeDeviceRequest} from "./e2ee-device-registry.js";
+import {requestDevice,listDeviceRequests,revokeDeviceRequest,localDeviceFingerprint} from "./e2ee-device-registry.js";
 import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
 import {SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY} from './v3-staging-config.js';
 const enc = new TextEncoder(), dec = new TextDecoder();
@@ -1220,8 +1220,9 @@ async function tcSetupIdentity(account){
 }
 $('tcEnableE2EE').onclick=()=>{if(user)tcSetupIdentity(user.id).catch(console.warn)};
 let tcDeviceRequestVersion=0;
-let tcLocalPendingDevice=null;
+
 async function tcRenderDeviceRequests(account,version){
+ const localIdentity=await localDeviceFingerprint(supa,account);
  const rows=await listDeviceRequests(supa,account);
  if(user?.id!==account||version!==tcDeviceRequestVersion)return;
  const box=$('tcDeviceRequests');box.replaceChildren();
@@ -1231,20 +1232,23 @@ async function tcRenderDeviceRequests(account,version){
  for(const entry of rows){
   const line=document.createElement('p');
   const fp=await requestFingerprint(entry);
+  const isLocal=localIdentity?.id===entry.device_id;
+  const localMatches=isLocal&&localIdentity.fingerprint===fp;
   if(user?.id!==account||version!==tcDeviceRequestVersion)return;
+  if(isLocal&&!localMatches){line.textContent='Local device key mismatch. Verification blocked.';box.append(line);continue;}
   const result=entry.state==='pending'?await readEnrollmentPreview(supa,account,entry):'inactive';
   if(user?.id!==account||version!==tcDeviceRequestVersion)return;
   const verified=root&&result==='directory-verified-preview'?await verifyConfirmedEnrollmentPreview(supa,account,entry):null;
   if(user?.id!==account||version!==tcDeviceRequestVersion)return;
-  line.textContent=entry.device_id+' · '+entry.state+' · fingerprint: '+fp+' · '+(verified==='confirmed-root-preview'?'Approval matches confirmed original identity — no message access':verified==='inactive'||result==='inactive'?'Inactive':verified==='invalid'||result==='invalid'?'Invalid saved signature; revoke this request':result==='directory-verified-preview'?'Saved signature; confirm original identity to verify independently':'Awaiting signature');
+  line.textContent=(localMatches?'This browser · ':'')+entry.device_id+' · '+entry.state+' · fingerprint: '+fp+' · '+(verified==='confirmed-root-preview'?'Approval matches confirmed original identity — no message access':verified==='inactive'||result==='inactive'?'Inactive':verified==='invalid'||result==='invalid'?'Invalid saved signature; revoke this request':result==='directory-verified-preview'?'Saved signature; confirm original identity to verify independently':'Awaiting signature');
   if(entry.state==='pending'){
-   if(tcLocalPendingDevice===entry.device_id){
+   if(localMatches){
     const qr=document.createElement('button');qr.type='button';qr.textContent='Show device QR';
     qr.onclick=()=>{
      if(user?.id!==account||version!==tcDeviceRequestVersion)return;
      try{
       if(typeof window.qrcode!=='function')throw Error('QR encoder unavailable');
-      const code=window.qrcode(0,'M');code.addData(fp.replace(/\s+/g,''));code.make();
+      const code=window.qrcode(0,'M');code.addData(localIdentity.fingerprint.replace(/\s+/g,''));code.make();
       const img=document.createElement('img');img.src=code.createDataURL(5,20);img.alt='Pending device fingerprint QR code';img.style.cssText='display:block;max-width:100%;height:auto;background:white;margin:8px auto';
       line.append(img);qr.disabled=true;
       $('tcDeviceStatus').textContent='Scan this fingerprint on the original device in person. This is a preview, not device authorization.';
@@ -1279,7 +1283,6 @@ async function tcManageDevice(register){
  try{
   const result=register?await requestDevice(supa,account):null;
   if(user?.id!==account||v!==tcDeviceRequestVersion)return;
-  if(result)tcLocalPendingDevice=result.state==='pending'?result.id:null;
   await tcRenderDeviceRequests(account,v);
   if(user?.id===account&&v===tcDeviceRequestVersion)status.textContent=result?'This device: '+result.state+'. No message access granted.':'Device requests refreshed.';
  }catch(e){if(user?.id===account&&v===tcDeviceRequestVersion)status.textContent='Device request unavailable: '+e.message}
@@ -1399,7 +1402,7 @@ function tichorMountPrivacy(){
 }
 const quickBlockButton=document.getElementById('tichorQuickBlock');if(quickBlockButton)quickBlockButton.addEventListener('click',tichorToggleBlockCurrent);
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',tichorMountPrivacy,{once:true});else tichorMountPrivacy();
-async function loggedIn(u){user=u;tcLocalPendingDevice=null;tcDeviceRequestVersion++;$('tcRootTrustStatus').textContent='';$('tcDeviceRequests').replaceChildren();$('tcDeviceStatus').textContent='';tcSetupIdentity(u.id).catch(console.warn);window.__tichorTaskSession={client:supa,userId:u.id};window.dispatchEvent(new Event('tichor-task-auth'));const chosen=localStorage.getItem(TICHOR_LANG_KEY);if(!localStorage.getItem('tichor-preferred-language:'+u.id)&&chosen)localStorage.setItem('tichor-preferred-language:'+u.id,chosen);tichorLanguageChoice();tichorPrivacyLoad();await tichorLoadKnownCallers();show('auth',false);show('chat',true);$('who').textContent='Signed in as '+(u.email||u.phone||'Tichor user');await loadProfile();await tichorRefreshRequests();await loadContacts();tcGroupMount();tcGroupRefresh().catch(console.warn);await refreshFolder();await acknowledgeDelivery();await startCalling();startMessageUpdates();}
+async function loggedIn(u){user=u;tcDeviceRequestVersion++;$('tcRootTrustStatus').textContent='';$('tcDeviceRequests').replaceChildren();$('tcDeviceStatus').textContent='';tcSetupIdentity(u.id).catch(console.warn);window.__tichorTaskSession={client:supa,userId:u.id};window.dispatchEvent(new Event('tichor-task-auth'));const chosen=localStorage.getItem(TICHOR_LANG_KEY);if(!localStorage.getItem('tichor-preferred-language:'+u.id)&&chosen)localStorage.setItem('tichor-preferred-language:'+u.id,chosen);tichorLanguageChoice();tichorPrivacyLoad();await tichorLoadKnownCallers();show('auth',false);show('chat',true);$('who').textContent='Signed in as '+(u.email||u.phone||'Tichor user');await loadProfile();await tichorRefreshRequests();await loadContacts();tcGroupMount();tcGroupRefresh().catch(console.warn);await refreshFolder();await acknowledgeDelivery();await startCalling();startMessageUpdates();}
 
 // Inbox and Sent are derived from existing messages; no new database tables needed.
 let activeFolder='inbox',folderBusy=false;
