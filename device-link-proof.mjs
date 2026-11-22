@@ -53,3 +53,31 @@ export async function verifyDeviceApproval(packet,account,expectedDevice,expecte
  // must be enforced transactionally by the future trusted-device lifecycle.
  return r;
 }
+
+// Experimental bounded eligibility certificate. Not a delivery grant.
+// Root must be independently authenticated, and registry state freshly checked.
+const CERT_LIFETIME=30*24*60*60*1000;
+function certificateBody(request,issuedAt,expiresAt){
+ const r=canonical(request);
+ if(!Number.isSafeInteger(issuedAt)||!Number.isSafeInteger(expiresAt)||issuedAt<r.issuedAt||issuedAt>=r.expiresAt||expiresAt<=issuedAt||expiresAt-issuedAt>CERT_LIFETIME)throw Error('Invalid certificate lifetime');
+ return {domain:'TichorConnect V3 device eligibility preview v1',request:r,issuedAt,expiresAt};
+}
+export async function createEligibilityCertificate(approved,account,device,nonce,rootPublicKey,rootPrivateKey,now=Date.now()){
+ const r=await verifyDeviceApproval(approved,account,device,nonce,account,rootPublicKey,now);
+ const certificate=certificateBody(r,now,now+CERT_LIFETIME);
+ const signature=await sign(rootPrivateKey,certificate);
+ if(!await verify(await importSign(rootPublicKey),certificate,signature))throw Error('Root signer mismatch');
+ return {certificate,signature};
+}
+export async function verifyEligibilityCertificate(packet,account,device,rootPublicKey,registryRow,now=Date.now()){
+ const c=packet?.certificate;
+ if(!c||c.domain!=='TichorConnect V3 device eligibility preview v1')throw Error('Invalid eligibility certificate');
+ const body=certificateBody(c.request,c.issuedAt,c.expiresAt);
+ if(!Number.isSafeInteger(now)||now<body.issuedAt||now>=body.expiresAt)throw Error('Eligibility certificate expired or not yet valid');
+ const r=body.request;
+ if(r.account!==id(account)||r.device!==id(device)||r.device===r.account)throw Error('Eligibility identity mismatch');
+ if(registryRow?.state!=='pending'||registryRow.user_id!==account||registryRow.device_id!==device||JSON.stringify(key(registryRow.encryption_public_jwk))!==JSON.stringify(r.encryptionKey)||JSON.stringify(key(registryRow.signing_public_jwk))!==JSON.stringify(r.signingKey))throw Error('Registry mismatch or revoked device');
+ await validatePoints(r);
+ if(!await verify(await importSign(rootPublicKey),body,packet.signature))throw Error('Invalid eligibility signature');
+ return {state:'eligibility-preview-not-authorized',device:r.device,expiresAt:body.expiresAt};
+}
