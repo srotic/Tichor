@@ -32,3 +32,24 @@ test('TASE only runs after signed-in account session, and never self-approves ad
  assert.match(chat,/Secure device linking or recovery is required/);
  assert.match(chat,/normal messages are not end-to-end encrypted/i);
 });
+
+test('existing trusted browser is recognized before new root keys and expired grants fail closed',()=>{
+ const enroll=readFileSync(new URL('../tase-auto-enrollment.mjs',import.meta.url),'utf8');
+ const before=enroll.indexOf('const existing=await listDeviceRequests(client,account);');
+ const after=enroll.indexOf('const root=await ensureIdentity(client,account);');
+ assert.ok(before>=0&&after>before,'existing devices must be checked before attempting root identity creation');
+ assert.match(enroll,/await loadApprovedLocalDevice\(client,account\)/);
+ assert.match(enroll,/authorization-renewal-required/);
+ assert.match(enroll,/additional-device-approval-required/);
+});
+test('advanced encryption controls stay collapsed and one-time browser linking remains accessible',()=>{
+ const chat=readFileSync(new URL('../chat.html',import.meta.url),'utf8');
+ assert.match(chat,/<details id="tcEncryptionAdvanced"/);
+ assert.match(chat,/<button type="button" id="tcTaseLinkShortcut" hidden/);
+ assert.match(chat,/\$\('tcTaseLinkShortcut'\)\.onclick=/);
+ assert.match(chat,/linkButton\.hidden=!needsApproval/);
+ assert.match(chat,/result\.state==='authorization-renewal-required'/);
+ assert.match(chat,/Existing encryption keys will not be replaced|Existing encryption keys will not be replaced/i);
+ assert.match(chat,/Encrypted messaging still requires verified contacts/);
+ assert.match(chat,/No plaintext fallback/);
+});
