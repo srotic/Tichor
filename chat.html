@@ -1206,7 +1206,7 @@ async function tcReadTsaInbox(){
  tcTsaReading=true;
  const statusNode=$('tcTsaMailboxStatus');
  try{
-  const rows=await receiveTsaVerifiedTextStaging(supa,account,async sender=>tcLoadTsaRoster(sender));
+  const rows=await receiveTsaVerifiedTextStaging(supa,account,async sender=>tcLoadTsaRoster(sender),localStorage,target);
   if(user?.id!==account||peer!==target||!tcTsaSelected())return;
   const list=$('tcTsaInbox');
   // This is a separate, decrypted staging mailbox; the standard Chats table
@@ -2667,7 +2667,7 @@ async function load(){
  tichorUpdateChatHeader();
  const tsaToggle=$('tcTsaSecureMode');
  if(tsaToggle&&user&&peer&&tsaToggle.dataset.peer!==user.id+':'+peer){
-  tsaToggle.checked=false;tsaToggle.dataset.peer=user.id+':'+peer;
+  tsaToggle.checked=false;tsaToggle.dataset.peer=user.id+':'+peer;tcTsaLastRead=0;
   $('tcTsaInbox').replaceChildren();$('tcTsaMailboxStatus').textContent='Experimental secure mailbox off. Activate for this conversation only.';
  }
  if(tcTsaSelected()&&!tcTsaReading&&Date.now()-tcTsaLastRead>20000)
