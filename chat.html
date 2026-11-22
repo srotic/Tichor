@@ -2885,30 +2885,35 @@ function tichorCheckSendGuard(){
 }
 function tichorRecordSend(){const now=Date.now();tichorSendGuard.last=now;tichorSendGuard.recent.push(now)}
 $('sendForm').onsubmit=async e=>{e.preventDefault();if(!peer)return status('chatStatus','Open a conversation first');const button=$('sendForm').querySelector('button[type=submit]');if(button.disabled)return;button.disabled=true;try{
+ const sender=user?.id,target=peer,client=supa,encrypted=tcE2EESelected();
+ if(!sender||!target)throw Error('Sign in and select a conversation.');
+ const assertContext=()=>{if(user?.id!==sender||peer!==target||supa!==client||tcE2EESelected()!==encrypted)throw Error('Conversation or security mode changed. Please send again.');};
  const body=$('body').value.trim(),file=$('tichorFile').files[0];
  if(!body&&!file)return;
  if(tichorIsBlocked(peer))throw Error('This contact is blocked on this device. Unblock in Settings before sending.');
- if(!await tichorEnsureContactAllowed(peer))throw Error('Contact approval required before messaging.');
+ if(!await tichorEnsureContactAllowed(target))throw Error('Contact approval required before messaging.');
+ assertContext();
  tichorCheckSendGuard();
  status('chatStatus','Sending…');
  const allowed=['audio/webm','audio/mp4','audio/ogg','audio/wav','application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','image/png','image/jpeg','image/webp','image/gif','text/plain'];
  if(file&&(file.size>10485760||!allowed.includes(file.type)))throw Error('Choose a supported file under 10 MB.');
- if(tcE2EESelected()&&file)throw Error('Encrypted attachments are not supported yet. Remove the attachment; no plaintext fallback is allowed in encrypted text mode.');
- const outgoingBody=tcE2EESelected()?await encryptDirectText(supa,user.id,peer,body):body||(file?(/^image\/(png|jpeg|webp|gif)$/i.test(file.type)||/\.(png|jpe?g|webp|gif)$/i.test(file.name)?'📷 Photo':'📎 Attachment'):'');
- const {data:msg,error:insertError}=await supa.from('chat_messages').insert({sender_id:user.id,recipient_id:peer,body:outgoingBody}).select('id').single();if(insertError)throw insertError;
+ if(encrypted&&file)throw Error('Encrypted attachments are not supported yet. Remove the attachment; no plaintext fallback is allowed in encrypted text mode.');
+ const outgoingBody=encrypted?await encryptDirectText(client,sender,target,body):body||(file?(/^image\/(png|jpeg|webp|gif)$/i.test(file.type)||/\.(png|jpe?g|webp|gif)$/i.test(file.name)?'📷 Photo':'📎 Attachment'):'');
+ assertContext();
+ if(encrypted&&!isEncrypted(outgoingBody))throw Error('Encryption failed; no message sent.');
+ const {data:msg,error:insertError}=await client.from('chat_messages').insert({sender_id:sender,recipient_id:target,body:outgoingBody}).select('id').single();if(insertError)throw insertError;
  tichorRecordSend();
  status('chatStatus',file?'Message sent · uploading attachment…':'Sent');
- $('body').value='';
- try{localStorage.removeItem(tichorDraftKey(peer));tichorDraftBadge()}catch{}
+ if(user?.id===sender&&peer===target&&$('body').value.trim()===body){$('body').value='';try{localStorage.removeItem(tichorDraftKey(target));tichorDraftBadge()}catch{}}
  if(!file){$('body').focus({preventScroll:true});}
  if(file){
   const ext=(file.name.split('.').pop()||'file').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,10);
-  const path=user.id+'/'+msg.id+'/'+crypto.randomUUID()+'.'+ext;
+  const path=sender+'/'+msg.id+'/'+crypto.randomUUID()+'.'+ext;
   $('tichorAttachmentStatus').textContent='Uploading '+file.name+'…';
-  const {error:uploadError}=await supa.storage.from('tichor-attachments').upload(path,file,{contentType:file.type,upsert:false});if(uploadError){await supa.from('chat_messages').delete().eq('id',msg.id).eq('sender_id',user.id);throw uploadError;}
-  const {error:metadataError}=await supa.from('tichor_attachments').insert({message_id:msg.id,sender_id:user.id,recipient_id:peer,storage_path:path,file_name:file.name.slice(0,200),mime_type:file.type,byte_size:file.size});if(metadataError){await supa.storage.from('tichor-attachments').remove([path]);await supa.from('chat_messages').delete().eq('id',msg.id).eq('sender_id',user.id);throw metadataError}
+  const {error:uploadError}=await client.storage.from('tichor-attachments').upload(path,file,{contentType:file.type,upsert:false});if(uploadError){await client.from('chat_messages').delete().eq('id',msg.id).eq('sender_id',sender);throw uploadError;}
+  const {error:metadataError}=await client.from('tichor_attachments').insert({message_id:msg.id,sender_id:sender,recipient_id:target,storage_path:path,file_name:file.name.slice(0,200),mime_type:file.type,byte_size:file.size});if(metadataError){await client.storage.from('tichor-attachments').remove([path]);await client.from('chat_messages').delete().eq('id',msg.id).eq('sender_id',sender);throw metadataError}
  }
- $('tichorFile').value='';window.tichorRefreshComposerPhotoPreview?.();$('tichorAttachmentStatus').textContent='';
+ if(user?.id===sender&&peer===target&&$('tichorFile').files[0]===file){$('tichorFile').value='';window.tichorRefreshComposerPhotoPreview?.();$('tichorAttachmentStatus').textContent='';}
  await load();await loadContacts();await refreshFolder();
  }catch(err){status('chatStatus','Send failed: '+err.message)}finally{button.disabled=false}};$('refresh').onclick=load;$('secret').addEventListener('change',()=>{if(peer)load()});
 function tichorContactIdentityStatus(username){
