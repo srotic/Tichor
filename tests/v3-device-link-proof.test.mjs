@@ -52,3 +52,18 @@ test('account root signer approval expires even with an otherwise valid signatur
  assert.equal((await verifyDeviceApproval(approved,account,device,nonce,account,f.publicKey,now)).nonce,nonce);
  await assert.rejects(verifyDeviceApproval(approved,account,device,nonce,account,f.publicKey,now+300000),/expired/);
 });
+
+test('eligibility certificate survives enrollment expiry but rejects revoked devices and wrong roots',async()=>{
+ const {createEligibilityCertificate,verifyEligibilityCertificate}=await import('../device-link-proof.mjs');
+ const f=await fixture();
+ const approval=await approveDeviceRequest(f.packet,account,account,f.root.privateKey,f.fingerprint,now);
+ const cert=await createEligibilityCertificate(approval,account,device,nonce,f.publicKey,f.root.privateKey,now);
+ const row={user_id:account,device_id:device,state:'pending',encryption_public_jwk:f.packet.request.encryptionKey,signing_public_jwk:f.packet.request.signingKey};
+ assert.equal((await verifyEligibilityCertificate(cert,account,device,f.publicKey,row,now+300001)).state,'eligibility-preview-not-authorized');
+ await assert.rejects(verifyEligibilityCertificate(cert,account,device,f.publicKey,{...row,state:'revoked'},now+300001),/revoked/);
+ await assert.rejects(verifyEligibilityCertificate(cert,account,device,await crypto.subtle.exportKey('jwk',f.sign.publicKey),row,now+300001),/Invalid eligibility signature/);
+ await assert.rejects(verifyEligibilityCertificate(cert,account,device,f.publicKey,row,now+30*24*60*60*1000),/expired/);
+ await assert.rejects(createEligibilityCertificate(approval,account,device,nonce,f.publicKey,f.root.privateKey,now+300000),/expired/);
+ const modified=structuredClone(cert);modified.certificate.expiresAt-=1000;
+ await assert.rejects(verifyEligibilityCertificate(modified,account,device,f.publicKey,row,now+300001),/Invalid eligibility signature/);
+});
