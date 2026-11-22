@@ -59,3 +59,36 @@ export async function localDeviceFingerprint(client,account){
  const request={user_id:account,device_id:record.id,encryption_public_jwk:publicOnly(await crypto.subtle.exportKey('jwk',record.enc.publicKey)),signing_public_jwk:publicOnly(await crypto.subtle.exportKey('jwk',record.sign.publicKey))};
  return {id:record.id,fingerprint:await requestFingerprint(request)};
 }
+
+// Load only the browser's existing non-extractable keys for a CURRENTLY active
+// and root-approved device. Pending-device keys never authorize mailbox access.
+// No key material is copied to Supabase or exported from IndexedDB.
+export async function loadApprovedLocalDevice(client,account){
+ await checkAccount(client,account);
+ if(!globalThis.isSecureContext||!crypto.subtle||!globalThis.indexedDB)
+  throw Error('Secure browser cryptography is required for the device mailbox.');
+ const record=await local(account);
+ if(!record||!record.enc?.privateKey||!record.sign?.privateKey)
+  throw Error('This browser has no local registered device keys.');
+ if(record.enc.privateKey.extractable||record.sign.privateKey.extractable||
+    record.enc.privateKey.algorithm?.name!=='ECDH'||record.sign.privateKey.algorithm?.name!=='ECDSA')
+  throw Error('Unsafe local TSA device keys.');
+ const {data:registered,error:registryError}=await client.from(table)
+  .select('user_id,device_id,state,encryption_public_jwk,signing_public_jwk')
+  .eq('user_id',account).eq('device_id',record.id).maybeSingle();
+ if(registryError||registered?.state!=='active'||registered.user_id!==account)
+  throw Error('Local TSA device is not active or has been revoked.');
+ const publishedEncryption=publicOnly(await crypto.subtle.exportKey('jwk',record.enc.publicKey));
+ const publishedSigning=publicOnly(await crypto.subtle.exportKey('jwk',record.sign.publicKey));
+ if(!same(publishedEncryption,registered.encryption_public_jwk)||!same(publishedSigning,registered.signing_public_jwk))
+  throw Error('Local TSA device keys do not match the immutable registry.');
+ const {data:grant,error:grantError}=await client.from('tichor_e2ee_active_device_grants')
+  .select('user_id,device_id,expires_at_ms').eq('user_id',account)
+  .eq('device_id',record.id).maybeSingle();
+ if(grantError||grant?.user_id!==account||grant.device_id!==record.id||
+    !Number.isFinite(Number(grant.expires_at_ms))||Number(grant.expires_at_ms)<=Date.now())
+  throw Error('Local TSA device authorization is missing or expired.');
+ await checkAccount(client,account);
+ return Object.freeze({account,deviceId:record.id,signingKey:record.sign.privateKey,
+  decryptionKey:record.enc.privateKey,signingPublicKey:publishedSigning});
+}
