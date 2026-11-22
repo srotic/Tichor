@@ -405,3 +405,21 @@ export async function activateConfirmedDevice(supa,account,device){
  }
  throw Error('No valid signed trust evidence; renew device enrollment before activation.');
 }
+
+// The original browser can sign a short-lived active-device roster without
+// exporting its private root key. Linked browsers cannot impersonate the root.
+export async function signRootDeviceRoster(supa,account,body){
+ mustCrypto();
+ const {data:auth,error:authError}=await supa.auth.getUser();
+ if(authError||auth?.user?.id!==account)throw Error('Account session mismatch while signing device roster.');
+ const stored=await dbGet(account);
+ if(!stored||stored.sign?.privateKey?.extractable||stored.sign?.privateKey?.algorithm?.name!=='ECDSA')
+  throw Error('Only the original encryption browser can sign a device roster.');
+ const {data:identity,error}=await supa.from('tichor_e2ee_identity_keys')
+  .select('user_id,signing_public_jwk').eq('user_id',account).maybeSingle();
+ if(error||identity?.user_id!==account)throw Error('Original encryption identity unavailable.');
+ if(canonicalJwk(await cryptoAPI.exportKey('jwk',stored.sign.publicKey))!==canonicalJwk(identity.signing_public_jwk))
+  throw Error('Original encryption identity changed. Roster signing blocked.');
+ const {signTsaRoster}=await import('./tsa-signed-roster.mjs');
+ return signTsaRoster(body,stored.sign.privateKey);
+}
