@@ -150,6 +150,9 @@ export async function signEnrollmentPreview(supa,account,request,confirmedFinger
  const {data:current,error:lookupError}=await supa.from('tichor_e2ee_devices').select('user_id,device_id,state,encryption_public_jwk,signing_public_jwk').eq('user_id',account).eq('device_id',request.device_id).maybeSingle();
  if(lookupError||!current||current.state!=='pending')throw Error('Request no longer pending.');
  if(await requestFingerprint(current)!==confirmedFingerprint||await requestFingerprint(request)!==confirmedFingerprint)throw Error('Fingerprint mismatch.');
+ const {requireFreshLinkEvidence}=await import('./device-link-registry.mjs');
+ const proof=await requireFreshLinkEvidence(supa,account,current.device_id);
+ if(canonicalJwk(proof.request.encryptionKey)!==canonicalJwk(current.encryption_public_jwk)||canonicalJwk(proof.request.signingKey)!==canonicalJwk(current.signing_public_jwk)||Date.now()>=proof.request.expiresAt)throw Error('Fresh device proof does not match confirmed keys or has expired.');
  const signature=await signDeviceApproval(current,local.sign.privateKey);
  if(!await verifyDeviceApproval(current,signature,published.signing_public_jwk))throw Error('Signature verification failed.');
  return b64(signature);
