@@ -34,7 +34,7 @@ export async function requestDevice(client,account){
 }
 export async function listDeviceRequests(client,account){
  await checkAccount(client,account);
- const {data,error}=await client.from(table).select('device_id,state,created_at').eq('user_id',account).order('created_at',{ascending:false});
+ const {data,error}=await client.from(table).select('user_id,device_id,state,created_at,encryption_public_jwk,signing_public_jwk').eq('user_id',account).order('created_at',{ascending:false});
  if(error)throw error;
  return data||[];
 }
