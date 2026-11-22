@@ -195,6 +195,11 @@ export async function saveEnrollmentPreview(supa,account,request,confirmedFinger
  const cert=approved.eligibility;
  const {error:certificateError}=await supa.from('tichor_e2ee_eligibility_certificates').insert({user_id:account,nonce:approved.nonce,issued_at_ms:cert.certificate.issuedAt,expires_at_ms:cert.certificate.expiresAt,signature:cert.signature});
  if(certificateError&&certificateError.code!=='23505')throw certificateError;
+ // Publish only a newly persisted certificate; duplicate evidence requires a renewed request.
+ if(!certificateError){
+  const {error:directoryError}=await supa.from('tichor_e2ee_recipient_directory').insert({user_id:account,device_id:request.device_id,nonce:approved.nonce,certificate:cert.certificate,signature:cert.signature,expires_at_ms:cert.certificate.expiresAt});
+  if(directoryError)throw Error('Certificate stored but discovery publication failed. Refresh registration and retry.');
+ }
  const result=await readEnrollmentPreview(supa,account,request);
  if(result!=='directory-verified-preview')throw Error('Stored nonce-bound preview could not be verified. Refresh registration.');
  return result;
@@ -257,4 +262,15 @@ export async function readEligibilityCertificatePreview(supa,account,device){
   try{return await proto.verifyEligibilityCertificate({certificate:{domain:'TichorConnect V3 device eligibility preview v1',request,issuedAt:Number(cert.issued_at_ms),expiresAt:Number(cert.expires_at_ms)},signature:cert.signature},account,device,root.signing_public_jwk,latest);}catch{}
  }
  return {state:'missing-or-invalid'};
+}
+
+// Discovery is intentionally diagnostic. It cannot supply encryption targets.
+// Independently confirmed contact root, live revocation and delivery authorization
+// are separate requirements. Directory evidence alone never satisfies them.
+export async function discoverRecipientCertificatePreviews(supa,sender,recipient){
+ const {data:session,error:authError}=await supa.auth.getUser();
+ if(authError||session?.user?.id!==sender||sender===recipient)throw Error('Invalid discovery session.');
+ const {data,error}=await supa.from('tichor_e2ee_recipient_directory').select('user_id,device_id,nonce,certificate,signature,expires_at_ms').eq('user_id',recipient).gt('expires_at_ms',Date.now()).limit(50);
+ if(error)throw Error('Recipient certificate directory unavailable.');
+ return {state:'discovery-preview-not-authorized',candidateCount:(data||[]).filter(row=>row.user_id===recipient&&row.certificate?.request?.account===recipient&&row.certificate?.request?.device===row.device_id&&row.certificate?.request?.nonce===row.nonce&&row.certificate?.expiresAt===Number(row.expires_at_ms)).length};
 }
