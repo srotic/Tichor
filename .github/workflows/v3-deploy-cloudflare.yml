@@ -30,6 +30,7 @@ jobs:
           node --check device-link-registry.mjs
           node --check tsa-device-trust.mjs
           node --check tsa-multidevice-envelope.mjs
+          node --check tsa-device-readiness.mjs
           node --check e2ee-v3.js
       - name: Build isolated staging site
         run: node scripts/build-v3-staging.cjs
