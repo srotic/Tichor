@@ -26,11 +26,12 @@ test('TASE only runs after signed-in account session, and never self-approves ad
  assert.match(enroll,/saveEnrollmentPreview\(client,account,updated\[0\],fingerprint\)/);
  assert.match(enroll,/activateConfirmedDevice\(client,account,registered\.id\)/);
  assert.match(enroll,/loadApprovedLocalDevice\(client,account\)/);
- assert.match(enroll,/existing-device-approval-required/);
+ assert.match(enroll,/pending-device-approval-required/);
+ assert.match(enroll,/secure-recovery-required/);
  assert.doesNotMatch(enroll,/\.update\(\{state:'active'\}\)/);
  assert.match(chat,/taseEnrollFirstDevice\(supa,onboardingAccount/);
- assert.match(chat,/Link this browser securely/);
- assert.match(chat,/Link this browser through trusted approval|one-time approval from your original trusted device/i);
+ assert.match(chat,/id="tcTaseLinkShortcut"/);
+ assert.match(chat,/Approve it on the original trusted device before sending|another trusted device must approve/i);
  assert.match(chat,/normal messages are not end-to-end encrypted/i);
 });
 
@@ -48,9 +49,27 @@ test('advanced encryption controls stay collapsed and one-time browser linking r
  assert.match(chat,/<details id="tcEncryptionAdvanced"/);
  assert.match(chat,/<button type="button" id="tcTaseLinkShortcut" hidden/);
  assert.match(chat,/\$\('tcTaseLinkShortcut'\)\.onclick=/);
- assert.match(chat,/linkButton\.hidden=!needsApproval/);
+ assert.match(chat,/linkButton\.hidden=!\(needsApproval\|\|needsRecovery\)/);
  assert.match(chat,/result\.state==='authorization-renewal-required'/);
- assert.match(chat,/Existing encryption keys will not be replaced|Existing encryption keys will not be replaced/i);
+ assert.match(chat,/Existing encryption keys will not be replaced/i);
  assert.match(chat,/Encrypted messaging still requires verified contacts/);
  assert.match(chat,/No plaintext fallback/);
+});
+
+test('TASE automates pending device registration but never grants a new browser trust',()=>{
+ const enroll=readFileSync(new URL('../tase-auto-enrollment.mjs',import.meta.url),'utf8');
+ const chat=readFileSync(new URL('../chat.html',import.meta.url),'utf8');
+ const existingAt=enroll.indexOf('if(existing.length){');
+ const requestAt=enroll.indexOf('const request=await requestDevice(client,account);',existingAt);
+ assert.ok(existingAt>=0&&requestAt>existingAt);
+ assert.match(enroll,/requireFreshLinkEvidence\(client,account,local\.id\)/);
+ assert.match(enroll,/refreshed\.id!==local\.id/);
+ assert.match(enroll,/matched\?\.state==='revoked'/);
+ assert.match(enroll,/!existing\.some\(d=>d\.state==='active'\)/);
+ assert.match(enroll,/state:'pending-device-approval-required'/);
+ assert.match(enroll,/state:'secure-recovery-required'/);
+ assert.doesNotMatch(enroll,/\.update\(\{state:'active'\}\)/);
+ assert.match(chat,/Review pending device approval/);
+ assert.match(chat,/Review secure recovery options/);
+ assert.match(chat,/tcManageDevice\(false\)/);
 });
