@@ -6,6 +6,7 @@ import {requestDevice,listDeviceRequests,localDeviceFingerprint,loadApprovedLoca
 import {ensureIdentity,getConfirmedRootPreview,saveEnrollmentPreview,activateConfirmedDevice} from './e2ee-v3.js';
 import {requestFingerprint} from './e2ee-device-approval.mjs';
 import {publishOwnTsaRoster} from './tsa-roster-directory.mjs';
+import {requireFreshLinkEvidence} from './device-link-registry.mjs';
 
 const pending=new Map();
 export function taseCanBootstrap({authenticated,verified,deviceCount,hasOriginalIdentity}){
@@ -37,18 +38,59 @@ export async function taseEnrollFirstDevice(client,account,{onStage}={}){
   const existing=await listDeviceRequests(client,account);
   if(existing.length){
    const local=await localDeviceFingerprint(client,account);
-   if(local&&existing.some(d=>d.device_id===local.id&&d.state==='active')){
+   const matched=local&&existing.find(d=>d.device_id===local.id);
+   if(matched&&matched.state==='active'){
+    // A returning approved browser must prove current authorization, never
+    // simply trust a remembered device ID or an expired server grant.
     try{
      await loadApprovedLocalDevice(client,account);
      return Object.freeze({state:'already-active',device:local.id});
     }catch(error){
-     // Expired authorization requires verified renewal; never mark it active.
      notify('device-authorization-renewal-required');
      return Object.freeze({state:'authorization-renewal-required',device:local.id});
     }
    }
-   notify('additional-device-approval-required');
-   return Object.freeze({state:'existing-device-approval-required',device:null});
+   if(matched?.state==='revoked'){
+    notify('revoked-device-recovery-required');
+    return Object.freeze({state:'revoked-device-recovery-required',device:local.id});
+   }
+   if(matched?.state==='pending'){
+    // Reuse fresh signed proof. Expired nonces may be renewed ONLY with the
+    // same locally held pending private key and the same immutable public keys.
+    try{
+     await requireFreshLinkEvidence(client,account,local.id);
+    }catch{
+     notify('renewing-pending-device-request');
+     const refreshed=await requestDevice(client,account);
+     if(refreshed.id!==local.id||refreshed.state!=='pending')
+      throw Error('Pending device identity changed; no approval requested');
+    }
+    notify('waiting-for-original-device-approval');
+    return Object.freeze({state:'pending-device-approval-required',device:local.id});
+   }
+   // Never bootstrap a second root from account login. If all devices are
+   // revoked or pending and none is currently trusted, key recovery must
+   // involve a separate, explicit cryptographic recovery process.
+   if(!existing.some(d=>d.state==='active')){
+    notify('secure-recovery-required');
+    return Object.freeze({state:'secure-recovery-required',device:null});
+   }
+   if(local&&!matched){
+    // Unexpected local key material cannot be silently replaced or trusted.
+    notify('local-device-identity-conflict');
+    return Object.freeze({state:'secure-recovery-required',device:null});
+   }
+   // Automatically register an UNKNOWN browser as PENDING. This neither
+   // signs its authorization nor makes its keys eligible for message delivery.
+   notify('registering-pending-device');
+   const request=await requestDevice(client,account);
+   if(request.state!=='pending')throw Error('New browser was not registered pending');
+   const registry=await listDeviceRequests(client,account);
+   const mine=await localDeviceFingerprint(client,account);
+   if(mine?.id!==request.id||!registry.some(d=>d.device_id===request.id&&d.state==='pending'))
+    throw Error('Device request identity mismatch; approval blocked');
+   notify('waiting-for-original-device-approval');
+   return Object.freeze({state:'pending-device-approval-required',device:request.id});
   }
   // Never silently replace a root identity previously registered elsewhere.
   const root=await ensureIdentity(client,account);
