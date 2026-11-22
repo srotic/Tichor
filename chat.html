@@ -1169,7 +1169,7 @@ window.addEventListener('load',()=>showTab(new URLSearchParams(location.search).
 </script><script src="./vendor/qrcode-generator.js"></script>
 <script type="module">
 import {enableNotifications,disableNotifications} from "./notifications.js";
-import {ensureIdentity,encryptDirectText,decryptDirectText,isEncrypted,encryptionStatus,readEnrollmentPreview,saveEnrollmentPreview,getConfirmedRootPreview,verifyConfirmedEnrollmentPreview} from "./e2ee-v3.js";
+import {ensureIdentity,encryptDirectText,decryptDirectText,isEncrypted,encryptionStatus,readEnrollmentPreview,saveEnrollmentPreview,getConfirmedRootPreview,verifyConfirmedEnrollmentPreview,activateConfirmedDevice} from "./e2ee-v3.js";
 import {requestFingerprint} from "./e2ee-device-approval.mjs";
 import {readContactRootPin,confirmContactRootPin,requireContactRootPin} from "./tsa-contact-root-pin.mjs";
 import {requestDevice,listDeviceRequests,revokeDeviceRequest,localDeviceFingerprint} from "./e2ee-device-registry.js";
@@ -1262,7 +1262,7 @@ async function tcRenderDeviceRequests(account,version){
   if(user?.id!==account||version!==tcDeviceRequestVersion)return;
   const verified=root&&result==='directory-verified-preview'?await verifyConfirmedEnrollmentPreview(supa,account,entry):null;
   if(user?.id!==account||version!==tcDeviceRequestVersion)return;
-  line.textContent=(localMatches?'This browser · ':'')+entry.device_id+' · '+entry.state+' · fingerprint: '+fp+' · '+(verified==='confirmed-root-preview'?'Approval matches confirmed original identity — no message access':verified==='inactive'||result==='inactive'?'Inactive':verified==='invalid'||result==='invalid'?'Invalid saved signature; revoke this request':result==='directory-verified-preview'?'Saved signature; confirm original identity to verify independently':'Awaiting signature');
+  line.textContent=(localMatches?'This browser · ':'')+entry.device_id+' · '+entry.state+' · fingerprint: '+fp+' · '+(entry.state==='active'?'Original-root authorized — linked-device message delivery still disabled':verified==='confirmed-root-preview'?'Approval verified; activation available — no message access':verified==='inactive'||result==='inactive'?'Inactive':verified==='invalid'||result==='invalid'?'Invalid saved signature; revoke this request':result==='directory-verified-preview'?'Saved signature; confirm original identity to verify independently':'Awaiting signature');
   if(entry.state==='pending'){
    if(localMatches){
     const qr=document.createElement('button');qr.type='button';qr.textContent='Show device QR';
@@ -1291,8 +1291,22 @@ async function tcRenderDeviceRequests(account,version){
     }catch(e){if(user?.id===account&&version===tcDeviceRequestVersion)$('tcDeviceStatus').textContent='Approval preview failed: '+e.message}finally{approve.disabled=false}
    };
    line.append(' ',approve);
-   const revoke=document.createElement('button');revoke.type='button';revoke.textContent='Revoke request';
-   revoke.onclick=async()=>{if(user?.id!==account||!confirm('Permanently revoke this pending device request?'))return;const v=++tcDeviceRequestVersion;revoke.disabled=true;try{await revokeDeviceRequest(supa,account,entry.device_id);await tcRenderDeviceRequests(account,v)}catch(e){if(user?.id===account&&v===tcDeviceRequestVersion)$('tcDeviceStatus').textContent=e.message}finally{revoke.disabled=false}};line.append(' ',revoke);
+   if(root&&verified==='confirmed-root-preview'){
+    const activate=document.createElement('button');activate.type='button';activate.textContent='Activate verified device';
+    activate.onclick=async()=>{
+     if(user?.id!==account||version!==tcDeviceRequestVersion)return;
+     if(!confirm('Activate this verified device with your original encryption identity? Linked-device message delivery remains disabled.'))return;
+     activate.disabled=true;
+     try{const result=await activateConfirmedDevice(supa,account,entry.device_id);
+      if(user?.id===account&&version===tcDeviceRequestVersion){await tcRenderDeviceRequests(account,version);$('tcDeviceStatus').textContent='Device '+result.state+'. Encrypted delivery remains disabled.';}
+     }catch(e){if(user?.id===account&&version===tcDeviceRequestVersion)$('tcDeviceStatus').textContent='Activation refused: '+e.message}
+     finally{activate.disabled=false}
+    };line.append(' ',activate);
+   }
+  }
+  if(entry.state==='pending'||entry.state==='active'){
+   const revoke=document.createElement('button');revoke.type='button';revoke.textContent=entry.state==='active'?'Revoke active device':'Revoke request';
+   revoke.onclick=async()=>{if(user?.id!==account||!confirm('Permanently revoke this device?'))return;const v=++tcDeviceRequestVersion;revoke.disabled=true;try{await revokeDeviceRequest(supa,account,entry.device_id);await tcRenderDeviceRequests(account,v)}catch(e){if(user?.id===account&&v===tcDeviceRequestVersion)$('tcDeviceStatus').textContent=e.message}finally{revoke.disabled=false}};line.append(' ',revoke);
   }
   box.append(line);
  }
