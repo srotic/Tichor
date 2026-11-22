@@ -90,5 +90,5 @@ export async function loadApprovedLocalDevice(client,account){
   throw Error('Local TSA device authorization is missing or expired.');
  await checkAccount(client,account);
  return Object.freeze({account,deviceId:record.id,signingKey:record.sign.privateKey,
-  decryptionKey:record.enc.privateKey,signingPublicKey:publishedSigning});
+  decryptionKey:record.enc.privateKey,signingPublicKey:publishedSigning,encryptionPublicKey:publishedEncryption});
 }
