@@ -1173,7 +1173,7 @@ import {ensureIdentity,encryptDirectText,decryptDirectText,isEncrypted,encryptio
 import {requestFingerprint} from "./e2ee-device-approval.mjs";
 import {readContactRootPin,confirmContactRootPin,requireContactRootPin} from "./tsa-contact-root-pin.mjs";
 import {requestDevice,listDeviceRequests,revokeDeviceRequest,localDeviceFingerprint} from "./e2ee-device-registry.js";
-import {loadSignedTsaRosterPacket,publishOwnTsaRoster} from "./tsa-roster-directory.mjs";
+import {loadSignedTsaRosterPacket,publishOwnTsaRoster,renewOwnTsaRosterIfNeeded} from "./tsa-roster-directory.mjs";
 import {encryptAndPublishTsaTextStaging,receiveTsaVerifiedTextStaging} from "./tsa-mailbox-client.mjs";
 import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
 import {SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY} from './v3-staging-config.js';
@@ -1193,7 +1193,15 @@ const tcE2EEStorageKey=id=>'tichor-v3-e2ee-opt-in:'+(user?.id||'')+':'+id;
 // Never persist this state or interpret ordinary chat messages as encrypted.
 const tcTsaSelected=()=>Boolean(user&&peer&&$('tcTsaSecureMode')?.checked&&
  $('tcTsaSecureMode').dataset.peer===user.id+':'+peer);
+const tcTsaStorageKey=(account,contact)=>'tichor-v3-tsa-secure-opt-in:'+account+':'+contact;
 let tcTsaReading=false,tcTsaLastRead=0;
+let tcTsaLastRenewCheck=0;
+async function tcMaintainTsaRoster(account){
+ if(!supa||user?.id!==account)throw Error('Device authorization requires your signed-in account');
+ const result=await renewOwnTsaRosterIfNeeded(supa,account);
+ if(user?.id!==account)throw Error('Account changed during device-roster maintenance');
+ return result;
+}
 async function tcLoadTsaRoster(account){
  const {data,error}=await supa.from('tichor_e2ee_identity_keys')
   .select('signing_public_jwk').eq('user_id',account).maybeSingle();
@@ -1228,11 +1236,17 @@ $('tcTsaSecureMode').onchange=()=>{
  const toggle=$('tcTsaSecureMode');
  if(!user||!peer){toggle.checked=false;return;}
  toggle.dataset.peer=user.id+':'+peer;
+ try{localStorage.setItem(tcTsaStorageKey(user.id,peer),toggle.checked?'1':'0')}
+ catch(e){toggle.checked=false;$('tcTsaMailboxStatus').textContent='Cannot preserve secure mode in browser storage. Secure mode blocked.';return;}
  $('tcTsaInbox').replaceChildren();
  $('tcTsaMailboxStatus').textContent=toggle.checked?
  'Experimental secure mode selected. Sending requires fresh signed rosters and an authorized local device.':
  'Secure mailbox off; ordinary Chats security settings remain unchanged.';
- if(toggle.checked)tcReadTsaInbox().catch(console.warn);
+ if(toggle.checked){
+  tcMaintainTsaRoster(user.id).then(()=>tcReadTsaInbox()).catch(e=>{
+   if(tcTsaSelected())$('tcTsaMailboxStatus').textContent='Secure device linking or authorization required: '+e.message+'. No plaintext fallback.';
+  });
+ }
 };
 $('tcTsaPublishRoster').onclick=async()=>{
  const button=$('tcTsaPublishRoster'),account=user?.id;
@@ -2667,11 +2681,23 @@ async function load(){
  tichorUpdateChatHeader();
  const tsaToggle=$('tcTsaSecureMode');
  if(tsaToggle&&user&&peer&&tsaToggle.dataset.peer!==user.id+':'+peer){
-  tsaToggle.checked=false;tsaToggle.dataset.peer=user.id+':'+peer;tcTsaLastRead=0;
-  $('tcTsaInbox').replaceChildren();$('tcTsaMailboxStatus').textContent='Experimental secure mailbox off. Activate for this conversation only.';
+  try{tsaToggle.checked=localStorage.getItem(tcTsaStorageKey(user.id,peer))==='1'}
+  catch{tsaToggle.checked=false;}
+  tsaToggle.dataset.peer=user.id+':'+peer;tcTsaLastRead=0;tcTsaLastRenewCheck=0;
+  $('tcTsaInbox').replaceChildren();
+  $('tcTsaMailboxStatus').textContent=tsaToggle.checked?
+   'Experimental secure mode restored. Device approval and signed roster required; plaintext fallback blocked.':
+   'Experimental secure mailbox off. Activate for this conversation only.';
  }
  if(tcTsaSelected()&&!tcTsaReading&&Date.now()-tcTsaLastRead>20000)
   tcReadTsaInbox().catch(console.warn);
+ if(tcTsaSelected()&&document.visibilityState==='visible'&&Date.now()-tcTsaLastRenewCheck>45000){
+  tcTsaLastRenewCheck=Date.now();const current=user.id;
+  tcMaintainTsaRoster(current).catch(error=>{
+   if(user?.id===current&&tcTsaSelected())
+    $('tcTsaMailboxStatus').textContent='Secure roster needs original-device approval: '+error.message+'. No plaintext fallback.';
+  });
+ }
  const tcSelection=$('tcEncryptedTextMode');if(tcSelection&&user&&peer&&tcSelection.dataset.peer!==user.id+':'+peer){tcSelection.checked=localStorage.getItem(tcE2EEStorageKey(peer))==='1';tcSelection.dataset.peer=user.id+':'+peer;const panel=$('tcEncryptionPanel');if(panel)panel.hidden=true;$('tcChatEncryptionLock')?.setAttribute('aria-expanded','false');tcRefreshE2EE().catch(console.warn)}
  tichorTranslationRoutingControl();
  tichorPrivacyRender();tichorTranslatorControls();tichorActionComposer();tichorPollComposer();tichorCompactComposer();tichorGlassComposer();
@@ -3036,6 +3062,7 @@ $('sendForm').onsubmit=async e=>{e.preventDefault();if(!peer)return status('chat
   if(file||!body)throw Error('Experimental secure mailbox supports text only. No plaintext fallback.');
   // An encrypted recipient list can only be built from complete, signed
   // active-device rosters. Missing or expired authorization aborts sending.
+  await tcMaintainTsaRoster(sender);
   const [senderRoster,recipientRoster]=await Promise.all([
    tcLoadTsaRoster(sender),tcLoadTsaRoster(target)
   ]);
