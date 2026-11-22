@@ -150,3 +150,15 @@ test('TSA active-device activation requires server verification and does not ena
  assert.match(mailbox,/TSA mailbox transport disabled/);
  assert.match(mailbox,/TSA mailbox retrieval disabled/);
 });
+
+test('Secondary browser shows secure linked-device setup instead of repeated identity retries',()=>{
+ const html=read('chat.html');
+ const source=read('e2ee-v3.js');
+ assert.match(html,/id="tcStartLinkedDevice"/);
+ assert.match(html,/This browser is not the original encryption device/);
+ assert.match(html,/Set up this as a linked device/);
+ assert.match(html,/tcManageDevice\(true\)/);
+ assert.match(html,/Being active does not yet unlock linked-device messaging/);
+ assert.match(source,/Secure device linking or recovery is required/);
+ assert.match(source,/keys will not be silently replaced/);
+});
