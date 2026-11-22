@@ -29,7 +29,8 @@ test('TASE only runs after signed-in account session, and never self-approves ad
  assert.match(enroll,/existing-device-approval-required/);
  assert.doesNotMatch(enroll,/\.update\(\{state:'active'\}\)/);
  assert.match(chat,/taseEnrollFirstDevice\(supa,onboardingAccount/);
- assert.match(chat,/Secure device linking or recovery is required/);
+ assert.match(chat,/Link this browser securely/);
+ assert.match(chat,/Link this browser through trusted approval|one-time approval from your original trusted device/i);
  assert.match(chat,/normal messages are not end-to-end encrypted/i);
 });
 
