@@ -1297,7 +1297,7 @@ async function tcRenderDeviceRequests(account,version){
      if(user?.id!==account||version!==tcDeviceRequestVersion)return;
      const typed=prompt('Compare the full device fingerprint again in person or by QR before activating. Paste the independently confirmed fingerprint:');
      if(typed===null)return;
-     if(typed.toLowerCase().replace(/\\s+/g,'')!==fp.toLowerCase().replace(/\\s+/g,'')){$('tcDeviceStatus').textContent='Device fingerprint mismatch; activation blocked.';return;}
+     if(typed.toLowerCase().replace(/\s+/g,'')!==fp.toLowerCase().replace(/\s+/g,'')){$('tcDeviceStatus').textContent='Device fingerprint mismatch; activation blocked.';return;}
      if(!confirm('Activate this verified device with your original encryption identity? Linked-device message delivery remains disabled.'))return;
      activate.disabled=true;
      try{const result=await activateConfirmedDevice(supa,account,entry.device_id);
