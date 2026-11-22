@@ -37,7 +37,21 @@ export async function signTsaRoster(body,rootPrivateKey){
 }
 export async function verifyTsaRoster(packet,pinnedRootPublicKey,now=Date.now()){
  const roster=canonical(packet?.roster);
- if(JSON.stringify(roster)!==JSON.stringify(packet.roster))throw Error('Noncanonical TSA roster');
+ // Supabase jsonb reorders object keys. Compare strict data shapes rather than
+ // JSON object insertion order; verify the signature over our canonical order.
+ const exact=(obj,keys)=>obj&&typeof obj==='object'&&!Array.isArray(obj)&&
+  Object.keys(obj).sort().join('|')===[...keys].sort().join('|');
+ const keys=['kty','crv','x','y'];
+ if(!exact(packet.roster,['domain','account','revision','issuedAt','expiresAt','devices'])||
+    !packet.roster.devices.every((d,i)=>exact(d,['device','state','encryptionKey','signingKey'])&&
+     exact(d.encryptionKey,keys)&&exact(d.signingKey,keys)&&
+     JSON.stringify(roster.devices[i])===JSON.stringify({
+      device:d.device,state:d.state,encryptionKey:publicKey(d.encryptionKey),signingKey:publicKey(d.signingKey)
+     }))||
+    roster.account!==packet.roster.account||roster.revision!==packet.roster.revision||
+    roster.issuedAt!==packet.roster.issuedAt||roster.expiresAt!==packet.roster.expiresAt||
+    roster.domain!==packet.roster.domain)
+  throw Error('Noncanonical TSA roster');
  if(!Number.isSafeInteger(now)||now<roster.issuedAt-30000||now>=roster.expiresAt)throw Error('TSA roster stale');
  const verify=await crypto.subtle.importKey('jwk',publicKey(pinnedRootPublicKey),{name:'ECDSA',namedCurve:'P-256'},false,['verify']);
  if(!await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},verify,bytes(packet.signature),E.encode(JSON.stringify(roster))))
