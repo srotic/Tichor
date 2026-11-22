@@ -32,21 +32,29 @@ export async function taseEnrollFirstDevice(client,account,{onStage}={}){
   const notify=(stage)=>{if(typeof onStage==='function')onStage(stage)};
   await activeSession(client,account);
   notify('checking-device-identity');
-  // Never silently replace a root identity from another browser.
-  const root=await ensureIdentity(client,account);
+  // Check the existing registry BEFORE attempting original-root key creation:
+  // a returning user on a secondary browser must not generate another root.
   const existing=await listDeviceRequests(client,account);
-  const allowed=taseCanBootstrap({authenticated:true,verified:true,
-   deviceCount:existing.length,hasOriginalIdentity:Boolean(root?.fingerprint)});
-  if(!allowed){
-   // A matching already-active device needs no repeat approval.
+  if(existing.length){
    const local=await localDeviceFingerprint(client,account);
    if(local&&existing.some(d=>d.device_id===local.id&&d.state==='active')){
-    await loadApprovedLocalDevice(client,account);
-    return Object.freeze({state:'already-active',device:local.id});
+    try{
+     await loadApprovedLocalDevice(client,account);
+     return Object.freeze({state:'already-active',device:local.id});
+    }catch(error){
+     // Expired authorization requires verified renewal; never mark it active.
+     notify('device-authorization-renewal-required');
+     return Object.freeze({state:'authorization-renewal-required',device:local.id});
+    }
    }
    notify('additional-device-approval-required');
    return Object.freeze({state:'existing-device-approval-required',device:null});
   }
+  // Never silently replace a root identity previously registered elsewhere.
+  const root=await ensureIdentity(client,account);
+  const allowed=taseCanBootstrap({authenticated:true,verified:true,
+   deviceCount:existing.length,hasOriginalIdentity:Boolean(root?.fingerprint)});
+  if(!allowed)throw Error('TASE first-device safety check failed');
   notify('creating-first-device-keys');
   const registered=await requestDevice(client,account);
   if(registered.state!=='pending')throw Error('TASE first device is not pending');
