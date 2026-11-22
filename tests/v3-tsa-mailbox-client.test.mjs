@@ -46,8 +46,17 @@ test('receive request signs device identity and does not contain ciphertext',asy
  await assert.rejects(buildSignedTsaMailboxRequest({account,device,action:'receive',signingKey:signer.privateKey,packet:{},issuedAt:now}),/Unexpected packet/);
  await assert.rejects(buildSignedTsaMailboxRequest({account,device,action:'publish',signingKey:signer.privateKey,packet:{},issuedAt:now}),/Invalid TSA ciphertext/);
 });
-test('staging mailbox implementation is not connected to live chat',async()=>{
+test('staging secure mailbox uses an explicit opt-in composer branch without plaintext fallback',async()=>{
  const fs=await import('node:fs');
  const chat=fs.readFileSync(new URL('../chat.html',import.meta.url),'utf8');
- assert.doesNotMatch(chat,/tsa-mailbox-client\.mjs|tsa-ciphertext-mailbox/);
+ assert.match(chat,/import \{encryptAndPublishTsaTextStaging,receiveTsaVerifiedTextStaging\} from ".\/tsa-mailbox-client\.mjs"/);
+ assert.match(chat,/id="tcTsaSecureMode"/);
+ assert.match(chat,/const tcTsaSelected=\(\)=>Boolean/);
+ assert.match(chat,/tsaToggle.checked=false/);
+ assert.match(chat,/if\(secureMailbox\)\{/);
+ assert.match(chat,/Encrypted message stored/);
+ assert.match(chat,/No plaintext fallback/);
+ assert.match(chat,/await encryptAndPublishTsaTextStaging\(client/);
+ assert.match(chat,/if\(result.state!=='stored-staging-ciphertext'\)/);
+ assert.match(chat,/return;\s*\}\s*if\(encrypted&&file\)/);
 });
