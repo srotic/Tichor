@@ -209,6 +209,26 @@ export async function saveEnrollmentPreview(supa,account,request,confirmedFinger
   const {error:directoryError}=await supa.from('tichor_e2ee_recipient_directory').insert({user_id:account,device_id:request.device_id,nonce:approved.nonce,certificate:cert.certificate,signature:cert.signature,expires_at_ms:cert.certificate.expiresAt});
   if(directoryError)throw Error('Certificate stored but discovery publication failed. Refresh registration and retry.');
  }
+ // TSA: persist only locally root-signed device trust evidence.
+ // This is NOT a delivery authorization and cannot enable multi-device E2EE.
+ const localRoot=await dbGet(account);
+ const currentRoot=await fetchPublic(supa,account);
+ if(!localRoot?.sign?.privateKey||localRoot.sign.privateKey.extractable||
+    canonicalJwk(await cryptoAPI.exportKey('jwk',localRoot.sign.publicKey))!==canonicalJwk(currentRoot.signing_public_jwk))
+  throw Error('Original root signer unavailable. Trust evidence was not persisted.');
+ const {data:liveDevice,error:deviceError}=await supa.from('tichor_e2ee_devices')
+  .select('user_id,device_id,state,encryption_public_jwk,signing_public_jwk')
+  .eq('user_id',account).eq('device_id',request.device_id).maybeSingle();
+ if(deviceError||liveDevice?.state!=='pending')throw Error('Device no longer eligible for trust evidence.');
+ const trustModule=await import('./tsa-device-trust.mjs');
+ const signedTrust=await trustModule.createDeviceTrustEvidence(cert,account,request.device_id,
+    currentRoot.signing_public_jwk,localRoot.sign.privateKey,liveDevice);
+ const grant=signedTrust.grant;
+ const {error:trustError}=await supa.from('tichor_e2ee_device_trust_evidence').insert({
+  user_id:account,device_id:request.device_id,nonce:approved.nonce,
+  issued_at_ms:grant.issuedAt,expires_at_ms:grant.expiresAt,signature:signedTrust.signature
+ });
+ if(trustError&&trustError.code!=='23505')throw Error('Root-signed trust evidence could not be recorded.');
  const result=await readEnrollmentPreview(supa,account,request);
  if(result!=='directory-verified-preview')throw Error('Stored nonce-bound preview could not be verified. Refresh registration.');
  return result;
