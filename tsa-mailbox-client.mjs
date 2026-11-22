@@ -49,8 +49,9 @@ export async function publishTsaCiphertextStaging(client,account,packet){
   throw Error('Incomplete server-authorized ciphertext fanout');
  return Object.freeze({state:data.state,deviceCopies:data.copied,deliveryAuthorized:false});
 }
-// Receive only signed packets. Caller must supply a pinned, independently
-// verified SENDER signing key, never trust a key embedded in a mailbox message.
+// Receive only signed packets. Caller must resolve the EXACT sending-device
+// public key from a trusted, root-signed active-device roster, never from
+// untrusted mailbox contents. A sender ACCOUNT key alone is insufficient.
 export async function receiveTsaCiphertextStaging(client,account,resolvePinnedSenderKey,replayStore){
  if(typeof resolvePinnedSenderKey!=='function')throw Error('Verified sender key resolver required');
  const {data,device}=await perform(client,account,'receive');
@@ -58,18 +59,18 @@ export async function receiveTsaCiphertextStaging(client,account,resolvePinnedSe
   throw Error('Malformed TSA mailbox response');
  const results=[];
  for(const message of data.messages){
-  id(message.message_id);id(message.sender_id);id(message.peer_id);
+  id(message.message_id);id(message.sender_id);id(message.peer_id);id(message.signing_device_id);
   if(typeof message.packet_text!=='string'||message.packet_text.length>32768)
    throw Error('Malformed ciphertext mailbox row');
   const packet=JSON.parse(message.packet_text);
   if(packet.messageId!==message.message_id||packet.from!==message.sender_id||
     packet.to!==message.peer_id||!packet.copies?.some(c=>c.account===account&&c.device===device.deviceId))
    throw Error('Ciphertext mailbox routing mismatch');
-  const senderPublicKey=await resolvePinnedSenderKey(message.sender_id);
+  const senderPublicKey=await resolvePinnedSenderKey(message.sender_id,message.signing_device_id);
   if(!senderPublicKey)throw Error('Sender identity not independently verified');
   const text=await decryptDeviceCopyOnce({packet,recipientAccount:account,deviceId:device.deviceId,
    privateKey:device.decryptionKey,senderPublicKey},replayStore);
-  results.push(Object.freeze({messageId:message.message_id,senderId:message.sender_id,text}));
+  results.push(Object.freeze({messageId:message.message_id,senderId:message.sender_id,senderDeviceId:message.signing_device_id,text}));
  }
  return Object.freeze(results);
 }
