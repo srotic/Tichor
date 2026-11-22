@@ -346,3 +346,62 @@ export async function discoverRecipientCertificatePreviews(supa,sender,recipient
  }
  return {state:'verified-certificate-preview-not-authorized',verifiedCertificateDevices:verified.size};
 }
+
+// TSA V3: the ORIGINAL account identity browser alone signs activation.
+// This state transition does not provide transport keys or enable delivery.
+// The privileged Edge verifier independently checks every signature and nonce.
+export async function activateConfirmedDevice(supa,account,device){
+ const {data:session,error:authError}=await supa.auth.getUser();
+ if(authError||session?.user?.id!==account)throw Error('Account session changed; device activation blocked.');
+ const confirmed=await getConfirmedRootPreview(supa,account);
+ if(!confirmed)throw Error('Independently confirm the original account identity before device activation.');
+ const local=await dbGet(account);
+ const root=await fetchPublic(supa,account);
+ if(!local?.sign?.privateKey||local.sign.privateKey.extractable||
+   canonicalJwk(await cryptoAPI.exportKey('jwk',local.sign.publicKey))!==canonicalJwk(root.signing_public_jwk))
+  throw Error('Only the original encryption browser can activate a device.');
+ const {data:registry,error:registryError}=await supa.from('tichor_e2ee_devices')
+  .select('user_id,device_id,state,encryption_public_jwk,signing_public_jwk')
+  .eq('user_id',account).eq('device_id',device).maybeSingle();
+ if(registryError||registry?.state!=='pending')throw Error('Device is not pending or was revoked.');
+ const {data:grants,error:grantsError}=await supa.from('tichor_e2ee_device_trust_evidence')
+  .select('nonce,issued_at_ms,expires_at_ms,signature')
+  .eq('user_id',account).eq('device_id',device).gt('expires_at_ms',Date.now())
+  .order('issued_at_ms',{ascending:false}).limit(20);
+ if(grantsError||!grants?.length)throw Error('No current independently root-signed trust evidence for this device.');
+ const proto=await import('./tsa-device-trust.mjs');
+ const grantModule=await import('./tsa-active-device-grant.mjs');
+ for(const evidence of grants){
+  const {data:directory,error:directoryError}=await supa.from('tichor_e2ee_recipient_directory')
+   .select('user_id,device_id,nonce,certificate,signature,expires_at_ms')
+   .eq('user_id',account).eq('nonce',evidence.nonce).maybeSingle();
+  if(directoryError)throw Error('Trusted device certificate lookup failed.');
+  if(directory?.device_id!==device)continue;
+  try{
+   await proto.verifyDeviceTrustEvidence({
+    grant:{domain:'TichorConnect V3 root device trust evidence v1',
+     account,device,nonce:evidence.nonce,certificateSignature:directory.signature,
+     issuedAt:Number(evidence.issued_at_ms),expiresAt:Number(evidence.expires_at_ms)},
+    signature:evidence.signature
+   },{certificate:directory.certificate,signature:directory.signature},
+   account,device,root.signing_public_jwk,registry);
+  }catch{continue}
+  const now=Date.now();
+  const expiresAt=Math.min(now+3600000,Number(evidence.expires_at_ms),Number(directory.expires_at_ms));
+  if(expiresAt<=now+1000)continue;
+  const approval=await grantModule.signActiveDeviceGrant({
+   account,device,nonce:evidence.nonce,issuedAt:now,expiresAt,
+   encryptionKey:registry.encryption_public_jwk,signingKey:registry.signing_public_jwk
+  },local.sign.privateKey);
+  const {data:check,error:checkError}=await supa.auth.getUser();
+  if(checkError||check?.user?.id!==account)throw Error('Account changed before device activation.');
+  const {data:result,error:edgeError}=await supa.functions.invoke('tsa-activate-device',{body:approval});
+  if(edgeError||result?.state!=='active-device-evidence-not-delivery-authorized')
+   throw Error('Server could not verify the original-device authorization. No activation performed.');
+  const {data:latest,error:latestError}=await supa.from('tichor_e2ee_devices')
+   .select('state').eq('user_id',account).eq('device_id',device).maybeSingle();
+  if(latestError||latest?.state!=='active')throw Error('Device activation did not persist.');
+  return {state:'active-not-delivery-authorized',device,expiresAt};
+ }
+ throw Error('No valid signed trust evidence; renew device enrollment before activation.');
+}
