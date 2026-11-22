@@ -31,7 +31,7 @@ Deno.serve(async req=>{
  const origin=req.headers.get('origin');
  const headers={'Content-Type':'application/json','Cache-Control':'no-store',
   'Access-Control-Allow-Origin':allowedOrigin,'Vary':'Origin',
-  'Access-Control-Allow-Headers':'authorization, apikey, content-type',
+  'Access-Control-Allow-Headers':'authorization, x-client-info, x-supabase-api-version, apikey, content-type',
   'Access-Control-Allow-Methods':'POST, OPTIONS'};
  const reply=(status,message)=>new Response(JSON.stringify({state:'not-authorized',message}),{status,headers});
  if(origin&&origin!==allowedOrigin)return reply(403,'Origin not allowed');
