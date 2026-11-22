@@ -102,3 +102,12 @@ test('TSA server readiness remains strictly read-only and refuses device deliver
  assert.match(source,/device-readiness-preview-not-authorized/);
  assert.doesNotMatch(source,/encryptDeviceCopies\(/);
 });
+
+test('TSA replay receipts cannot enable multi-device chat delivery',()=>{
+ const source=read('tsa-replay-receipts.mjs');
+ const chat=read('chat.html');
+ assert.match(source,/decryptDeviceCopyOnce/);
+ assert.match(source,/createIndexedDbTsaReplayStore/);
+ assert.match(source,/Duplicate TSA message or replay receipt unavailable/);
+ assert.doesNotMatch(chat,/tsa-replay-receipts\.mjs/);
+});
