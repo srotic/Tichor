@@ -73,3 +73,50 @@ export async function receiveTsaCiphertextStaging(client,account,resolvePinnedSe
  }
  return Object.freeze(results);
 }
+
+// End-to-end staging assembly: verified contact root -> signed complete device
+// rosters -> own non-extractable signing key -> server-checked ciphertext fanout.
+// Signed rosters are supplied by the caller pending a durable roster directory;
+// this function refuses unverified contact identities instead of downgrading.
+export async function encryptAndPublishTsaTextStaging(client,{account,recipient,text,senderRoster,recipientRoster,verifiedRootStore=localStorage}){
+ id(account);id(recipient);
+ if(account===recipient)throw Error('Cannot send TSA message to self');
+ const {requireContactRootPin}=await import('./tsa-contact-root-pin.mjs');
+ const {verifyTsaRoster,previewTsaRosterCoverage}=await import('./tsa-signed-roster.mjs');
+ const {encryptDeviceCopies}=await import('./tsa-multidevice-envelope.mjs');
+ const source=await loadApprovedLocalDevice(client,account);
+ async function getAccountRoot(who){
+  const {data,error}=await client.from('tichor_e2ee_identity_keys')
+   .select('user_id,encryption_public_jwk,signing_public_jwk').eq('user_id',who).maybeSingle();
+  if(error||data?.user_id!==who)throw Error('Trusted TSA root public key unavailable');
+  const canonical=k=>JSON.stringify({kty:k.kty,crv:k.crv,x:k.x,y:k.y});
+  const digest=await crypto.subtle.digest('SHA-256',E.encode(
+   canonical(data.encryption_public_jwk)+'|'+canonical(data.signing_public_jwk)));
+  const fingerprint=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,'0')).join('');
+  return {signing:data.signing_public_jwk,fingerprint};
+ }
+ const [mine,peer]=await Promise.all([getAccountRoot(account),getAccountRoot(recipient)]);
+ requireContactRootPin(verifiedRootStore,account,recipient,peer.fingerprint);
+ const now=Date.now();
+ const [from,to]=await Promise.all([
+  verifyTsaRoster(senderRoster,mine.signing,now),
+  verifyTsaRoster(recipientRoster,peer.signing,now)
+ ]);
+ if(from.account!==account||to.account!==recipient)throw Error('TSA signed roster account mismatch');
+ const own=from.devices.find(d=>d.device===source.deviceId);
+ const same=(a,b)=>['kty','crv','x','y'].every(k=>a?.[k]===b?.[k]);
+ if(!own||!same(own.signingKey,source.signingPublicKey)||
+  !same(own.encryptionKey,source.encryptionPublicKey))
+  throw Error('Local signing device is missing or substituted in the approved sender roster');
+ const targets=[
+  ...from.devices.map(d=>({account,device:d.device,authorized:true,encryptionKey:d.encryptionKey})),
+  ...to.devices.map(d=>({account:recipient,device:d.device,authorized:true,encryptionKey:d.encryptionKey}))
+ ];
+ const packet=await encryptDeviceCopies({sender:account,recipient,
+  messageId:crypto.randomUUID(),text,targets,signingKey:source.signingKey,createdAt:now});
+ const check=await previewTsaRosterCoverage({packet,senderRoster,recipientRoster,
+  senderRoot:mine.signing,recipientRoot:peer.signing,now});
+ if(check.deviceCount!==packet.copies.length||check.deliveryAuthorized!==false)
+  throw Error('TSA recipient roster verification failed');
+ return publishTsaCiphertextStaging(client,account,packet);
+}
