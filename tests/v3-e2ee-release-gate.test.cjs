@@ -21,3 +21,13 @@ test('Four-phase release gates explicitly block unreviewed E2EE claims',()=>{
  assert.match(plan,/never silently fall back to plaintext/);
  assert.match(plan,/Global E2EE required \| \*\*Disabled\*\*/);
 });
+
+test('TSA recipient discovery remains explicitly non-authorizing and requires verified account fingerprint',()=>{
+ const source=read('e2ee-v3.js');
+ assert.match(source,/discoverRecipientCertificatePreviews\(supa,sender,recipient,confirmedRootFingerprint\)/);
+ assert.match(source,/Recipient root fingerprint must be independently confirmed/);
+ assert.match(source,/Recipient root identity mismatch\. Discovery blocked/);
+ assert.match(source,/verifyEligibilityCertificate/);
+ assert.match(source,/verified-certificate-preview-not-authorized/);
+ assert.doesNotMatch(source,/state:'verified-certificate-preview-authorized'/);
+});
