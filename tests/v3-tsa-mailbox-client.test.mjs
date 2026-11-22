@@ -62,3 +62,13 @@ test('staging secure mailbox uses an explicit opt-in composer branch without pla
  assert.match(chat,/if\(result.state!=='stored-staging-ciphertext'\)/);
  assert.match(chat,/return;\s*\}\s*if\(encrypted&&file\)/);
 });
+
+test('experimental mailbox defaults collapsed, preserving chat viewport and immutable receipt timestamps',async()=>{
+ const fs=await import('node:fs');
+ const html=fs.readFileSync(new URL('../chat.html',import.meta.url),'utf8');
+ assert.match(html,/<details id="tcTsaMailboxPanel"/);
+ assert.match(html,/<summary[^>]*>🔒 Experimental multi-device secure mailbox/);
+ assert.match(html,/id="tcTsaInbox"[^>]*max-height:180px/);
+ assert.match(html,/\.update\(\{read_at:new Date\(\)\.toISOString\(\)\}\)/);
+ assert.doesNotMatch(html,/\.update\(\{read_at:new Date\(\)\.toISOString\(\),delivered_at:/);
+});
