@@ -1291,10 +1291,13 @@ async function tcRenderDeviceRequests(account,version){
     }catch(e){if(user?.id===account&&version===tcDeviceRequestVersion)$('tcDeviceStatus').textContent='Approval preview failed: '+e.message}finally{approve.disabled=false}
    };
    line.append(' ',approve);
-   if(root&&verified==='confirmed-root-preview'){
+   if(root){
     const activate=document.createElement('button');activate.type='button';activate.textContent='Activate verified device';
     activate.onclick=async()=>{
      if(user?.id!==account||version!==tcDeviceRequestVersion)return;
+     const typed=prompt('Compare the full device fingerprint again in person or by QR before activating. Paste the independently confirmed fingerprint:');
+     if(typed===null)return;
+     if(typed.toLowerCase().replace(/\\s+/g,'')!==fp.toLowerCase().replace(/\\s+/g,'')){$('tcDeviceStatus').textContent='Device fingerprint mismatch; activation blocked.';return;}
      if(!confirm('Activate this verified device with your original encryption identity? Linked-device message delivery remains disabled.'))return;
      activate.disabled=true;
      try{const result=await activateConfirmedDevice(supa,account,entry.device_id);
