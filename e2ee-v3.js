@@ -283,11 +283,11 @@ export async function readEligibilityCertificatePreview(supa,account,device){
 export async function discoverRecipientCertificatePreviews(supa,sender,recipient,confirmedRootFingerprint){
  const {data:session,error:authError}=await supa.auth.getUser();
  if(authError||session?.user?.id!==sender||sender===recipient)throw Error('Invalid discovery session.');
- if(typeof confirmedRootFingerprint!=='string'||!/^[a-f0-9]{64}$/i.test(confirmedRootFingerprint.replace(/\\s/g,'')))
+ if(typeof confirmedRootFingerprint!=='string'||!/^[a-f0-9]{64}$/i.test(confirmedRootFingerprint.replace(/\s/g,'')))
   throw Error('Recipient root fingerprint must be independently confirmed before discovery.');
  const root=await fetchPublic(supa,recipient);
- const actual=(await fingerprint(root)).replace(/\\s/g,'');
- if(actual!==confirmedRootFingerprint.toLowerCase().replace(/\\s/g,''))
+ const actual=(await fingerprint(root)).replace(/\s/g,'');
+ if(actual!==confirmedRootFingerprint.toLowerCase().replace(/\s/g,''))
   throw Error('Recipient root identity mismatch. Discovery blocked.');
  const {data,error}=await supa.from('tichor_e2ee_recipient_directory')
   .select('user_id,device_id,nonce,certificate,signature,expires_at_ms')
