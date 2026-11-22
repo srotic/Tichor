@@ -123,3 +123,30 @@ test('TSA two-step authenticated sessions and mailbox stay independent from unau
  assert.match(mailbox,/TSA mailbox retrieval disabled/);
  assert.doesNotMatch(html,/tsa-authenticated-handshake\.mjs|tsa-device-mailbox\.mjs/);
 });
+
+test('TSA active-device activation requires server verification and does not enable delivery',()=>{
+ const html=read('chat.html');
+ const client=read('e2ee-v3.js');
+ const edge=read('supabase/functions/tsa-activate-device/index.ts');
+ const grants=read('tsa-active-device-grant.mjs');
+ const registry=read('e2ee-device-registry.js');
+ assert.match(html,/Activate verified device/);
+ assert.match(html,/activateConfirmedDevice\(supa,account,entry\.device_id\)/);
+ assert.match(html,/Device fingerprint mismatch; activation blocked/);
+ assert.match(client,/getConfirmedRootPreview\(supa,account\)/);
+ assert.match(client,/signActiveDeviceGrant\(/);
+ assert.match(client,/functions\.invoke\('tsa-activate-device'/);
+ assert.match(edge,/db\.auth\.getUser\(authorization\.slice\(7\)\)/);
+ assert.match(edge,/Original root signature verification failed/);
+ assert.match(edge,/Device possession proof invalid/);
+ assert.match(edge,/Original enrollment approval invalid/);
+ assert.match(edge,/Invalid eligibility certificate/);
+ assert.match(edge,/Invalid root-signed trust evidence/);
+ assert.match(edge,/tsa_activate_device_verified/);
+ assert.match(edge,/active-device-evidence-not-delivery-authorized/);
+ assert.match(grants,/root-signed-active-grant-verified-not-delivery/);
+ assert.match(registry,/in\('state',\['pending','active'\]\)/);
+ const mailbox=read('tsa-device-mailbox.mjs');
+ assert.match(mailbox,/TSA mailbox transport disabled/);
+ assert.match(mailbox,/TSA mailbox retrieval disabled/);
+});
