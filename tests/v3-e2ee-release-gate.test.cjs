@@ -9,7 +9,7 @@ test('V3 does not misrepresent the currently unencrypted message transport',()=>
  assert.match(html,/id="tichorE2EEStatus"/);
  assert.match(html,/Experimental encryption required for new direct text/);
  assert.match(html,/Previous plaintext messages, groups, attachments, calls, and other tools are not protected/);
- assert.match(html,/Do not share sensitive information/);
+ assert.match(html,/Do not use for sensitive communications/);
  assert.match(html,/supa\.from\('chat_messages'\)\.insert/);
  assert.match(html,/supa\.from\('tichor_group_messages'\)\.insert/);
 });
