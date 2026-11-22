@@ -1166,7 +1166,8 @@ window.tichorShowTab=showTab;
 window.tichorOpenChat=()=>showTab('chat');
 window.addEventListener('load',()=>showTab(new URLSearchParams(location.search).has('incoming')?'calls':'inbox'));
 })();
-</script><script type="module">
+</script><script src="./vendor/qrcode-generator.js"></script>
+<script type="module">
 import {enableNotifications,disableNotifications} from "./notifications.js";
 import {ensureIdentity,encryptDirectText,decryptDirectText,isEncrypted,encryptionStatus,readEnrollmentPreview,saveEnrollmentPreview} from "./e2ee-v3.js";
 import {requestFingerprint} from "./e2ee-device-approval.mjs";
@@ -1219,6 +1220,7 @@ async function tcSetupIdentity(account){
 }
 $('tcEnableE2EE').onclick=()=>{if(user)tcSetupIdentity(user.id).catch(console.warn)};
 let tcDeviceRequestVersion=0;
+let tcLocalPendingDevice=null;
 async function tcRenderDeviceRequests(account,version){
  const rows=await listDeviceRequests(supa,account);
  if(user?.id!==account||version!==tcDeviceRequestVersion)return;
@@ -1231,10 +1233,23 @@ async function tcRenderDeviceRequests(account,version){
   if(user?.id!==account||version!==tcDeviceRequestVersion)return;
   line.textContent=entry.device_id+' · '+entry.state+' · fingerprint: '+fp+' · '+(result==='directory-verified-preview'?'Saved signature matches directory key (not trusted authorization)':result==='invalid'?'Invalid saved signature; revoke this request':result==='missing'?'Awaiting signature':'Inactive');
   if(entry.state==='pending'){
+   if(tcLocalPendingDevice===entry.device_id){
+    const qr=document.createElement('button');qr.type='button';qr.textContent='Show device QR';
+    qr.onclick=()=>{
+     if(user?.id!==account||version!==tcDeviceRequestVersion)return;
+     try{
+      if(typeof window.qrcode!=='function')throw Error('QR encoder unavailable');
+      const code=window.qrcode(0,'M');code.addData(fp.replace(/\s+/g,''));code.make();
+      const img=document.createElement('img');img.src=code.createDataURL(5,20);img.alt='Pending device fingerprint QR code';img.style.cssText='display:block;max-width:100%;height:auto;background:white;margin:8px auto';
+      line.append(img);qr.disabled=true;
+      $('tcDeviceStatus').textContent='Scan this fingerprint on the original device in person. This is a preview, not device authorization.';
+     }catch(e){$('tcDeviceStatus').textContent=e.message}
+    };line.append(' ',qr);
+   }
    const approve=document.createElement('button');approve.type='button';approve.textContent='Save approval preview';approve.disabled=result!=='missing';
    approve.onclick=async()=>{
     if(user?.id!==account||version!==tcDeviceRequestVersion)return;
-    const typed=prompt('Compare the complete fingerprint on the new device in person. Enter the fingerprint shown on that device. This saves a test signature only, not message access.');
+    const typed=prompt('Scan the QR using your trusted device camera or compare the full fingerprint in person. Paste the scanned fingerprint here. This saves a preview signature only; no message access.');
     if(typed===null)return;
     const normalized=typed.toLowerCase().replace(/\s+/g,'');
     if(normalized!==fp.replace(/\s+/g,'')){$('tcDeviceStatus').textContent='Fingerprint mismatch. Nothing signed.';return;}
@@ -1259,6 +1274,7 @@ async function tcManageDevice(register){
  try{
   const result=register?await requestDevice(supa,account):null;
   if(user?.id!==account||v!==tcDeviceRequestVersion)return;
+  if(result)tcLocalPendingDevice=result.state==='pending'?result.id:null;
   await tcRenderDeviceRequests(account,v);
   if(user?.id===account&&v===tcDeviceRequestVersion)status.textContent=result?'This device: '+result.state+'. No message access granted.':'Device requests refreshed.';
  }catch(e){if(user?.id===account&&v===tcDeviceRequestVersion)status.textContent='Device request unavailable: '+e.message}
@@ -1363,7 +1379,7 @@ function tichorMountPrivacy(){
 }
 const quickBlockButton=document.getElementById('tichorQuickBlock');if(quickBlockButton)quickBlockButton.addEventListener('click',tichorToggleBlockCurrent);
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',tichorMountPrivacy,{once:true});else tichorMountPrivacy();
-async function loggedIn(u){user=u;tcDeviceRequestVersion++;$('tcDeviceRequests').replaceChildren();$('tcDeviceStatus').textContent='';tcSetupIdentity(u.id).catch(console.warn);window.__tichorTaskSession={client:supa,userId:u.id};window.dispatchEvent(new Event('tichor-task-auth'));const chosen=localStorage.getItem(TICHOR_LANG_KEY);if(!localStorage.getItem('tichor-preferred-language:'+u.id)&&chosen)localStorage.setItem('tichor-preferred-language:'+u.id,chosen);tichorLanguageChoice();tichorPrivacyLoad();await tichorLoadKnownCallers();show('auth',false);show('chat',true);$('who').textContent='Signed in as '+(u.email||u.phone||'Tichor user');await loadProfile();await tichorRefreshRequests();await loadContacts();tcGroupMount();tcGroupRefresh().catch(console.warn);await refreshFolder();await acknowledgeDelivery();await startCalling();startMessageUpdates();}
+async function loggedIn(u){user=u;tcLocalPendingDevice=null;tcDeviceRequestVersion++;$('tcDeviceRequests').replaceChildren();$('tcDeviceStatus').textContent='';tcSetupIdentity(u.id).catch(console.warn);window.__tichorTaskSession={client:supa,userId:u.id};window.dispatchEvent(new Event('tichor-task-auth'));const chosen=localStorage.getItem(TICHOR_LANG_KEY);if(!localStorage.getItem('tichor-preferred-language:'+u.id)&&chosen)localStorage.setItem('tichor-preferred-language:'+u.id,chosen);tichorLanguageChoice();tichorPrivacyLoad();await tichorLoadKnownCallers();show('auth',false);show('chat',true);$('who').textContent='Signed in as '+(u.email||u.phone||'Tichor user');await loadProfile();await tichorRefreshRequests();await loadContacts();tcGroupMount();tcGroupRefresh().catch(console.warn);await refreshFolder();await acknowledgeDelivery();await startCalling();startMessageUpdates();}
 
 // Inbox and Sent are derived from existing messages; no new database tables needed.
 let activeFolder='inbox',folderBusy=false;
