@@ -158,7 +158,7 @@ test('Secondary browser shows secure linked-device setup instead of repeated ide
  assert.match(html,/This browser is not the original encryption device/);
  assert.match(html,/Set up this as a linked device/);
  assert.match(html,/tcManageDevice\(true\)/);
- assert.match(html,/Being active does not yet unlock linked-device messaging/);
+ assert.match(html,/Linked-device message access remains disabled/);
  assert.match(source,/Secure device linking or recovery is required/);
  assert.match(source,/keys will not be silently replaced/);
 });
