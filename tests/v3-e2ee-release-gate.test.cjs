@@ -111,3 +111,15 @@ test('TSA replay receipts cannot enable multi-device chat delivery',()=>{
  assert.match(source,/Duplicate TSA message or replay receipt unavailable/);
  assert.doesNotMatch(chat,/tsa-replay-receipts\.mjs/);
 });
+
+test('TSA two-step authenticated sessions and mailbox stay independent from unaudited live chat',()=>{
+ const handshake=read('tsa-authenticated-handshake.mjs');
+ const mailbox=read('tsa-device-mailbox.mjs');
+ const html=read('chat.html');
+ assert.match(handshake,/authenticated-transcript-only-no-delivery/);
+ assert.match(handshake,/ephemeral-session-prototype-not-delivery-authorized/);
+ assert.match(mailbox,/publishEncryptedMailboxBatch/);
+ assert.match(mailbox,/TSA mailbox transport disabled/);
+ assert.match(mailbox,/TSA mailbox retrieval disabled/);
+ assert.doesNotMatch(html,/tsa-authenticated-handshake\.mjs|tsa-device-mailbox\.mjs/);
+});
