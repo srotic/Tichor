@@ -16,14 +16,22 @@ async function read(supa,account,device){
 export async function registerPendingDevice(supa,packet,account,now=Date.now()){
  await currentAccount(supa,account);
  const r=await verifyDeviceRequest(packet,account,now);
- const existing=await read(supa,account,r.device);
- if(existing){
-  if(existing.state!=='pending'||!matches(existing,r))throw Error('Device identity unavailable or revoked');
-  return existing;
+ let row=await read(supa,account,r.device);
+ if(row){
+  if(row.state!=='pending'||!matches(row,r))throw Error('Device identity unavailable or revoked');
+ }else{
+  const {data,error}=await supa.from(table).insert({user_id:r.account,device_id:r.device,encryption_public_jwk:r.encryptionKey,signing_public_jwk:r.signingKey}).select(columns).single();
+  if(error||data?.state!=='pending'||!matches(data,r))throw Error('Device registration failed');
+  row=data;
  }
- const {data,error}=await supa.from(table).insert({user_id:r.account,device_id:r.device,encryption_public_jwk:r.encryptionKey,signing_public_jwk:r.signingKey}).select(columns).single();
- if(error||data?.state!=='pending'||!matches(data,r))throw Error('Device registration failed');
- return data;
+ // A successful insert consumes the nonce for this evidence submission.
+ // The database does not verify signatures and this record is NOT an authorization grant.
+ await currentAccount(supa,account);
+ const {error:evidenceError}=await supa.from('tichor_e2ee_link_evidence').insert({user_id:r.account,device_id:r.device,nonce:r.nonce,issued_at_ms:r.issuedAt,expires_at_ms:r.expiresAt,proof:packet.proof});
+ if(evidenceError)throw Error(evidenceError.code==='23505'?'Device request nonce already recorded. Generate a new request.':'Device request evidence could not be recorded.');
+ const latest=await read(supa,account,r.device);
+ if(latest?.state!=='pending'||!matches(latest,r))throw Error('Device identity unavailable or revoked');
+ return latest;
 }
 export async function revokePendingDevice(supa,account,device){
  await currentAccount(supa,account);
