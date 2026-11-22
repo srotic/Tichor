@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {initiateTsaHandshake,answerTsaHandshake,verifyTsaHandshake} from '../tsa-authenticated-handshake.mjs';
+import {initiateTsaHandshake,answerTsaHandshake,verifyTsaHandshake,deriveInitiatorTsaSession,deriveResponderTsaSession} from '../tsa-authenticated-handshake.mjs';
 const initiatorAccount='11111111-1111-4111-8111-111111111111';
 const initiatorDevice='22222222-2222-4222-8222-222222222222';
 const responderAccount='33333333-3333-4333-8333-333333333333';
@@ -39,4 +39,25 @@ test('handshake rejects replay after expiry, wrong device, substituted key and t
   initiatorSigningPublic:await crypto.subtle.exportKey('jwk',attacker.publicKey),
   expectedResponderAccount:responderAccount,expectedResponderDevice:responderDevice,
   responderSigningKey:f.b.privateKey,now}),/Unauthenticated TSA initiator/);
+});
+
+test('both verified handshake parties derive the same ephemeral encryption key',async()=>{
+ const f=await fixture();
+ const base={request:f.first.request,signature:f.first.signature,response:f.second.response,
+  responseSignature:f.second.responseSignature,
+  initiatorSigningPublic:await crypto.subtle.exportKey('jwk',f.a.publicKey),
+  responderSigningPublic:await crypto.subtle.exportKey('jwk',f.b.publicKey),
+  expectedInitiatorAccount:initiatorAccount,expectedInitiatorDevice:initiatorDevice,
+  expectedResponderAccount:responderAccount,expectedResponderDevice:responderDevice,now};
+ const initiator=await deriveInitiatorTsaSession({...base,privateEphemeral:f.first.privateEphemeral});
+ const responder=await deriveResponderTsaSession({...base,privateEphemeral:f.second.privateEphemeral});
+ assert.equal(initiator.state,'ephemeral-session-prototype-not-delivery-authorized');
+ assert.equal(initiator.key.extractable,false);assert.equal(responder.key.extractable,false);
+ const iv=crypto.getRandomValues(new Uint8Array(12));
+ const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},initiator.key,new TextEncoder().encode('shared secret'));
+ const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv},responder.key,ct);
+ assert.equal(new TextDecoder().decode(plain),'shared secret');
+ const wrong=await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},false,['deriveBits']);
+ const unrelated=await deriveResponderTsaSession({...base,privateEphemeral:wrong.privateKey});
+ await assert.rejects(crypto.subtle.decrypt({name:'AES-GCM',iv},unrelated.key,ct));
 });
