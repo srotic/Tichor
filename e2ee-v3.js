@@ -280,15 +280,29 @@ export async function readEligibilityCertificatePreview(supa,account,device){
 // The root fingerprint MUST be independently compared with the recipient
 // out-of-band; directory key substitution must fail closed. This does not
 // establish current device state, so these keys must not be used for delivery.
+// Explicit user fingerprint comparison is required only when first pinning a contact.
+// Subsequent discovery requires the previously confirmed, account-scoped pin.
+export async function confirmRecipientRootForTSA(supa,sender,recipient,typedFingerprint){
+ const {data:session,error:authError}=await supa.auth.getUser();
+ if(authError||session?.user?.id!==sender||sender===recipient)throw Error('Invalid root confirmation session.');
+ const root=await fetchPublic(supa,recipient);
+ const actual=await fingerprint(root);
+ const {confirmContactRootPin}=await import('./tsa-contact-root-pin.mjs');
+ return confirmContactRootPin(localStorage,sender,recipient,typedFingerprint,actual);
+}
 export async function discoverRecipientCertificatePreviews(supa,sender,recipient,confirmedRootFingerprint){
  const {data:session,error:authError}=await supa.auth.getUser();
  if(authError||session?.user?.id!==sender||sender===recipient)throw Error('Invalid discovery session.');
- if(typeof confirmedRootFingerprint!=='string'||!/^[a-f0-9]{64}$/i.test(confirmedRootFingerprint.replace(/\s/g,'')))
-  throw Error('Recipient root fingerprint must be independently confirmed before discovery.');
  const root=await fetchPublic(supa,recipient);
- const actual=(await fingerprint(root)).replace(/\s/g,'');
- if(actual!==confirmedRootFingerprint.toLowerCase().replace(/\s/g,''))
-  throw Error('Recipient root identity mismatch. Discovery blocked.');
+ const actual=await fingerprint(root);
+ const pins=await import('./tsa-contact-root-pin.mjs');
+ if(confirmedRootFingerprint!==undefined){
+  // A supplied fingerprint cannot be silently treated as confirmation.
+  // Call confirmRecipientRootForTSA after an out-of-band identity comparison.
+  if(pins.normalizeRootFingerprint(confirmedRootFingerprint)!==pins.normalizeRootFingerprint(actual))
+   throw Error('Recipient root identity mismatch. Discovery blocked.');
+ }
+ pins.requireContactRootPin(localStorage,sender,recipient,actual);
  const {data,error}=await supa.from('tichor_e2ee_recipient_directory')
   .select('user_id,device_id,nonce,certificate,signature,expires_at_ms')
   .eq('user_id',recipient).gt('expires_at_ms',Date.now()).limit(50);
