@@ -154,3 +154,32 @@ export async function signEnrollmentPreview(supa,account,request,confirmedFinger
  if(!await verifyDeviceApproval(current,signature,published.signing_public_jwk))throw Error('Signature verification failed.');
  return b64(signature);
 }
+
+ // Persistent PREVIEW only. A server-directory signature is not an independent trust root.
+export async function readEnrollmentPreview(supa,account,request){
+ if(request.user_id!==account||request.state!=='pending')return 'inactive';
+ const {data:session,error:authError}=await supa.auth.getUser();
+ if(authError||session?.user?.id!==account)throw Error('Session mismatch.');
+ const {data:current,error:deviceError}=await supa.from('tichor_e2ee_devices').select('user_id,device_id,state,encryption_public_jwk,signing_public_jwk').eq('user_id',account).eq('device_id',request.device_id).maybeSingle();
+ if(deviceError)throw deviceError;
+ if(!current||current.state!=='pending')return 'inactive';
+ const {requestFingerprint,verifyDeviceApproval}=await import('./e2ee-device-approval.mjs');
+ if(await requestFingerprint(current)!==await requestFingerprint(request))throw Error('Request changed.');
+ const {data,error}=await supa.from('tichor_e2ee_approval_previews').select('signature').eq('user_id',account).eq('device_id',request.device_id).maybeSingle();
+ if(error)throw error;
+ if(!data)return 'missing';
+ if(!/^[A-Za-z0-9+/]{86}==$/.test(data.signature))return 'invalid';
+ const published=await fetchPublic(supa,account);
+ return await verifyDeviceApproval(current,ub64(data.signature),published.signing_public_jwk)?'directory-verified-preview':'invalid';
+}
+export async function saveEnrollmentPreview(supa,account,request,confirmedFingerprint){
+ const previous=await readEnrollmentPreview(supa,account,request);
+ if(previous==='directory-verified-preview')return previous;
+ if(previous!=='missing')throw Error('Existing invalid or inactive preview; revoke the request.');
+ const signature=await signEnrollmentPreview(supa,account,request,confirmedFingerprint);
+ const {error}=await supa.from('tichor_e2ee_approval_previews').insert({user_id:account,device_id:request.device_id,signature});
+ if(error&&error.code!=='23505')throw error;
+ const result=await readEnrollmentPreview(supa,account,request);
+ if(result!=='directory-verified-preview')throw Error('Stored preview could not be verified.');
+ return result;
+}
