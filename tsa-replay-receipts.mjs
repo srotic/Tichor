@@ -48,7 +48,7 @@ export function createIndexedDbTsaReplayStore(storage=globalThis.indexedDB){
      transaction.oncomplete=()=>resolve(!duplicate);
      transaction.onerror=()=>reject(transaction.error||Error('TSA replay receipt write failed'));
      transaction.onabort=()=>{
-      if(transaction.error?.name==='ConstraintError')resolve(false);
+      if(duplicate)resolve(false);
       else reject(transaction.error||Error('TSA replay receipt transaction aborted'));
      };
     });
