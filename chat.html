@@ -1296,9 +1296,11 @@ $('tcEnableE2EE').onclick=()=>{if(user)tcSetupIdentity(user.id).catch(console.wa
 $('tcTaseLinkShortcut').onclick=()=>{
  const details=$('tcEncryptionAdvanced');
  if(details)details.open=true;
- const button=$('tcStartLinkedDevice');
- if(button&&!button.hidden)button.click();
- else if(user)tcSetupIdentity(user.id).catch(console.warn);
+ const deviceDetails=$('tcRegisterDevice')?.closest('details');
+ if(deviceDetails)deviceDetails.open=true;
+ if(user)tcManageDevice(false).catch(e=>{
+  $('tcDeviceStatus').textContent='Trusted-device review unavailable: '+e.message;
+ });
 };
 $('tcStartLinkedDevice').onclick=async()=>{
  const button=$('tcStartLinkedDevice'),notice=$('tcLinkedDeviceQuickStatus');
@@ -1547,14 +1549,18 @@ async function loggedIn(u){user=u;tcDeviceRequestVersion++;$('tcRootTrustStatus'
  }).then(result=>{
   if(user?.id!==onboardingAccount)return;
   const linkButton=$('tcTaseLinkShortcut');
-  const needsApproval=result.state==='existing-device-approval-required';
-  linkButton.hidden=!needsApproval;
+  const needsApproval=result.state==='pending-device-approval-required';
+  const needsRecovery=result.state==='secure-recovery-required'||result.state==='revoked-device-recovery-required';
+  linkButton.hidden=!(needsApproval||needsRecovery);
+  linkButton.textContent=needsRecovery?'Review secure recovery options':'Review pending device approval';
   $('tcTaseStatus').textContent=result.state==='first-device-active-staging'?
-   'First device enrolled automatically (V3 staging). Encrypted messaging still requires verified contacts.':
-   result.state==='already-active'?'Trusted device recognized. Secure mailbox is experimental.':
+   'First encryption device enrolled automatically (V3 staging). Encrypted messaging still requires verified contacts.':
+   result.state==='already-active'?'Trusted encryption device recognized. No repeated registration required.':
    result.state==='authorization-renewal-required'?
-   'Trusted device recognized, but authorization expired. Renew through verified original-device approval; encryption remains blocked.':
-   'This browser needs one-time approval from your original trusted device. Existing encryption keys will not be replaced.';
+   'Trusted device recognized, but authorization expired. Verified authorization renewal is needed; sending remains blocked.':
+   needsRecovery?'Account encryption recovery is required. No keys or trusted-device permissions will be silently replaced.':
+   needsApproval?'This browser automatically registered a pending encrypted-device request. Approve it on the original trusted device before sending.':
+   'Another trusted device must approve this browser. Existing encryption keys will not be replaced.';
   tcRefreshE2EE().catch(console.warn);
  }).catch(error=>{
   if(user?.id!==onboardingAccount)return;
