@@ -38,9 +38,9 @@ export async function listDeviceRequests(client,account){
 }
 export async function revokeDeviceRequest(client,account,id){
  await checkAccount(client,account);
- const {data,error}=await client.from(table).update({state:'revoked'}).eq('user_id',account).eq('device_id',id).eq('state','pending').select('device_id');
+ const {data,error}=await client.from(table).update({state:'revoked'}).eq('user_id',account).eq('device_id',id).in('state',['pending','active']).select('device_id');
  if(error)throw error;
- if(data?.length!==1)throw Error('Request is no longer pending.');
+ if(data?.length!==1)throw Error('Device is already revoked or not registered.');
  // Database revocation triggers synchronous withdrawal of any published
  // candidate certificate. Fail closed if the withdrawal cannot be confirmed.
  const {data:published,error:directoryError}=await client.from('tichor_e2ee_recipient_directory')
