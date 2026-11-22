@@ -1,0 +1,53 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {buildSignedTsaMailboxRequest} from '../tsa-mailbox-client.mjs';
+import {encryptDeviceCopies} from '../tsa-multidevice-envelope.mjs';
+
+const account='11111111-1111-4111-8111-111111111111';
+const peer='22222222-2222-4222-8222-222222222222';
+const device='33333333-3333-4333-8333-333333333333';
+const peerDevice='44444444-4444-4444-8444-444444444444';
+const now=1700000000000;
+async function setup(){
+ const signer=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},false,['sign','verify']);
+ const targets=[];
+ for(const [acct,dev] of [[account,device],[peer,peerDevice]]){
+  const key=await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},false,['deriveBits']);
+  targets.push({account:acct,device:dev,authorized:true,encryptionKey:await crypto.subtle.exportKey('jwk',key.publicKey)});
+ }
+ const packet=await encryptDeviceCopies({sender:account,recipient:peer,messageId:'55555555-5555-4555-8555-555555555555',text:'ciphertext only',
+  targets,signingKey:signer.privateKey,createdAt:now});
+ return {signer,packet};
+}
+async function verifyRequest(req,publicKey){
+ const body={domain:'Tichor TSA mailbox request v1',action:req.action,account:req.account,device:req.device,nonce:req.nonce,
+  issuedAt:req.issuedAt,digest:req.digest};
+ const key=await crypto.subtle.importKey('jwk',await crypto.subtle.exportKey('jwk',publicKey),{name:'ECDSA',namedCurve:'P-256'},false,['verify']);
+ const binary=Uint8Array.from(atob(req.signature.replace(/-/g,'+').replace(/_/g,'/')+'=='),c=>c.charCodeAt(0));
+ return crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},key,binary,new TextEncoder().encode(JSON.stringify(body)));
+}
+test('staging mailbox request signs exact ciphertext hash with a non-extractable device key',async()=>{
+ const {signer,packet}=await setup();
+ const args={account,device,action:'publish',signingKey:signer.privateKey,packet,issuedAt:now,nonce:'66666666-6666-4666-8666-666666666666'};
+ const request=await buildSignedTsaMailboxRequest(args);
+ assert.equal(request.packet_text,JSON.stringify(packet));
+ assert.equal(await verifyRequest(request,signer.publicKey),true);
+ const changed={...request,digest:'not-the-real-packet-hash'};
+ assert.equal(await verifyRequest(changed,signer.publicKey),false);
+ assert.equal(request.packet_text.includes('ciphertext only'),false);
+});
+test('receive request signs device identity and does not contain ciphertext',async()=>{
+ const {signer}=await setup();
+ const request=await buildSignedTsaMailboxRequest({account,device,action:'receive',signingKey:signer.privateKey,
+  issuedAt:now,nonce:'77777777-7777-4777-8777-777777777777'});
+ assert.equal(request.digest,null);
+ assert.equal('packet_text' in request,false);
+ assert.equal(await verifyRequest(request,signer.publicKey),true);
+ await assert.rejects(buildSignedTsaMailboxRequest({account,device,action:'receive',signingKey:signer.privateKey,packet:{},issuedAt:now}),/Unexpected packet/);
+ await assert.rejects(buildSignedTsaMailboxRequest({account,device,action:'publish',signingKey:signer.privateKey,packet:{},issuedAt:now}),/Invalid TSA ciphertext/);
+});
+test('staging mailbox implementation is not connected to live chat',async()=>{
+ const fs=await import('node:fs');
+ const chat=fs.readFileSync(new URL('../chat.html',import.meta.url),'utf8');
+ assert.doesNotMatch(chat,/tsa-mailbox-client\.mjs|tsa-ciphertext-mailbox/);
+});
