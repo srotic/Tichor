@@ -21,15 +21,13 @@ export async function requestDevice(client,account){
   const encryption_public_jwk=publicOnly(await crypto.subtle.exportKey('jwk',record.enc.publicKey));
   const signing_public_jwk=publicOnly(await crypto.subtle.exportKey('jwk',record.sign.publicKey));
   await checkAccount(client,account);
-  const {data,error}=await client.from(table).select('device_id,state,encryption_public_jwk,signing_public_jwk').eq('user_id',account).eq('device_id',record.id).maybeSingle();
-  if(error)throw error;
-  if(data){
-   if(!same(data.encryption_public_jwk,encryption_public_jwk)||!same(data.signing_public_jwk,signing_public_jwk))throw Error('Registered device keys differ. Enrollment stopped.');
-   return {id:record.id,state:data.state};
-  }
-  const result=await client.from(table).insert({user_id:account,device_id:record.id,encryption_public_jwk,signing_public_jwk});
-  if(result.error)throw result.error;
-  return {id:record.id,state:'pending'};
+  const {createDeviceRequest}=await import('./device-link-proof.mjs');
+  const {registerPendingDevice}=await import('./device-link-registry.mjs');
+  const now=Date.now();
+  const packet=await createDeviceRequest({account,device:record.id,nonce:crypto.randomUUID(),issuedAt:now,expiresAt:now+300000,encryptionKey:encryption_public_jwk,signingKey:signing_public_jwk},record.sign.privateKey,now);
+  await checkAccount(client,account);
+  const registered=await registerPendingDevice(client,packet,account);
+  return {id:registered.device_id,state:registered.state};
  });
 }
 export async function listDeviceRequests(client,account){
