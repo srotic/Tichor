@@ -3020,6 +3020,8 @@ function tichorRecordSend(){const now=Date.now();tichorSendGuard.last=now;tichor
 $('sendForm').onsubmit=async e=>{e.preventDefault();if(!peer)return status('chatStatus','Open a conversation first');const button=$('sendForm').querySelector('button[type=submit]');if(button.disabled)return;button.disabled=true;try{
  const sender=user?.id,target=peer,client=supa,encrypted=tcE2EESelected(),secureMailbox=tcTsaSelected();
  if(!sender||!target)throw Error('Sign in and select a conversation.');
+ if($('tcTsaSecureMode')?.checked&&!secureMailbox)
+  throw Error('Secure mailbox account or conversation changed; no message sent. Re-select the secure mode.');
  const assertContext=()=>{if(user?.id!==sender||peer!==target||supa!==client||tcE2EESelected()!==encrypted||tcTsaSelected()!==secureMailbox)throw Error('Conversation or security mode changed. Please send again.');};
  const body=$('body').value.trim(),file=$('tichorFile').files[0];
  if(!body&&!file)return;
