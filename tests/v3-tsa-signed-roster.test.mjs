@@ -39,3 +39,17 @@ test('signed roster rejects key substitution, expiry, revocation and missing dev
  const revoked=structuredClone(f.recipient);revoked.roster.devices[0].state='revoked';
  await assert.rejects(verifyTsaRoster(revoked,f.recipientRoot,at+1000),/inactive/);
 });
+
+test('Supabase JSONB object key reordering preserves root-signed roster verification',async()=>{
+ const f=await fixture();
+ const reverseJsonb=value=>Array.isArray(value)?value.map(reverseJsonb):
+  value&&typeof value==='object'?Object.fromEntries(Object.entries(value).reverse().map(([k,v])=>[k,reverseJsonb(v)])):value;
+ const reordered={...f.recipient,roster:reverseJsonb(f.recipient.roster)};
+ const verified=await verifyTsaRoster(reordered,f.recipientRoot,at+1000);
+ assert.equal(verified.account,to);
+ assert.equal(verified.devices.length,2);
+ const extra=structuredClone(reordered);extra.roster.devices[0].signingKey.d='private-material-must-not-be-allowed';
+ await assert.rejects(verifyTsaRoster(extra,f.recipientRoot,at+1000),/Invalid TSA roster public key/);
+ const unsupported=structuredClone(reordered);unsupported.roster.admin=true;
+ await assert.rejects(verifyTsaRoster(unsupported,f.recipientRoot,at+1000),/Noncanonical/);
+});
