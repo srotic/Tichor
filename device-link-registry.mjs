@@ -48,3 +48,18 @@ export async function checkPendingApproval(supa,packet,account,device,nonce,appr
  // until atomic nonce consumption, proof persistence, and authenticated trust roots exist.
  return {state:'proof-checked-not-authorized',device:r.device,nonce:r.nonce};
 }
+
+ // Verify fresh persisted proof against the exact registry keys. Never a delivery grant.
+export async function requireFreshLinkEvidence(supa,account,device,now=Date.now()){
+ await currentAccount(supa,account);
+ const row=await read(supa,account,device);
+ if(row?.state!=='pending')throw Error('Device is not pending.');
+ const {data,error}=await supa.from('tichor_e2ee_link_evidence').select('user_id,device_id,nonce,issued_at_ms,expires_at_ms,proof').eq('user_id',account).eq('device_id',device).gt('expires_at_ms',now).order('issued_at_ms',{ascending:false}).limit(10);
+ if(error)throw Error('Registration evidence unavailable.');
+ for(const item of data||[]){
+  if(item.user_id!==account||item.device_id!==device)continue;
+  const packet={request:{account,device,nonce:item.nonce,issuedAt:Number(item.issued_at_ms),expiresAt:Number(item.expires_at_ms),encryptionKey:row.encryption_public_jwk,signingKey:row.signing_public_jwk},proof:item.proof};
+  try{const verified=await verifyDeviceRequest(packet,account,Math.max(now,Date.now()));if(matches(row,verified))return packet;}catch{}
+ }
+ throw Error('No valid fresh device proof. Register this device again within five minutes on the new browser.');
+}
