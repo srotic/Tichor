@@ -66,3 +66,27 @@ export async function publishOwnTsaRoster(client,account){
   (await client.from('tichor_e2ee_identity_keys').select('signing_public_jwk').eq('user_id',account).single()).data?.signing_public_jwk);
  return {revision,deviceCount:body.devices.length,expiresAt:body.expiresAt};
 }
+
+// Keep the original browser's short-lived roster current without repeated
+// button clicks. Never auto-enroll or grant a device. Only an already active,
+// locally held ORIGINAL root-signing key can publish a new signed roster.
+const renewJobs=new Map();
+export async function renewOwnTsaRosterIfNeeded(client,account,{renewBeforeMs=90000,now=Date.now()}={}){
+ id(account);
+ if(!Number.isSafeInteger(now)||!Number.isSafeInteger(renewBeforeMs)||renewBeforeMs<30000||renewBeforeMs>150000)
+  throw Error('Invalid TSA renewal window');
+ await session(client,account);
+ const {data,error}=await client.from('tsa_signed_device_rosters')
+  .select('roster,signature').eq('user_id',account).maybeSingle();
+ if(error)throw Error('Current signed roster unavailable');
+ const expiry=Number(data?.roster?.expiresAt);
+ if(data&&Number.isSafeInteger(expiry)&&expiry-now>renewBeforeMs)
+  return Object.freeze({state:'signed-roster-current',expiresAt:expiry,renewed:false});
+ if(renewJobs.has(account))return renewJobs.get(account);
+ const job=(async()=>{
+  const next=await publishOwnTsaRoster(client,account);
+  return Object.freeze({state:'signed-roster-renewed',expiresAt:next.expiresAt,renewed:true});
+ })();
+ renewJobs.set(account,job);
+ try{return await job}finally{if(renewJobs.get(account)===job)renewJobs.delete(account)}
+}
