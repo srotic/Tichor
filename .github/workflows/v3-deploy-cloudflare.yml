@@ -24,11 +24,12 @@ jobs:
         with:
           node-version: '22'
       - name: Run staging regression tests
-        run: node --test tests/v3-task-isolation.test.cjs tests/v3-staging-build.test.cjs tests/v3-kindergarten-media.test.cjs tests/v3-grade1-math.test.cjs tests/v3-kindergarten-brain-games.test.cjs tests/v3-grade5-brain.test.cjs tests/v3-mcat-cars-highlighter.test.cjs tests/v3-contact-request-onboarding.test.cjs tests/v3-security-hardening.test.cjs tests/v3-e2ee-release-gate.test.cjs tests/v3-chat-missing-tables.test.cjs tests/v3-mobile-chat-menu.test.cjs tests/v3-compose-tools.test.cjs tests/v3-device-link-proof.test.mjs tests/v3-tsa-device-trust.test.mjs
+        run: node --test tests/v3-task-isolation.test.cjs tests/v3-staging-build.test.cjs tests/v3-kindergarten-media.test.cjs tests/v3-grade1-math.test.cjs tests/v3-kindergarten-brain-games.test.cjs tests/v3-grade5-brain.test.cjs tests/v3-mcat-cars-highlighter.test.cjs tests/v3-contact-request-onboarding.test.cjs tests/v3-security-hardening.test.cjs tests/v3-e2ee-release-gate.test.cjs tests/v3-chat-missing-tables.test.cjs tests/v3-mobile-chat-menu.test.cjs tests/v3-compose-tools.test.cjs tests/v3-device-link-proof.test.mjs tests/v3-tsa-device-trust.test.mjs tests/v3-tsa-multidevice-envelope.test.mjs
       - name: Validate TSA module syntax
         run: |
           node --check device-link-registry.mjs
           node --check tsa-device-trust.mjs
+          node --check tsa-multidevice-envelope.mjs
           node --check e2ee-v3.js
       - name: Build isolated staging site
         run: node scripts/build-v3-staging.cjs
