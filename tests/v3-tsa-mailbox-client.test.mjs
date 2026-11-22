@@ -54,6 +54,8 @@ test('staging secure mailbox uses an explicit opt-in composer branch without pla
  assert.match(chat,/const tcTsaSelected=\(\)=>Boolean/);
  assert.match(chat,/tsaToggle.checked=false/);
  assert.match(chat,/if\(secureMailbox\)\{/);
+ assert.match(chat,/tcTsaSecureMode'\)\?\.checked&&!secureMailbox/);
+ assert.match(chat,/Secure mailbox account or conversation changed; no message sent/);
  assert.match(chat,/Encrypted message stored/);
  assert.match(chat,/No plaintext fallback/);
  assert.match(chat,/await encryptAndPublishTsaTextStaging\(client/);
