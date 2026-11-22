@@ -41,6 +41,12 @@ export async function revokeDeviceRequest(client,account,id){
  const {data,error}=await client.from(table).update({state:'revoked'}).eq('user_id',account).eq('device_id',id).eq('state','pending').select('device_id');
  if(error)throw error;
  if(data?.length!==1)throw Error('Request is no longer pending.');
+ // Database revocation triggers synchronous withdrawal of any published
+ // candidate certificate. Fail closed if the withdrawal cannot be confirmed.
+ const {data:published,error:directoryError}=await client.from('tichor_e2ee_recipient_directory')
+  .select('nonce').eq('user_id',account).eq('device_id',id).limit(1);
+ if(directoryError||published?.length)throw Error('Revocation could not be confirmed in the recipient directory. Stop secure device operations.');
+
 }
 
  // Read from local non-extractable key pairs, never from a directory row.
