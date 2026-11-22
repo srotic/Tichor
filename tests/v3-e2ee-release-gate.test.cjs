@@ -92,3 +92,13 @@ test('Verified original-device direct text encrypts automatically and refuses pl
  assert.match(html,/Other devices, attachments, calls and groups remain outside this protection/);
  assert.doesNotMatch(html,/import.*tsa-multidevice-envelope\.mjs/);
 });
+
+test('TSA server readiness remains strictly read-only and refuses device delivery',async()=>{
+ const source=read('tsa-device-readiness.mjs');
+ assert.match(source,/requireContactRootPin/);
+ assert.match(source,/supa\.rpc\('tsa_recipient_device_readiness'/);
+ assert.match(source,/row\.delivery_authorized!==false/);
+ assert.match(source,/deliveryAuthorized:false/);
+ assert.match(source,/device-readiness-preview-not-authorized/);
+ assert.doesNotMatch(source,/encryptDeviceCopies\(/);
+});
