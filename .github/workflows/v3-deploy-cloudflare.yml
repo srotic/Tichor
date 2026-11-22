@@ -24,7 +24,7 @@ jobs:
         with:
           node-version: '24'
       - name: Run staging regression tests
-        run: node --test tests/v3-task-isolation.test.cjs tests/v3-staging-build.test.cjs tests/v3-kindergarten-media.test.cjs tests/v3-grade1-math.test.cjs tests/v3-kindergarten-brain-games.test.cjs tests/v3-grade5-brain.test.cjs tests/v3-mcat-cars-highlighter.test.cjs tests/v3-contact-request-onboarding.test.cjs tests/v3-security-hardening.test.cjs tests/v3-e2ee-release-gate.test.cjs tests/v3-chat-missing-tables.test.cjs tests/v3-mobile-chat-menu.test.cjs tests/v3-compose-tools.test.cjs tests/v3-device-link-proof.test.mjs tests/v3-tsa-device-trust.test.mjs tests/v3-tsa-multidevice-envelope.test.mjs tests/v3-tsa-replay-receipts.test.mjs tests/v3-tsa-authenticated-handshake.test.mjs tests/v3-tsa-device-mailbox.test.mjs tests/v3-tsa-signed-roster.test.mjs tests/v3-tsa-active-device-grant.test.mjs
+        run: node --test tests/v3-task-isolation.test.cjs tests/v3-staging-build.test.cjs tests/v3-kindergarten-media.test.cjs tests/v3-grade1-math.test.cjs tests/v3-kindergarten-brain-games.test.cjs tests/v3-grade5-brain.test.cjs tests/v3-mcat-cars-highlighter.test.cjs tests/v3-contact-request-onboarding.test.cjs tests/v3-security-hardening.test.cjs tests/v3-e2ee-release-gate.test.cjs tests/v3-chat-missing-tables.test.cjs tests/v3-mobile-chat-menu.test.cjs tests/v3-compose-tools.test.cjs tests/v3-device-link-proof.test.mjs tests/v3-tsa-device-trust.test.mjs tests/v3-tsa-multidevice-envelope.test.mjs tests/v3-tsa-replay-receipts.test.mjs tests/v3-tsa-authenticated-handshake.test.mjs tests/v3-tsa-device-mailbox.test.mjs tests/v3-tsa-mailbox-client.test.mjs tests/v3-tsa-signed-roster.test.mjs tests/v3-tsa-active-device-grant.test.mjs
       - name: Validate TSA module syntax
         run: |
           node --check device-link-registry.mjs
@@ -34,6 +34,8 @@ jobs:
           node --check tsa-replay-receipts.mjs
           node --check tsa-authenticated-handshake.mjs
           node --check tsa-device-mailbox.mjs
+          node --check tsa-mailbox-client.mjs
+          node --check e2ee-device-registry.js
           node --check tsa-signed-roster.mjs
           node --check tsa-active-device-grant.mjs
           node --check e2ee-v3.js
