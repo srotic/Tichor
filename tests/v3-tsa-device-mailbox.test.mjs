@@ -52,6 +52,7 @@ test('local fanout preflight authenticates ciphertext but never enables delivery
  const impostor=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},false,['sign','verify']);
  await assert.rejects(previewVerifiedEncryptedMailboxBatch({packet:encrypted,localDevice:{...localDevice,senderPublicKey:await crypto.subtle.exportKey('jwk',impostor.publicKey)}}),/signature invalid/);
  await assert.rejects(previewVerifiedEncryptedMailboxBatch({packet:encrypted,localDevice:{...localDevice,deviceId:devices[0]}}),/No ciphertext for this device/);
- const unaffected=await previewVerifiedEncryptedMailboxBatch({packet:encrypted,localDevice:{...localDevice,packet:tampered}});\n assert.equal(unaffected.deliveryAuthorized,false);
+ const unaffected=await previewVerifiedEncryptedMailboxBatch({packet:encrypted,localDevice:{...localDevice,packet:tampered}});
+ assert.equal(unaffected.deliveryAuthorized,false);
  await assert.rejects(publishEncryptedMailboxBatch(),/disabled/);
 });
