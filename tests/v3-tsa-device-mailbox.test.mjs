@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {encryptDeviceCopies} from '../tsa-multidevice-envelope.mjs';
-import {prepareDeviceEnvelopeRows,previewEncryptedMailboxBatch,publishEncryptedMailboxBatch,receiveEncryptedMailbox} from '../tsa-device-mailbox.mjs';
+import {prepareDeviceEnvelopeRows,previewEncryptedMailboxBatch,previewVerifiedEncryptedMailboxBatch,publishEncryptedMailboxBatch,receiveEncryptedMailbox} from '../tsa-device-mailbox.mjs';
 
 const sender='11111111-1111-4111-8111-111111111111',recipient='22222222-2222-4222-8222-222222222222';
 const devices=['33333333-3333-4333-8333-333333333333','44444444-4444-4444-8444-444444444444'];
@@ -31,4 +31,27 @@ test('plaintext, malformed destinations and premature authorization activation f
  assert.throws(()=>prepareDeviceEnvelopeRows({packet:wrong}),/Unrecognized/);
  await assert.rejects(publishEncryptedMailboxBatch(),/disabled/);
  await assert.rejects(receiveEncryptedMailbox(),/disabled/);
+});
+
+test('local fanout preflight authenticates ciphertext but never enables delivery',async()=>{
+ const signer=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},false,['sign','verify']);
+ const senderKey=await crypto.subtle.exportKey('jwk',signer.publicKey);
+ const owner=await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},false,['deriveBits']);
+ const peer=await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},false,['deriveBits']);
+ const targets=[
+  {account:sender,device:devices[0],authorized:true,encryptionKey:await crypto.subtle.exportKey('jwk',owner.publicKey)},
+  {account:recipient,device:devices[1],authorized:true,encryptionKey:await crypto.subtle.exportKey('jwk',peer.publicKey)}
+ ];
+ const encrypted=await encryptDeviceCopies({sender,recipient,messageId,text:'secret preflight',targets,signingKey:signer.privateKey});
+ const localDevice={recipientAccount:recipient,deviceId:devices[1],privateKey:peer.privateKey,senderPublicKey:senderKey};
+ assert.deepEqual(await previewVerifiedEncryptedMailboxBatch({packet:encrypted,localDevice}),{
+  state:'locally-verified-ciphertext-preview-not-sent',rowCount:2,deliveryAuthorized:false
+ });
+ const tampered=structuredClone(encrypted);tampered.copies[1].ct='A'+tampered.copies[1].ct.slice(1);
+ await assert.rejects(previewVerifiedEncryptedMailboxBatch({packet:tampered,localDevice}),/signature invalid/);
+ const impostor=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},false,['sign','verify']);
+ await assert.rejects(previewVerifiedEncryptedMailboxBatch({packet:encrypted,localDevice:{...localDevice,senderPublicKey:await crypto.subtle.exportKey('jwk',impostor.publicKey)}}),/signature invalid/);
+ await assert.rejects(previewVerifiedEncryptedMailboxBatch({packet:encrypted,localDevice:{...localDevice,deviceId:devices[0]}}),/No ciphertext for this device/);
+ const unaffected=await previewVerifiedEncryptedMailboxBatch({packet:encrypted,localDevice:{...localDevice,packet:tampered}});\n assert.equal(unaffected.deliveryAuthorized,false);
+ await assert.rejects(publishEncryptedMailboxBatch(),/disabled/);
 });
