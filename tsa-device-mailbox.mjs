@@ -52,7 +52,7 @@ export async function previewVerifiedEncryptedMailboxBatch({packet,localDevice})
  const rows=prepareDeviceEnvelopeRows({packet});
  // Authenticated decryption rejects forged signatures, modified ciphertext,
  // modified routing identifiers, or unavailable local device keys.
- await decryptDeviceCopy({packet,...localDevice});
+ await decryptDeviceCopy({packet,recipientAccount:localDevice.recipientAccount,deviceId:localDevice.deviceId,privateKey:localDevice.privateKey,senderPublicKey:localDevice.senderPublicKey});
  return Object.freeze({
   state:'locally-verified-ciphertext-preview-not-sent',
   rowCount:rows.length,
