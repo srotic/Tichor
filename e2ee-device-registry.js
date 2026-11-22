@@ -44,3 +44,14 @@ export async function revokeDeviceRequest(client,account,id){
  if(error)throw error;
  if(data?.length!==1)throw Error('Request is no longer pending.');
 }
+
+ // Read from local non-extractable key pairs, never from a directory row.
+export async function localDeviceFingerprint(client,account){
+ await checkAccount(client,account);
+ const record=await local(account);
+ if(!record)return null;
+ if(record.enc.privateKey.extractable||record.sign.privateKey.extractable)throw Error('Unsafe local device identity.');
+ const {requestFingerprint}=await import('./e2ee-device-approval.mjs');
+ const request={user_id:account,device_id:record.id,encryption_public_jwk:publicOnly(await crypto.subtle.exportKey('jwk',record.enc.publicKey)),signing_public_jwk:publicOnly(await crypto.subtle.exportKey('jwk',record.sign.publicKey))};
+ return {id:record.id,fingerprint:await requestFingerprint(request)};
+}
