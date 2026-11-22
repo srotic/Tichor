@@ -99,12 +99,21 @@ export async function encryptDirectText(supa,senderId,recipientId,text){
   if(E.encode(text).byteLength>MAX_PLAINTEXT_BYTES)throw Error('Encrypted text exceeds the 1,100-byte safety limit. Split it into smaller messages.');
   const mine=await dbGet(senderId);
   if(!mine)throw Error('Enable encryption on this device before sending.');
+  const {data:session,error:sessionError}=await supa.auth.getUser();
+  if(sessionError||session?.user?.id!==senderId)throw Error('Encryption session mismatch. No message was sent.');
   const receiver=await fetchPublic(supa,recipientId);
   const sender=await fetchPublic(supa,senderId);
+  // Do not send ciphertext when the local root keys no longer match the directory.
+  if(!mine.enc?.privateKey||!mine.sign?.privateKey||mine.enc.privateKey.extractable||mine.sign.privateKey.extractable||
+     canonicalJwk(await cryptoAPI.exportKey('jwk',mine.enc.publicKey))!==canonicalJwk(sender.encryption_public_jwk)||
+     canonicalJwk(await cryptoAPI.exportKey('jwk',mine.sign.publicKey))!==canonicalJwk(sender.signing_public_jwk))
+    throw Error('Local encryption identity does not match the registered identity. No message was sent.');
   const envelope={v:2,from:senderId,to:recipientId,
     forRecipient:await sealTo(text,receiver.encryption_public_jwk,senderId,recipientId),
     forSender:await sealTo(text,sender.encryption_public_jwk,senderId,recipientId)};
   const signature=await cryptoAPI.sign({name:'ECDSA',hash:'SHA-256'},mine.sign.privateKey,E.encode(JSON.stringify(envelope)));
+  const {data:latestSession,error:latestSessionError}=await supa.auth.getUser();
+  if(latestSessionError||latestSession?.user?.id!==senderId)throw Error('Encryption session changed. No message was sent.');
   const payload=PREFIX+b64(E.encode(JSON.stringify({...envelope,sig:b64(signature)})));
   if(payload.length>MAX_CIPHERTEXT_CHARS)throw Error('Encrypted payload is too long for the server message limit. No message was sent.');
   return payload;
