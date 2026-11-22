@@ -1,4 +1,4 @@
-// Experimental TSA staging mailbox client. NOT connected to the live composer.
+// Experimental TSA staging mailbox client. Integrated only behind the explicit\n// secure-mailbox opt-in; NOT an audited or globally enabled E2EE transport.
 // Uses existing non-extractable IndexedDB device signing/decryption keys. No
 // browser privilege or client option can bypass the server's grant verification.
 import {loadApprovedLocalDevice} from './e2ee-device-registry.js';
