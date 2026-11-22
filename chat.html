@@ -1187,7 +1187,7 @@ const $=id=>document.getElementById(id);let supa=null,user=null,peer=null,subscr
 const tcVerifiedRootPinned=()=>Boolean(user&&peer&&readContactRootPin(localStorage,user.id,peer));
 const tcE2EESelected=()=>Boolean(user&&peer&&(tcVerifiedRootPinned()||($('tcEncryptedTextMode')?.checked&&$('tcEncryptedTextMode').dataset.peer===user.id+':'+peer)));
 const tcE2EEStorageKey=id=>'tichor-v3-e2ee-opt-in:'+(user?.id||'')+':'+id;
-function tcEncryptionIndicator(state){const lock=$('tcChatEncryptionLock'),subtitle=$('tcEncryptionSubtitle');if(lock){lock.dataset.security=state;lock.title='Encryption settings — '+state;lock.setAttribute('aria-label',lock.title)}if(subtitle)subtitle.textContent=state==='ready'?'Encrypted text beta · unverified':state==='pending'?'Encryption beta · not ready':'Encryption beta off';}
+function tcEncryptionIndicator(state){const lock=$('tcChatEncryptionLock'),subtitle=$('tcEncryptionSubtitle');if(lock){lock.dataset.security=state;lock.title='Encryption settings — '+state;lock.setAttribute('aria-label',lock.title)}if(subtitle)subtitle.textContent=state==='ready'?(tcVerifiedRootPinned()?'Verified original-device text beta':'Encrypted text beta · unverified'):state==='pending'?'Encryption beta · not ready':'Encryption beta off';}
 async function tcRefreshE2EE(){const info=$('tcEncryptionDetails');if(!info||!user||!peer)return;const account=user.id,target=peer;
  const pinned=tcVerifiedRootPinned();const toggle=$('tcEncryptedTextMode');
  if(toggle){toggle.disabled=pinned;if(pinned){toggle.checked=true;toggle.dataset.peer=account+':'+target}}
