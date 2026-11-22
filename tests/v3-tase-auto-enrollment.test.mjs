@@ -42,7 +42,7 @@ test('existing trusted browser is recognized before new root keys and expired gr
  assert.ok(before>=0&&after>before,'existing devices must be checked before attempting root identity creation');
  assert.match(enroll,/await loadApprovedLocalDevice\(client,account\)/);
  assert.match(enroll,/authorization-renewal-required/);
- assert.match(enroll,/additional-device-approval-required/);
+ assert.match(enroll,/waiting-for-original-device-approval/);
 });
 test('advanced encryption controls stay collapsed and one-time browser linking remains accessible',()=>{
  const chat=readFileSync(new URL('../chat.html',import.meta.url),'utf8');
