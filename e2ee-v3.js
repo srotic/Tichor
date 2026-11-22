@@ -136,3 +136,21 @@ export async function encryptionStatus(supa,userId,recipientId){
   if(!mine)return {ready:false,reason:'Enable encryption in this browser first.'};
   try{const info=await fetchPublic(supa,recipientId);return {ready:true,fingerprint:await fingerprint(info)}}catch(e){return {ready:false,reason:e.message}}
 }
+
+ // Preview only: sign an enrollment transcript, not a messaging authorization.
+export async function signEnrollmentPreview(supa,account,request,confirmedFingerprint){
+ if(request.user_id!==account||request.state!=='pending')throw Error('Not a pending request for this account.');
+ const {data,error}=await supa.auth.getUser();
+ if(error||data?.user?.id!==account)throw Error('Sign in again.');
+ const local=await dbGet(account);
+ if(!local)throw Error('Use the original encryption browser.');
+ const published=await fetchPublic(supa,account);
+ if(canonicalJwk(await cryptoAPI.exportKey('jwk',local.sign.publicKey))!==canonicalJwk(published.signing_public_jwk)||canonicalJwk(await cryptoAPI.exportKey('jwk',local.enc.publicKey))!==canonicalJwk(published.encryption_public_jwk))throw Error('Original identity mismatch.');
+ const {requestFingerprint,signDeviceApproval,verifyDeviceApproval}=await import('./e2ee-device-approval.mjs');
+ const {data:current,error:lookupError}=await supa.from('tichor_e2ee_devices').select('user_id,device_id,state,encryption_public_jwk,signing_public_jwk').eq('user_id',account).eq('device_id',request.device_id).maybeSingle();
+ if(lookupError||!current||current.state!=='pending')throw Error('Request no longer pending.');
+ if(await requestFingerprint(current)!==confirmedFingerprint||await requestFingerprint(request)!==confirmedFingerprint)throw Error('Fingerprint mismatch.');
+ const signature=await signDeviceApproval(current,local.sign.privateKey);
+ if(!await verifyDeviceApproval(current,signature,published.signing_public_jwk))throw Error('Signature verification failed.');
+ return b64(signature);
+}
