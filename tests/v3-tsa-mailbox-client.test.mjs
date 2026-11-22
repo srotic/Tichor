@@ -46,16 +46,16 @@ test('receive request signs device identity and does not contain ciphertext',asy
  await assert.rejects(buildSignedTsaMailboxRequest({account,device,action:'receive',signingKey:signer.privateKey,packet:{},issuedAt:now}),/Unexpected packet/);
  await assert.rejects(buildSignedTsaMailboxRequest({account,device,action:'publish',signingKey:signer.privateKey,packet:{},issuedAt:now}),/Invalid TSA ciphertext/);
 });
-test('staging secure mailbox uses an explicit opt-in composer branch without plaintext fallback',async()=>{
+test('staging secure mailbox is mandatory for direct text and has no plaintext fallback',async()=>{
  const fs=await import('node:fs');
  const chat=fs.readFileSync(new URL('../chat.html',import.meta.url),'utf8');
  assert.match(chat,/import \{encryptAndPublishTsaTextStaging,receiveTsaVerifiedTextStaging\} from ".\/tsa-mailbox-client\.mjs"/);
  assert.match(chat,/id="tcTsaSecureMode"/);
  assert.match(chat,/const tcTsaSelected=\(\)=>Boolean/);
- assert.match(chat,/tsaToggle.checked=false/);
+ assert.match(chat,/tsaToggle.checked=true;tsaToggle.disabled=true/);
  assert.match(chat,/if\(secureMailbox\)\{/);
- assert.match(chat,/tcTsaSecureMode'\)\?\.checked&&!secureMailbox/);
- assert.match(chat,/Secure mailbox account or conversation changed; no message sent/);
+ assert.match(chat,/if\(!secureMailbox\)/);
+ assert.match(chat,/Encryption is mandatory/);
  assert.match(chat,/Encrypted message stored/);
  assert.match(chat,/No plaintext fallback/);
  assert.match(chat,/await encryptAndPublishTsaTextStaging\(client/);
@@ -73,15 +73,15 @@ test('experimental mailbox defaults collapsed, preserving chat viewport and immu
  assert.doesNotMatch(html,/\.update\(\{read_at:new Date\(\)\.toISOString\(\),delivered_at:/);
 });
 
-test('explicit secure mode survives peer reload and never silently resumes plaintext',async()=>{
+test('mandatory secure mode survives peer reload without permitting plaintext',async()=>{
  const fs=await import('node:fs');
  const html=fs.readFileSync(new URL('../chat.html',import.meta.url),'utf8');
  assert.match(html,/tichor-v3-tsa-secure-opt-in:/);
- assert.match(html,/localStorage\.setItem\(tcTsaStorageKey\(user\.id,peer\),toggle\.checked\?'1':'0'\)/);
- assert.match(html,/localStorage\.getItem\(tcTsaStorageKey\(user\.id,peer\)\)==='1'/);
+ assert.match(html,/tcTsaSecureMode'\)\.checked=true/);
+ assert.match(html,/tcTsaSecureMode'\)\.disabled=true/);
  assert.match(html,/await tcMaintainTsaRoster\(sender\)/);
  assert.match(html,/renewOwnTsaRosterIfNeeded/);
- assert.match(html,/if\(\$\('tcTsaSecureMode'\)\?\.checked&&!secureMailbox\)/);
+ assert.match(html,/if\(!secureMailbox\)/);
 });
 test('short-lived device rosters are reused while valid and cannot renew without authorization',async()=>{
  const {renewOwnTsaRosterIfNeeded}=await import('../tsa-roster-directory.mjs');
