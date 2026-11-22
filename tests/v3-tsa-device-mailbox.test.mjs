@@ -47,7 +47,7 @@ test('local fanout preflight authenticates ciphertext but never enables delivery
  assert.deepEqual(await previewVerifiedEncryptedMailboxBatch({packet:encrypted,localDevice}),{
   state:'locally-verified-ciphertext-preview-not-sent',rowCount:2,deliveryAuthorized:false
  });
- const tampered=structuredClone(encrypted);tampered.copies[1].ct='A'+tampered.copies[1].ct.slice(1);
+ const tampered=structuredClone(encrypted);tampered.copies[1].ct=(tampered.copies[1].ct[0]==='A'?'B':'A')+tampered.copies[1].ct.slice(1);
  await assert.rejects(previewVerifiedEncryptedMailboxBatch({packet:tampered,localDevice}),/signature invalid/);
  const impostor=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},false,['sign','verify']);
  await assert.rejects(previewVerifiedEncryptedMailboxBatch({packet:encrypted,localDevice:{...localDevice,senderPublicKey:await crypto.subtle.exportKey('jwk',impostor.publicKey)}}),/signature invalid/);
