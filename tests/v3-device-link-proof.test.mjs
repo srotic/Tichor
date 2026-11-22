@@ -38,3 +38,17 @@ test('rejects wrong nonce, signer substitution and altered signature',async()=>{
  const changed=structuredClone(f.approved);changed.signature=(changed.signature[0]==='A'?'B':'A')+changed.signature.slice(1);
  await assert.rejects(verifyDeviceApproval(changed,account,device,nonce,approver,f.publicKey,now),/Invalid approval signature/);
 });
+
+test('root approval cannot be transferred to a refreshed request with the same device keys',async()=>{
+ const f=await fixture();
+ const nextNonce='55555555-5555-4555-8555-555555555555';
+ const renewed=await createDeviceRequest({...f.packet.request,nonce:nextNonce},f.sign.privateKey,now);
+ const substituted={approval:{...f.approved.approval,request:renewed.request,deviceProof:renewed.proof},signature:f.approved.signature};
+ await assert.rejects(verifyDeviceApproval(substituted,account,device,nextNonce,approver,f.publicKey,now),/Invalid approval signature/);
+});
+test('account root signer approval expires even with an otherwise valid signature',async()=>{
+ const f=await fixture();
+ const approved=await approveDeviceRequest(f.packet,account,account,f.root.privateKey,f.fingerprint,now);
+ assert.equal((await verifyDeviceApproval(approved,account,device,nonce,account,f.publicKey,now)).nonce,nonce);
+ await assert.rejects(verifyDeviceApproval(approved,account,device,nonce,account,f.publicKey,now+300000),/expired/);
+});
