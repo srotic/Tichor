@@ -162,3 +162,14 @@ test('Secondary browser shows secure linked-device setup instead of repeated ide
  assert.match(source,/Secure device linking or recovery is required/);
  assert.match(source,/keys will not be silently replaced/);
 });
+
+test('Linked-device button visibly reports progress and forwards registration failures',()=>{
+ const html=read('chat.html');
+ assert.match(html,/id="tcLinkedDeviceQuickStatus" role="status"/);
+ assert.match(html,/Registering linked device/);
+ assert.match(html,/const result=await tcManageDevice\(true\)/);
+ assert.match(html,/Device request registered:/);
+ assert.match(html,/Linked-device setup failed:/);
+ assert.match(html,/return result;\s*\}catch\(e\)/);
+ assert.match(html,/detail\?\.scrollIntoView/);
+});
