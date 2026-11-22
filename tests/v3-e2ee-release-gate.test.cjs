@@ -31,3 +31,13 @@ test('TSA recipient discovery remains explicitly non-authorizing and requires ve
  assert.match(source,/verified-certificate-preview-not-authorized/);
  assert.doesNotMatch(source,/state:'verified-certificate-preview-authorized'/);
 });
+
+test('TSA device revocation verifies certificate withdrawal and never enables pending-device transport',()=>{
+ const registry=read('e2ee-device-registry.js');
+ const spec=read('docs/tsa-revocation-milestone.md');
+ assert.match(registry,/update\(\{state:'revoked'\}\)/);
+ assert.match(registry,/from\('tichor_e2ee_recipient_directory'\)/);
+ assert.match(registry,/Revocation could not be confirmed in the recipient directory/);
+ assert.match(spec,/tichor_e2ee_device_preview_withdrawal/);
+ assert.match(spec,/not a production E2EE activation/i);
+});
