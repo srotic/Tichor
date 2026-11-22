@@ -12,20 +12,20 @@ export async function readRecipientDeviceReadiness(supa,sender,recipient,observe
  const {data,error}=await supa.rpc('tsa_recipient_device_readiness',{target:recipient});
  if(error)throw Error('TSA recipient readiness unavailable or unauthorized.');
  if(!Array.isArray(data)||data.length>50)throw Error('Invalid TSA readiness response');
- const ids=new Set();let pending=0,revoked=0,certificateCandidates=0,trustEvidenceCandidates=0;
+ const ids=new Set();let pending=0,active=0,revoked=0,certificateCandidates=0,trustEvidenceCandidates=0;
  for(const row of data){
   if(!row||!UUID.test(row.device_id)||ids.has(row.device_id)||
-     !['pending','revoked'].includes(row.device_state)||
+     !['pending','active','revoked'].includes(row.device_state)||
      typeof row.certificate_present!=='boolean'||typeof row.trust_evidence_present!=='boolean'||
      row.delivery_authorized!==false)throw Error('TSA readiness response failed closed');
   ids.add(row.device_id);
-  if(row.device_state==='pending')pending++;else revoked++;
+  if(row.device_state==='pending')pending++;else if(row.device_state==='active')active++;else revoked++;
   if(row.certificate_present)certificateCandidates++;
   if(row.trust_evidence_present)trustEvidenceCandidates++;
  }
  return Object.freeze({
   state:'device-readiness-preview-not-authorized',
-  pending,revoked,certificateCandidates,trustEvidenceCandidates,
+  pending,active,revoked,certificateCandidates,trustEvidenceCandidates,
   deliveryAuthorized:false
  });
 }
