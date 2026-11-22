@@ -7,7 +7,8 @@ const read=name=>fs.readFileSync(path.join(root,name),'utf8');
 test('V3 does not misrepresent the currently unencrypted message transport',()=>{
  const html=read('chat.html');
  assert.match(html,/id="tichorE2EEStatus"/);
- assert.match(html,/Security status: Not end-to-end encrypted/);
+ assert.match(html,/Experimental encryption required for new direct text/);
+ assert.match(html,/Previous plaintext messages, groups, attachments, calls, and other tools are not protected/);
  assert.match(html,/Do not share sensitive information/);
  assert.match(html,/supa\.from\('chat_messages'\)\.insert/);
  assert.match(html,/supa\.from\('tichor_group_messages'\)\.insert/);
