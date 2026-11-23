@@ -1620,7 +1620,7 @@ for(const mode of ['signin','signup'])$(mode).onclick=async()=>{
    ?await supa.auth.signInWithPassword({email,password})
    :await supa.auth.signUp({email,password,options:{emailRedirectTo:tichorEmailRedirect()}});
   if(error)throw error;
-  if(data.user&&data.session)await loggedIn(data.user);
+  if(data.user&&data.session)await loggedIn(data.user,password);
   else if(mode==='signup'){
    $('resendConfirmation').hidden=false;
    status('authStatus','Confirmation email requested. Open the link in your email. It should return to '+tichorEmailRedirect()+'. If the link takes you to localhost, the Supabase project Site URL or redirect allowlist still needs updating.');
@@ -1699,7 +1699,7 @@ async function tichorRegisterCurrentLogin(){
   }catch{}
  },10000);
 }
-async function loggedIn(u){
+async function loggedIn(u,loginPassword){
  try{await tichorRegisterCurrentLogin()}catch(e){
   await supa.auth.signOut({scope:'local'}).catch(()=>{});
   user=null;show('chat',false);show('auth',true);
@@ -1709,6 +1709,24 @@ async function loggedIn(u){
  // TASE is automatically attempted after a verified account session is restored.
  // It never auto-approves additional browsers or changes the live messaging mode.
  const onboardingAccount=u.id;
+ // Staging opt-in only: never retain the login password or use it on session refresh.
+ // Root preparation must finish before automatic enrollment starts.
+ if(typeof loginPassword==='string' && location.hostname==='localhost' &&
+    localStorage.getItem('tichor-staging-password-recovery')==='enabled'){
+  try{
+   const {prepareLoginIdentity}=await import('./e2ee-v3.js');
+   await prepareLoginIdentity(supa,onboardingAccount,loginPassword);
+  }catch(error){
+   loginPassword=undefined;
+   clearInterval(tichorSessionMonitor);
+   await supa.auth.signOut({scope:'local'});
+   user=null;show('chat',false);show('auth',true);
+   status('authStatus','Encryption preparation failed: '+String(error?.message||error));
+   return;
+  }
+ }
+ loginPassword=undefined;
+
  // Read-only backup discovery runs on each authenticated login (including
  // signup confirmation and restored sessions). Never derive from a cached
  // password, create a backup of legacy non-extractable keys, or trust a new
