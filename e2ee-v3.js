@@ -423,3 +423,15 @@ export async function signRootDeviceRoster(supa,account,body){
  const {signTsaRoster}=await import('./tsa-signed-roster.mjs');
  return signTsaRoster(body,stored.sign.privateKey);
 }
+
+/** Run only after the server confirms a user-authorized identity reset. */
+export async function clearLocalIdentityAfterServerReset(userId){
+ if(!userId)throw Error('Account required');
+ const db=await dbOpen();
+ try{await new Promise((resolve,reject)=>{
+  const tx=db.transaction(KEY_STORE,'readwrite');
+  tx.objectStore(KEY_STORE).delete(userId);
+  tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+ })}finally{db.close()}
+ localStorage.removeItem('tichor-e2ee-pin:'+userId);
+}
