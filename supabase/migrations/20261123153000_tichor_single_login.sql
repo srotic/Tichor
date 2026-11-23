@@ -71,3 +71,24 @@ grant execute on function public.tichor_session_is_current() to authenticated;
 create policy tichor_current_session_only on public.chat_messages
 as restrictive for all to authenticated using ((select public.tichor_session_is_current()))
 with check ((select public.tichor_session_is_current()));
+
+-- All directly exposed V3 account data requires the currently active session.
+-- Preserve existing participant/ownership policies; this is an additional AND guard.
+do $$
+declare r record;
+begin
+ for r in select tablename from pg_tables
+ where schemaname='public' and tablename in (
+  'tichor_attachments','tichor_call_events','tichor_contact_requests',
+  'tichor_contacts','tichor_e2ee_active_device_grants',
+  'tichor_e2ee_approval_previews','tichor_e2ee_device_trust_evidence',
+  'tichor_e2ee_devices','tichor_e2ee_eligibility_certificates',
+  'tichor_e2ee_identity_keys','tichor_e2ee_link_evidence',
+  'tichor_e2ee_nonce_approvals','tichor_e2ee_recipient_directory',
+  'tichor_group_invites','tichor_group_members','tichor_group_messages',
+  'tichor_groups','tichor_hidden_messages','tichor_profiles','tichor_tasks',
+  'tsa_e2ee_device_mailbox','tsa_signed_device_rosters'
+ ) loop
+  execute format('create policy tichor_current_session_only on public.%I as restrictive for all to authenticated using ((select public.tichor_session_is_current())) with check ((select public.tichor_session_is_current()))',r.tablename);
+ end loop;
+end $$;
