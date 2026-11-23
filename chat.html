@@ -1375,8 +1375,19 @@ $('tcResetLostIdentity').onclick=async()=>{
   // A completed reset cannot be undone. Cleanup is scoped to this account.
   await clearLocalIdentityAfterServerReset(account);
   await clearLocalDeviceAfterServerReset(account);
-  output.textContent='Old encryption identity revoked. Sign out and sign in again, then choose Check device security to create fresh keys. Previous encrypted messages may be unreadable.';
+  // After an explicitly confirmed reset, automatically bootstrap fresh keys in
+  // this authenticated browser. Never silently reset an existing identity.
+  output.textContent='Old encryption identity revoked. Establishing new encryption keys automatically…';
   button.hidden=true;
+  const result=await taseEnrollFirstDevice(supa,account,{
+   onStage:stage=>{if(user?.id===account)output.textContent='Setting up encryption: '+stage.replaceAll('-',' ');}
+  });
+  if(user?.id!==account)throw Error('Account changed during encryption setup');
+  if(result.state!=='first-device-active-staging'&&result.state!=='already-active')
+   throw Error('Automatic enrollment incomplete ('+result.state+'). Old encryption identity was reset; check device security before sending.');
+  output.textContent='New encryption identity and this browser enrolled automatically. Previous encrypted messages may be unreadable.';
+  $('tcTaseStatus').textContent='Trusted encryption device enrolled. New direct text requires encrypted delivery.';
+  await tcRefreshE2EE();
  }catch(e){output.textContent='Reset or local cleanup incomplete: '+e.message+'. Do not send encrypted messages until device security is checked.'}
  finally{button.disabled=false}
 };
