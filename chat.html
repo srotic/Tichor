@@ -1177,6 +1177,7 @@ import {loadSignedTsaRosterPacket,publishOwnTsaRoster,renewOwnTsaRosterIfNeeded}
 import {encryptAndPublishTsaTextStaging,receiveTsaVerifiedTextStaging} from "./tsa-mailbox-client.mjs";
 import {taseEnrollFirstDevice} from "./tase-auto-enrollment.mjs";
 import {diagnoseDeviceEnrollment} from "./tase-enrollment-diagnostics.mjs";
+import {readEncryptedIdentityBackup} from "./tase-backup-storage.mjs";
 import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
 import {SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY} from './v3-staging-config.js';
 const enc = new TextEncoder(), dec = new TextDecoder();
@@ -1708,6 +1709,19 @@ async function loggedIn(u){
  // TASE is automatically attempted after a verified account session is restored.
  // It never auto-approves additional browsers or changes the live messaging mode.
  const onboardingAccount=u.id;
+ // Read-only backup discovery runs on each authenticated login (including
+ // signup confirmation and restored sessions). Never derive from a cached
+ // password, create a backup of legacy non-extractable keys, or trust a new
+ // device merely because a backup exists.
+ readEncryptedIdentityBackup(supa,onboardingAccount).then(backup=>{
+  if(user?.id!==onboardingAccount)return;
+  $('tcEnrollmentDiagnostic').textContent=backup?
+   'Encrypted identity backup found. Recovery requires verified device authorization; no keys were automatically replaced.':
+   'No recoverable identity backup found. Existing keys remain protected; new-device recovery is not yet available.';
+ }).catch(error=>{
+  if(user?.id===onboardingAccount)
+   $('tcEnrollmentDiagnostic').textContent='Encrypted backup status unavailable: '+String(error?.message||error);
+ });
  taseEnrollFirstDevice(supa,onboardingAccount,{
   onStage:stage=>{if(user?.id===onboardingAccount)$('tcTaseStatus').textContent='Automatic secure enrollment: '+stage.replaceAll('-',' ');}
  }).then(result=>{
