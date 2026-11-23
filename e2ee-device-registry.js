@@ -60,6 +60,34 @@ export async function localDeviceFingerprint(client,account){
  return {id:record.id,fingerprint:await requestFingerprint(request)};
 }
 
+// Prove that the browser actually possesses the non-extractable signing key.
+// This is a LOCAL cryptographic self-check, not an approval or server grant.
+export async function proveLocalDeviceKeyPossession(privateKey,publicJwk){
+ if(!globalThis.crypto?.subtle||!privateKey||privateKey.extractable||
+    privateKey.algorithm?.name!=='ECDSA'||privateKey.algorithm?.namedCurve!=='P-256')
+  throw Error('A valid non-extractable local signing key is required.');
+ if(publicJwk?.kty!=='EC'||publicJwk?.crv!=='P-256'||publicJwk?.d!==undefined||
+    typeof publicJwk.x!=='string'||typeof publicJwk.y!=='string')
+  throw Error('Invalid local signing public key.');
+ const challenge=crypto.getRandomValues(new Uint8Array(32));
+ const verifier=await crypto.subtle.importKey('jwk',publicJwk,{name:'ECDSA',namedCurve:'P-256'},false,['verify']);
+ const signature=await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},privateKey,challenge);
+ if(!await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},verifier,signature,challenge))
+  throw Error('Local device signing-key possession check failed.');
+ return true;
+}
+
+// Fail closed on revoked/pending devices and expired server grants.
+export function assertCurrentDeviceAuthorization(registered,grant,account,device,now=Date.now()){
+ if(registered?.user_id!==account||registered?.device_id!==device||registered?.state!=='active')
+  throw Error('Local TSA device is not active or has been revoked.');
+ if(grant?.user_id!==account||grant?.device_id!==device||
+    !Number.isSafeInteger(Number(grant?.expires_at_ms))||
+    Number(grant.expires_at_ms)<=now)
+  throw Error('Local TSA device authorization is missing or expired.');
+ return true;
+}
+
 // Load only the browser's existing non-extractable keys for a CURRENTLY active
 // and root-approved device. Pending-device keys never authorize mailbox access.
 // No key material is copied to Supabase or exported from IndexedDB.
@@ -82,12 +110,12 @@ export async function loadApprovedLocalDevice(client,account){
  const publishedSigning=publicOnly(await crypto.subtle.exportKey('jwk',record.sign.publicKey));
  if(!same(publishedEncryption,registered.encryption_public_jwk)||!same(publishedSigning,registered.signing_public_jwk))
   throw Error('Local TSA device keys do not match the immutable registry.');
+ await proveLocalDeviceKeyPossession(record.sign.privateKey,publishedSigning);
  const {data:grant,error:grantError}=await client.from('tichor_e2ee_active_device_grants')
   .select('user_id,device_id,expires_at_ms').eq('user_id',account)
   .eq('device_id',record.id).maybeSingle();
- if(grantError||grant?.user_id!==account||grant.device_id!==record.id||
-    !Number.isFinite(Number(grant.expires_at_ms))||Number(grant.expires_at_ms)<=Date.now())
-  throw Error('Local TSA device authorization is missing or expired.');
+ if(grantError)throw Error('Local TSA device authorization is unavailable.');
+ assertCurrentDeviceAuthorization(registered,grant,account,record.id);
  await checkAccount(client,account);
  return Object.freeze({account,deviceId:record.id,signingKey:record.sign.privateKey,
   decryptionKey:record.enc.privateKey,signingPublicKey:publishedSigning,encryptionPublicKey:publishedEncryption});

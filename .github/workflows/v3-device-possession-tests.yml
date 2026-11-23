@@ -1,0 +1,25 @@
+name: V3 device possession and authorization tests
+on:
+  pull_request:
+    branches: [v3-development]
+    paths:
+      - 'e2ee-device-registry.js'
+      - 'tests/v3-device-possession-authorization.test.mjs'
+      - '.github/workflows/v3-device-possession-tests.yml'
+  push:
+    branches: [v3-development]
+    paths:
+      - 'e2ee-device-registry.js'
+      - 'tests/v3-device-possession-authorization.test.mjs'
+      - '.github/workflows/v3-device-possession-tests.yml'
+  workflow_dispatch:
+jobs:
+  cryptographic-device-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Execute cryptographic device possession and authorization tests
+        run: node --test tests/v3-device-possession-authorization.test.mjs
