@@ -438,7 +438,9 @@ export async function activateConfirmedDevice(supa,account,device){
    account,device,root.signing_public_jwk,registry);
   }catch{continue}
   const now=Date.now();
-  const expiresAt=Math.min(now+3600000,Number(evidence.expires_at_ms),Number(directory.expires_at_ms));
+  // Do not impose an additional one-hour cutoff on verified trust evidence.
+  // Existing server protocol still caps signed grants at 24 hours.
+  const expiresAt=Math.min(now+86400000,Number(evidence.expires_at_ms),Number(directory.expires_at_ms));
   if(expiresAt<=now+1000)continue;
   const approval=await grantModule.signActiveDeviceGrant({
    account,device,nonce:evidence.nonce,issuedAt:now,expiresAt,
