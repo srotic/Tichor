@@ -1198,6 +1198,18 @@ const tcE2EEStorageKey=id=>'tichor-v3-e2ee-opt-in:'+(user?.id||'')+':'+id;
 const tcTsaSelected=()=>Boolean(user&&peer);
 const tcTsaStorageKey=(account,contact)=>'tichor-v3-tsa-secure-opt-in:'+account+':'+contact;
 let tcTsaReading=false,tcTsaLastRead=0;
+const tcVerifiedConversationCache=new Map();
+function tcRenderVerifiedMessages(account,target){
+ const box=$('messages');if(!box||box.dataset.openedPeer!==target)return;
+ const records=tcVerifiedConversationCache.get(account+':'+target)||[];
+ for(const item of records){
+  if(box.querySelector('[data-tsa-message-id="'+item.messageId+'"]'))continue;
+  const article=document.createElement('div');article.className='msg'+(item.senderId===account?' mine':'');article.dataset.tsaMessageId=item.messageId;
+  const heading=document.createElement('small');heading.className='muted';heading.textContent=(item.senderId===account?'You':'Contact')+' · 🔒 Encrypted';
+  const content=document.createElement('div');content.textContent=item.text;article.append(heading,content);box.append(article);
+ }
+}
+
 let tcTsaLastRenewCheck=0;
 async function tcMaintainTsaRoster(account){
  if(!supa||user?.id!==account)throw Error('Device authorization requires your signed-in account');
@@ -1220,25 +1232,12 @@ async function tcReadTsaInbox(){
   const rows=await receiveTsaVerifiedTextStaging(supa,account,async sender=>tcLoadTsaRoster(sender),localStorage,target);
   if(user?.id!==account||peer!==target||!tcTsaSelected())return;
   const list=$('tcTsaInbox');
-  // Verified ciphertext is displayed in the main conversation. Never write
-  // decrypted text to chat_messages, localStorage or an HTML string.
-  const main=$('messages');
-  for(const item of rows.filter(row=>(row.senderId===target)||(row.senderId===account))){
-   if(!main||main.dataset.openedPeer!==target)continue;
-   const selector='[data-tsa-message-id="'+item.messageId+'"]';
-   if(main.querySelector(selector))continue;
-   const article=document.createElement('div');
-   article.dataset.tsaMessageId=item.messageId;
-   article.className='msg'+(item.senderId===account?' mine':'');
-   const heading=document.createElement('small');
-   heading.className='muted';
-   heading.textContent=(item.senderId===account?'You':'Contact')+' · 🔒 Encrypted';
-   const content=document.createElement('div');
-   content.textContent=item.text;
-   article.append(heading,content);
-   main.append(article);
-  }
-  // Keep the legacy separate mailbox panel empty: no duplicate plaintext UI.
+  const key=account+':'+target;
+  const previous=tcVerifiedConversationCache.get(key)||[];
+  const byId=new Map(previous.map(m=>[m.messageId,m]));
+  for(const item of rows.filter(row=>row.senderId===target||row.senderId===account))byId.set(item.messageId,item);
+  tcVerifiedConversationCache.set(key,[...byId.values()].slice(-200));
+  tcRenderVerifiedMessages(account,target);
   if(list)list.replaceChildren();
   statusNode.textContent='Authenticated encrypted inbox checked. Existing ciphertext remains on the server.';
  }catch(error){
@@ -2910,7 +2909,7 @@ async function load(){
  const renderKey=JSON.stringify([peer,document.querySelector('[data-tab="translate"]')?.classList.contains('active'),tichorTranslationMode(),localStorage.getItem('tichor-translation-language'),data,(hidden||[]).map(h=>h.message_id),(attachments||[]).map(a=>[a.message_id,a.file_name,a.mime_type,a.storage_path])]);
  const shouldRender=forceBottom||box.dataset.renderKey!==renderKey;
  if(shouldRender){
- box.dataset.openedPeer=peer;box.dataset.renderKey=renderKey;box.replaceChildren();
+ box.dataset.openedPeer=peer;box.dataset.renderKey=renderKey;box.replaceChildren();tcRenderVerifiedMessages(user.id,peer);
  const actionCreates=new Map(),actionStates=new Map(),pollCreates=new Map(),pollVotes=new Map();
  for(const entry of data||[]){const p=parseTichorPoll(entry.body);if(p?.type==='create')pollCreates.set(entry.id,entry)}
  for(const entry of data||[]){const p=parseTichorPoll(entry.body);if(p?.type!=='vote')continue;const original=pollCreates.get(p.id);if(!original||![original.sender_id,original.recipient_id].includes(entry.sender_id)||p.choice>=parseTichorPoll(original.body).options.length)continue;if(!pollVotes.has(p.id))pollVotes.set(p.id,new Map());pollVotes.get(p.id).set(entry.sender_id,p.choice)}
