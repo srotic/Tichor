@@ -28,17 +28,22 @@ revoke all on public.tichor_login_alerts from anon,authenticated;
 create or replace function public.tichor_register_login(p_device_token_hash text)
 returns jsonb language plpgsql security definer set search_path = ''
 as $$
-declare v_user uuid := auth.uid(); v_session uuid; v_new boolean; v_rows integer; v_prev uuid;
+declare v_user uuid := auth.uid(); v_session uuid; v_new boolean; v_rows integer; v_prev uuid; v_current_created timestamptz; v_prev_created timestamptz;
 begin
  if v_user is null then raise exception 'Authentication required'; end if;
  if p_device_token_hash !~ '^[0-9a-f]{64}$' then raise exception 'Invalid device token digest'; end if;
  begin v_session := (auth.jwt()->>'session_id')::uuid;
  exception when others then raise exception 'Invalid session'; end;
- if v_session is null or not exists (select 1 from auth.sessions where id=v_session and user_id=v_user) then
-  raise exception 'Session not active';
- end if;
+ select created_at into v_current_created from auth.sessions where id=v_session and user_id=v_user;
+ if v_session is null or v_current_created is null then raise exception 'Session not active'; end if;
  perform pg_advisory_xact_lock(hashtextextended(v_user::text,0));
  select session_id into v_prev from public.tichor_active_sessions where user_id=v_user;
+ if v_prev is not null and v_prev <> v_session then
+  select created_at into v_prev_created from auth.sessions where id=v_prev and user_id=v_user;
+  if v_prev_created is not null and v_prev_created >= v_current_created then
+   raise exception 'This login has been superseded by a newer session';
+  end if;
+ end if;
  insert into public.tichor_active_sessions(user_id,session_id) values(v_user,v_session)
  on conflict(user_id) do update set session_id=excluded.session_id,updated_at=now();
  insert into public.tichor_login_devices(user_id,device_token_hash) values(v_user,p_device_token_hash)
