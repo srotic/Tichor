@@ -1714,6 +1714,27 @@ async function loggedIn(u){
    needsRecovery?'Account encryption recovery is required. No keys or trusted-device permissions will be silently replaced.':
    needsApproval?'This browser automatically registered a pending encrypted-device request. Approve it on the original trusted device before sending.':
    'Another trusted device must approve this browser. Existing encryption keys will not be replaced.';
+  if(needsRecovery){
+   // Read-only recovery triage is automatic; replacing a published identity is not.
+   diagnoseDeviceEnrollment(supa,onboardingAccount).then(diagnosis=>{
+    if(user?.id!==onboardingAccount)return;
+    const lostRoot=diagnosis.originalIdentityRegistered&&!diagnosis.originalIdentityPresentLocally;
+    const noActive=diagnosis.activeDevices===0;
+    $('tcResetLostIdentity').hidden=!lostRoot;
+    $('tcTaseStatus').textContent=lostRoot&&noActive?
+     'Encryption cannot activate: this browser has no original private key and the account has no active trusted device. Secure recovery requires your confirmation; existing encrypted history may be unrecoverable.':
+     'Encryption recovery is required. Check device security for trusted-device status. No encryption keys were replaced.';
+    $('tcEnrollmentDiagnostic').textContent=[
+     'Automatic read-only diagnosis',
+     'Original identity locally: '+(diagnosis.originalIdentityPresentLocally?'present':'missing'),
+     'Trusted active devices: '+diagnosis.activeDevices,
+     'Pending devices: '+diagnosis.pendingDevices,
+     'No changes to encryption keys or trust.'
+    ].join(' | ');
+   }).catch(e=>{
+    if(user?.id===onboardingAccount)$('tcEnrollmentDiagnostic').textContent='Automatic recovery diagnosis unavailable: '+e.message;
+   });
+  }
   tcRefreshE2EE().catch(console.warn);
  }).catch(error=>{
   if(user?.id!==onboardingAccount)return;
