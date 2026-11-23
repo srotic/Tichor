@@ -30,8 +30,8 @@ begin
   if not found then return false; end if;
   -- Retain non-secret public identity material in the audit record for incident review.
   insert into public.tichor_e2ee_identity_reset_audit(user_id,previous_identity_fingerprint)
-  values(p_user_id,encode(extensions.digest(
-    (v_old.encryption_public_jwk::text || '|' || v_old.signing_public_jwk::text)::bytea,'sha256'),'hex'));
+  values(p_user_id,encode(sha256(
+    convert_to(v_old.encryption_public_jwk::text || '|' || v_old.signing_public_jwk::text,'UTF8')),'hex'));
   delete from public.tichor_tase_renewal_challenges where user_id=p_user_id;
   delete from public.tichor_e2ee_recipient_directory where user_id=p_user_id;
   delete from public.tichor_e2ee_active_device_grants where user_id=p_user_id;
