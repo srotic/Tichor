@@ -4,7 +4,8 @@ import {webcrypto} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {Buffer} from 'node:buffer';
 
-globalThis.crypto=webcrypto;
+// Node.js 22 exposes globalThis.crypto as a read-only WebCrypto implementation.
+assert.ok(globalThis.crypto?.subtle, 'Node.js WebCrypto must be available');
 const source=readFileSync(new URL('../e2ee-device-registry.js',import.meta.url),'utf8');
 // The browser file is a classic .js module in a repository without a Node
 // package type. Import its exact source as an ESM data URL to execute it.
