@@ -1323,7 +1323,7 @@ $('tcResetLostIdentity').onclick=async()=>{
  button.disabled=true;output.textContent='Requesting authenticated reset…';
  try{
   const {data,error}=await supa.functions.invoke('tsa-reset-identity',{body:{action:'reset',confirmation:phrase,acknowledgeLoss:true}});
-  if(error||!data||data.account!==account)throw Error(error?.message||'Reset response could not be verified');
+  if(error||!data||data.account!==account||data.reset!==true)throw Error(error?.message||'Reset was not confirmed; local keys were preserved');
   // A completed reset cannot be undone. Cleanup is scoped to this account.
   await clearLocalIdentityAfterServerReset(account);
   await clearLocalDeviceAfterServerReset(account);
