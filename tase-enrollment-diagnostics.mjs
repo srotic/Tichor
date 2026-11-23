@@ -1,17 +1,4 @@
-// Read-only Tichor V3 enrollment diagnostics.
-// Never exports private keys, resets an identity, or approves a device.
-const open=(name,store)=>new Promise((resolve,reject)=>{
- const request=indexedDB.open(name);
- request.onerror=()=>reject(request.error);
- request.onupgradeneeded=()=>{request.transaction.abort();reject(Error('Local key database does not exist'))};
- request.onsuccess=()=>{const db=request.result;
-  if(!db.objectStoreNames.contains(store)){db.close();resolve(null);return}
-  const tx=db.transaction(store,'readonly'),get=tx.objectStore(store).get.bind(tx.objectStore(store));
-  const read=get(window.__tichorDiagnosticAccount);
-  read.onsuccess=()=>{const value=read.result;db.close();resolve(value||null)};
-  read.onerror=()=>{db.close();reject(read.error)};
- };
-});
+// Read-only diagnostics; no key exports or enrollment changes.
 function readRecord(name,store,account){
  return new Promise((resolve,reject)=>{
   const request=indexedDB.open(name);
