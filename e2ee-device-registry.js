@@ -8,7 +8,7 @@ async function local(account,record){
 }
 function publicOnly(k){return {kty:k.kty,crv:k.crv,x:k.x,y:k.y};}
 function same(a,b){return ['kty','crv','x','y'].every(k=>a?.[k]===b?.[k]);}
-async function checkAccount(client,account){const {data,error}=await client.auth.getUser();if(error||data?.user?.id!==account)throw Error('Sign in again before managing devices.');}
+async function checkAccount(client,account){const {data,error}=await client.auth.getUser();if(error||data?.user?.id!==account)throw Error('Sign in again before managing devices.');const current=await client.rpc('tichor_session_is_current');if(current.error||current.data!==true)throw Error('This login session is no longer active.');}
 export async function requestDevice(client,account){
  if(!globalThis.isSecureContext||!crypto.subtle||!navigator.locks?.request||!globalThis.indexedDB)throw Error('Secure browser storage and cross-tab locking are required.');
  return navigator.locks.request('tichor-v3-pending-device:'+account,async()=>{
