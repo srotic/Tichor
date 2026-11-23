@@ -56,7 +56,7 @@ Deno.serve(async req=>{
   if(!jwtPart)return reply(401,'Session identifier required');
   let jwtSession;
   try {jwtSession=JSON.parse(atob(jwtPart.replace(/-/g,'+').replace(/_/g,'/'))).session_id} catch {return reply(401,'Malformed session')}
-  if(typeof jwtSession!=='string')return reply(403,'Session identifier missing');
+  if(typeof jwtSession!=='string'||!uuid.test(jwtSession))return reply(403,'Session identifier missing');
   const {data:activeSession,error:activeError}=await db.from('tichor_active_sessions').select('session_id').eq('user_id',auth.user.id).maybeSingle();
   if(activeError||activeSession?.session_id!==jwtSession)return reply(403,'Session replaced by a newer login');
 
@@ -98,15 +98,15 @@ Deno.serve(async req=>{
   const body={domain:'Tichor TSA mailbox request v1',action,account,device,nonce,issuedAt,digest};
   if(!await verify(body,input.signature,row.signing_public_jwk))throw Error('Device possession signature invalid');
   if(action==='publish'){
-   const {data,error}=await db.rpc('tsa_publish_ciphertext_verified',{
+   const {data,error}=await db.rpc('tsa_publish_ciphertext_session_verified',{
     a_sender:account,a_peer:packet.to,a_signing_device:device,a_message:packet.messageId,
-    a_nonce:nonce,a_packet_text:input.packet_text,a_destinations:destinations
+    a_nonce:nonce,a_packet_text:input.packet_text,a_destinations:destinations,a_session:jwtSession
    });
    if(error||typeof data!=='number')throw Error('Database rejected ciphertext batch');
    return reply(200,'Ciphertext stored for all active devices',{state:'stored-staging-ciphertext',copied:data});
   }
-  const {data,error}=await db.rpc('tsa_read_ciphertext_verified',{
-   a_account:account,a_device:device,a_nonce:nonce,a_limit:30
+  const {data,error}=await db.rpc('tsa_read_ciphertext_session_verified',{
+   a_account:account,a_device:device,a_nonce:nonce,a_session:jwtSession,a_limit:30
   });
   if(error||!Array.isArray(data))throw Error('Database rejected device mailbox request');
   return reply(200,'Encrypted mailbox retrieved',{state:'staging-ciphertext-only',messages:data});
