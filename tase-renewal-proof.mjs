@@ -6,7 +6,7 @@ export function renewalPayload({account,device,challenge,expiresAt}){
  if(typeof account!=='string'||!account||typeof device!=='string'||!device||
     typeof challenge!=='string'||!challenge||!Number.isSafeInteger(expiresAt))
   throw Error('Invalid device renewal challenge.');
- return 'TICHOR-TASE-RENEWAL-V1\\n'+account+'\\n'+device+'\\n'+challenge+'\\n'+expiresAt;
+ return 'TICHOR-TASE-RENEWAL-V1\n'+account+'\n'+device+'\n'+challenge+'\n'+expiresAt;
 }
 export async function signRenewalChallenge(privateKey,request,now=Date.now()){
  if(!privateKey||privateKey.extractable||privateKey.algorithm?.name!=='ECDSA'||
