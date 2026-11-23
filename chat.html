@@ -1220,16 +1220,26 @@ async function tcReadTsaInbox(){
   const rows=await receiveTsaVerifiedTextStaging(supa,account,async sender=>tcLoadTsaRoster(sender),localStorage,target);
   if(user?.id!==account||peer!==target||!tcTsaSelected())return;
   const list=$('tcTsaInbox');
-  // This is a separate, decrypted staging mailbox; the standard Chats table
-  // and the normal translation pipeline do not ingest these messages.
+  // Verified ciphertext is displayed in the main conversation. Never write
+  // decrypted text to chat_messages, localStorage or an HTML string.
+  const main=$('messages');
   for(const item of rows.filter(row=>(row.senderId===target)||(row.senderId===account))){
-   if(list.querySelector('[data-tsa-message-id="'+item.messageId+'"]'))continue;
-   const article=document.createElement('p');
+   if(!main||main.dataset.openedPeer!==target)continue;
+   const selector='[data-tsa-message-id="'+item.messageId+'"]';
+   if(main.querySelector(selector))continue;
+   const article=document.createElement('div');
    article.dataset.tsaMessageId=item.messageId;
-   article.className='msg';
-   article.textContent=(item.senderId===account?'You (secure): ':'Secure contact: ')+item.text;
-   list.append(article);
+   article.className='msg'+(item.senderId===account?' mine':'');
+   const heading=document.createElement('small');
+   heading.className='muted';
+   heading.textContent=(item.senderId===account?'You':'Contact')+' · 🔒 Encrypted';
+   const content=document.createElement('div');
+   content.textContent=item.text;
+   article.append(heading,content);
+   main.append(article);
   }
+  // Keep the legacy separate mailbox panel empty: no duplicate plaintext UI.
+  if(list)list.replaceChildren();
   statusNode.textContent='Authenticated encrypted inbox checked. Existing ciphertext remains on the server.';
  }catch(error){
   if(user?.id===account&&peer===target)statusNode.textContent='Secure inbox unavailable; no plaintext fallback: '+error.message;
