@@ -28,7 +28,7 @@ revoke all on public.tichor_login_alerts from anon,authenticated;
 create or replace function public.tichor_register_login(p_device_token_hash text)
 returns jsonb language plpgsql security definer set search_path = ''
 as $$
-declare v_user uuid := auth.uid(); v_session uuid; v_new boolean; v_prev uuid;
+declare v_user uuid := auth.uid(); v_session uuid; v_new boolean; v_rows integer; v_prev uuid;
 begin
  if v_user is null then raise exception 'Authentication required'; end if;
  if p_device_token_hash !~ '^[0-9a-f]{64}$' then raise exception 'Invalid device token digest'; end if;
@@ -43,7 +43,8 @@ begin
  on conflict(user_id) do update set session_id=excluded.session_id,updated_at=now();
  insert into public.tichor_login_devices(user_id,device_token_hash) values(v_user,p_device_token_hash)
  on conflict do nothing;
- get diagnostics v_new = row_count;
+ get diagnostics v_rows = row_count;
+ v_new := v_rows > 0;
  update public.tichor_login_devices set last_seen_at=now() where user_id=v_user and device_token_hash=p_device_token_hash;
  if v_new then insert into public.tichor_login_alerts(user_id,session_id) values(v_user,v_session) on conflict do nothing; end if;
  return jsonb_build_object('active',true,'new_device',v_new,'replaced_previous',v_prev is distinct from v_session and v_prev is not null);
