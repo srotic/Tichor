@@ -4,8 +4,10 @@ on:
     branches: [v3-development]
     paths:
       - 'e2ee-attachment-crypto.mjs'
+      - 'e2ee-attachment-keywrap.mjs'
       - 'tase-renewal-proof.mjs'
       - 'tests/v3-e2ee-attachment-crypto.test.mjs'
+      - 'tests/v3-e2ee-attachment-keywrap.test.mjs'
       - 'tests/v3-tase-renewal-*.test.mjs'
       - '.github/workflows/v3-e2ee-attachment-tests.yml'
   workflow_dispatch:
@@ -17,4 +19,4 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
-      - run: node --test tests/v3-e2ee-attachment-crypto.test.mjs tests/v3-tase-renewal-proof.test.mjs tests/v3-tase-renewal-binding.test.mjs
+      - run: node --test tests/v3-e2ee-attachment-crypto.test.mjs tests/v3-e2ee-attachment-keywrap.test.mjs tests/v3-tase-renewal-proof.test.mjs tests/v3-tase-renewal-binding.test.mjs
