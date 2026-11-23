@@ -52,6 +52,30 @@ async function fetchPublic(supa,id){
   pinIdentity(id,await fingerprint(data));
   return data;
 }
+// Restore the existing root only; this does not authorize a messaging device.
+export async function restoreLoginIdentity(supa,userId,password){
+  mustCrypto();
+  const assertCurrent=async()=>{
+    const {data,error}=await supa.auth.getUser();
+    if(error||data?.user?.id!==userId)throw Error('Recovery account mismatch.');
+    const current=await supa.rpc('tichor_session_is_current');
+    if(current.error||current.data!==true)throw Error('Recovery requires the current login session.');
+  };
+  await assertCurrent();
+  if(await dbGet(userId))return ensureIdentity(supa,userId);
+  const root=await fetchPublic(supa,userId);
+  const {readEncryptedIdentityBackup}=await import('./tase-backup-storage.mjs');
+  const backup=await readEncryptedIdentityBackup(supa,userId);
+  if(!backup)throw Error('No recoverable encryption identity backup exists.');
+  const {restoreRecoverableIdentity}=await import('./tase-recoverable-identity.mjs');
+  const keys=await restoreRecoverableIdentity({userId,password,backup,expectedPublicKeys:root});
+  await assertCurrent();
+  const latest=await fetchPublic(supa,userId);
+  if(await fingerprint(root)!==await fingerprint(latest))throw Error('Identity changed during recovery.');
+  await assertCurrent();
+  await dbPut(userId,keys);
+  return ensureIdentity(supa,userId);
+}
 export async function ensureIdentity(supa,userId){
   mustCrypto();
   if(!userId)throw Error('Sign in before enabling encryption.');
