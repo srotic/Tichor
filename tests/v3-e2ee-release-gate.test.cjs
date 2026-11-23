@@ -79,19 +79,18 @@ test('TSA multi-device envelope is staging-only and cannot claim production E2EE
  assert.doesNotMatch(html,/tsa-multidevice-envelope\.mjs/);
 });
 
-test('Verified original-device direct text encrypts automatically and refuses plaintext downgrade',()=>{
+test('Verified direct text requires the signed TSA mailbox and refuses plaintext downgrade',()=>{
  const html=read('chat.html');
  assert.match(html,/id="tcVerifyContactRoot"/);
- assert.match(html,/confirmContactRootPin\(localStorage,account,target,typed,info\.fingerprint\)/);
- assert.match(html,/tcVerifiedRootPinned=\(\)=>/);
- assert.match(html,/tcE2EESelected=\(\)=>Boolean\(user&&peer&&\(tcVerifiedRootPinned\(\)/);
- assert.match(html,/toggle\.disabled=pinned/);
- assert.match(html,/requireContactRootPin\(localStorage,sender,target,info\.fingerprint\)/);
- assert.match(html,/encrypted\?await encryptDirectText\(client,sender,target,body\):body/);
- assert.match(html,/if\(encrypted&&!isEncrypted\(outgoingBody\)\)/);
- assert.match(html,/if\(encrypted&&file\)throw Error/);
- assert.match(html,/Other devices, attachments, calls and groups remain outside this protection/);
- assert.doesNotMatch(html,/import.*tsa-multidevice-envelope\.mjs/);
+ assert.match(html,/confirmContactRootPin\\(localStorage,account,target,typed,info\\.fingerprint\\)/);
+ assert.match(html,/tcVerifiedRootPinned=\\(\\)=>/);
+ assert.match(html,/tcTsaSelected=\\(\\)=>Boolean\\(user&&peer\\)/);
+ assert.match(html,/await encryptAndPublishTsaTextStaging\\(client/);
+ assert.match(html,/if\\(result\\.state!=='stored-staging-ciphertext'\\)/);
+ assert.match(html,/Encrypted mailbox delivery did not complete\\. Plaintext and legacy message storage are disabled/);
+ const handler=html.slice(html.indexOf("$('sendForm').onsubmit="),html.indexOf("$('refresh').onclick=load"));
+ assert.doesNotMatch(handler,/from\\('chat_messages'\\)\\.insert\\(/);
+ assert.doesNotMatch(html,/import.*tsa-multidevice-envelope\\.mjs/);
 });
 
 test('TSA server readiness remains strictly read-only and refuses device delivery',async()=>{
