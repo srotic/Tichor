@@ -1633,7 +1633,6 @@ async function tichorRegisterCurrentLogin(){
  clearInterval(tichorSessionMonitor);
  tichorSessionMonitor=setInterval(async()=>{
   try{
-   if(!user)return;
    const {data,error}=await supa.rpc('tichor_session_is_current');
    if(!error&&data===false){
     clearInterval(tichorSessionMonitor);
@@ -1643,8 +1642,13 @@ async function tichorRegisterCurrentLogin(){
   }catch{}
  },10000);
 }
-async function loggedIn(u){user=u;
- tichorRegisterCurrentLogin().catch(e=>status('authStatus','Secure session setup failed: '+e.message));tcDeviceRequestVersion++;$('tcRootTrustStatus').textContent='';$('tcDeviceRequests').replaceChildren();$('tcDeviceStatus').textContent='';
+async function loggedIn(u){
+ try{await tichorRegisterCurrentLogin()}catch(e){
+  await supa.auth.signOut({scope:'local'}).catch(()=>{});
+  user=null;show('chat',false);show('auth',true);
+  status('authStatus','Secure session setup failed: '+e.message);return;
+ }
+ user=u;tcDeviceRequestVersion++;$('tcRootTrustStatus').textContent='';$('tcDeviceRequests').replaceChildren();$('tcDeviceStatus').textContent='';
  // TASE is automatically attempted after a verified account session is restored.
  // It never auto-approves additional browsers or changes the live messaging mode.
  const onboardingAccount=u.id;
