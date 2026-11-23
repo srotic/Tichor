@@ -53,6 +53,33 @@ async function fetchPublic(supa,id){
   return data;
 }
 // Restore the existing root only; this does not authorize a messaging device.
+// Staging bootstrap: publish the encrypted backup before the public root.
+export async function prepareLoginIdentity(supa,userId,password){
+  mustCrypto();
+  const assertCurrent=async()=>{
+    const {data,error}=await supa.auth.getUser();
+    if(error||data?.user?.id!==userId||!data.user.email_confirmed_at)throw Error('Verified account required.');
+    const current=await supa.rpc('tichor_session_is_current');
+    if(current.error||current.data!==true)throw Error('Current login required.');
+  };
+  await assertCurrent();
+  if(await dbGet(userId))return ensureIdentity(supa,userId);
+  const {data:root,error}=await supa.from('tichor_e2ee_identity_keys').select('user_id').eq('user_id',userId).maybeSingle();
+  if(error)throw error;
+  if(root)return restoreLoginIdentity(supa,userId,password);
+  const {readEncryptedIdentityBackup,storeEncryptedIdentityBackupOnce}=await import('./tase-backup-storage.mjs');
+  if(await readEncryptedIdentityBackup(supa,userId))throw Error('Interrupted identity bootstrap; recovery required before creating another root.');
+  const {createRecoverableIdentity}=await import('./tase-recoverable-identity.mjs');
+  const created=await createRecoverableIdentity({userId,password});
+  await assertCurrent();
+  await storeEncryptedIdentityBackupOnce(supa,userId,created.backup);
+  await assertCurrent();
+  const published=await supa.from('tichor_e2ee_identity_keys').insert({user_id:userId,encryption_public_jwk:created.encryption_public_jwk,signing_public_jwk:created.signing_public_jwk});
+  if(published.error)throw published.error;
+  await assertCurrent();
+  await dbPut(userId,created.keys);
+  return ensureIdentity(supa,userId);
+}
 export async function restoreLoginIdentity(supa,userId,password){
   mustCrypto();
   const assertCurrent=async()=>{
