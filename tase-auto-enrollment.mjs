@@ -70,8 +70,13 @@ export async function taseEnrollFirstDevice(client,account,{onStage}={}){
     // account has exactly one pending device. Never auto-approve another device.
     if(existing.length===1&&existing[0].device_id===local.id){
      let root=null;
-     try{root=await ensureIdentity(client,account)}catch{
-      // Another browser may own the root; require explicit trusted approval.
+     try{root=await ensureIdentity(client,account)}catch(error){
+      // An original identity on another browser is an expected linking case.
+      // Other failures (including a key-directory mismatch or permission
+      // error) must remain visible instead of being disguised as pending approval.
+      if(!/another browser|secure device linking or recovery is required/i.test(String(error?.message||error)))
+       throw Error('Original identity verification failed: '+String(error?.message||error));
+      notify('original-identity-not-available-on-this-browser');
      }
      if(root?.fingerprint){
       await activeSession(client,account);
