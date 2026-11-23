@@ -5,7 +5,7 @@
 import {requestDevice,listDeviceRequests,localDeviceFingerprint,loadApprovedLocalDevice} from './e2ee-device-registry.js';
 import {ensureIdentity,getConfirmedRootPreview,saveEnrollmentPreview,activateConfirmedDevice} from './e2ee-v3.js';
 import {requestFingerprint} from './e2ee-device-approval.mjs';
-import {publishOwnTsaRoster} from './tsa-roster-directory.mjs';
+import {publishOwnTsaRoster,renewOwnTsaRosterIfNeeded} from './tsa-roster-directory.mjs';
 import {requireFreshLinkEvidence} from './device-link-registry.mjs';
 
 const pending=new Map();
@@ -47,6 +47,9 @@ export async function taseEnrollFirstDevice(client,account,{onStage}={}){
     // simply trust a remembered device ID or an expired server grant.
     try{
      await loadApprovedLocalDevice(client,account);
+     await activeSession(client,account);
+     await renewOwnTsaRosterIfNeeded(client,account);
+     await activeSession(client,account);
      return Object.freeze({state:'already-active',device:local.id});
     }catch(error){
      notify('device-authorization-renewal-required');
