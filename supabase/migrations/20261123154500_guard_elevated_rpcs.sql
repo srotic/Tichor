@@ -18,7 +18,7 @@ begin
  loop
   definition:=pg_get_functiondef(f.oid);
   if f.lanname='plpgsql' then
-   guarded:=regexp_replace(definition,'(?i)(\mbegin\M)',E'\\1\\n if not public.tichor_session_is_current() then raise exception ''Session superseded'' using errcode=''42501''; end if;','');
+   guarded:=replace(definition, 'begin' || chr(10), 'begin' || chr(10) || ' if not public.tichor_session_is_current() then raise exception ''Session superseded'' using errcode=''42501''; end if;' || chr(10));
    if guarded=definition then raise exception 'No PL/pgSQL BEGIN found: %',f.proname; end if;
   elsif f.proname='tichor_contact_allowed' then
    guarded:=replace(definition,'select (select auth.uid()) is not null','select (select public.tichor_session_is_current()) and (select auth.uid()) is not null');
