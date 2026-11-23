@@ -1740,7 +1740,8 @@ async function loggedIn(u,loginPassword){
   if(user?.id===onboardingAccount)
    $('tcEnrollmentDiagnostic').textContent='Encrypted backup status unavailable: '+String(error?.message||error);
  });
- taseEnrollFirstDevice(supa,onboardingAccount,{
+ status('authStatus','Initializing secure communication…');
+ await taseEnrollFirstDevice(supa,onboardingAccount,{
   onStage:stage=>{if(user?.id===onboardingAccount)$('tcTaseStatus').textContent='Automatic secure enrollment: '+stage.replaceAll('-',' ');}
  }).then(result=>{
   if(user?.id!==onboardingAccount)return;
@@ -1791,7 +1792,13 @@ async function loggedIn(u,loginPassword){
   // misleading "identity is on another browser" message even when local
   // original keys exist. Preserve all keys and expose the real failure.
   $('tcOwnFingerprint').textContent='Automatic enrollment did not finish. Check the enrollment status above; no encryption keys were reset.';
- });window.__tichorTaskSession={client:supa,userId:u.id};window.dispatchEvent(new Event('tichor-task-auth'));const chosen=localStorage.getItem(TICHOR_LANG_KEY);if(!localStorage.getItem('tichor-preferred-language:'+u.id)&&chosen)localStorage.setItem('tichor-preferred-language:'+u.id,chosen);tichorLanguageChoice();tichorPrivacyLoad();await tichorLoadKnownCallers();show('auth',false);show('chat',true);$('who').textContent='Signed in as '+(u.email||u.phone||'Tichor user');await loadProfile();await tichorRefreshRequests();await loadContacts();tcGroupMount();tcGroupRefresh().catch(console.warn);await refreshFolder();await acknowledgeDelivery();await startCalling();startMessageUpdates();}
+ });
+ const currentLogin=await supa.rpc('tichor_session_is_current');
+ if(user?.id!==onboardingAccount||currentLogin.error||currentLogin.data!==true){
+  if(user?.id===onboardingAccount){clearInterval(tichorSessionMonitor);await supa.auth.signOut({scope:'local'});user=null;show('chat',false);show('auth',true);status('authStatus','Secure session is no longer active. Sign in again.');}
+  return;
+ }
+ window.__tichorTaskSession={client:supa,userId:u.id};window.dispatchEvent(new Event('tichor-task-auth'));const chosen=localStorage.getItem(TICHOR_LANG_KEY);if(!localStorage.getItem('tichor-preferred-language:'+u.id)&&chosen)localStorage.setItem('tichor-preferred-language:'+u.id,chosen);tichorLanguageChoice();tichorPrivacyLoad();await tichorLoadKnownCallers();show('auth',false);show('chat',true);$('who').textContent='Signed in as '+(u.email||u.phone||'Tichor user');await loadProfile();await tichorRefreshRequests();await loadContacts();tcGroupMount();tcGroupRefresh().catch(console.warn);await refreshFolder();await acknowledgeDelivery();await startCalling();startMessageUpdates();}
 
 // Inbox and Sent are derived from existing messages; no new database tables needed.
 let activeFolder='inbox',folderBusy=false;
