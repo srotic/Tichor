@@ -45,6 +45,15 @@ Deno.serve(async req=>{
   const db=createClient(url,adminKey,{auth:{persistSession:false,autoRefreshToken:false}});
   const {data:session,error:authError}=await db.auth.getUser(authorization.slice(7));
   if(authError||!session?.user?.id)return reply(401,'Invalid session');
+  // A verified JWT is necessary but insufficient: superseded sessions are denied.
+  const jwtPart=authorization.slice(7).split('.')[1];
+  if(!jwtPart)return reply(401,'Session identifier required');
+  let jwtSession;
+  try {jwtSession=JSON.parse(atob(jwtPart.replace(/-/g,'+').replace(/_/g,'/'))).session_id} catch {return reply(401,'Malformed session')}
+  if(typeof jwtSession!=='string')return reply(403,'Session identifier missing');
+  const {data:activeSession,error:activeError}=await db.from('tichor_active_sessions').select('session_id').eq('user_id',session.user.id).maybeSingle();
+  if(activeError||activeSession?.session_id!==jwtSession)return reply(403,'Session replaced by a newer login');
+
   const input=await req.json();
   if(typeof input!=='object'||input===null||Array.isArray(input))throw Error('Invalid device grant');
   const g=input.grant;const account=id(g?.account),device=id(g?.device),nonce=id(g?.nonce);
