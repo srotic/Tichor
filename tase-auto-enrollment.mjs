@@ -22,6 +22,9 @@ async function activeSession(client,account){
  const {data,error}=await client.auth.getUser();
  if(error||data?.user?.id!==account)throw Error('TASE account session changed');
  if(!isVerified(data.user))throw Error('Verify your email or phone before activating encryption');
+ const current=await client.rpc('tichor_session_is_current');
+ if(current.error||current.data!==true)throw Error('TASE requires the current active login session');
+
  return data.user;
 }
 export async function taseEnrollFirstDevice(client,account,{onStage}={}){
