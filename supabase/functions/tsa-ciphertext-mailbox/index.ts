@@ -51,6 +51,15 @@ Deno.serve(async req=>{
   const db=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
   const {data:auth,error:authError}=await db.auth.getUser(token.slice(7));
   if(authError||!auth?.user?.id)return reply(401,'Invalid session');
+  // A verified JWT is necessary but insufficient: superseded sessions are denied.
+  const jwtPart=token.slice(7).split('.')[1];
+  if(!jwtPart)return reply(401,'Session identifier required');
+  let jwtSession;
+  try {jwtSession=JSON.parse(atob(jwtPart.replace(/-/g,'+').replace(/_/g,'/'))).session_id} catch {return reply(401,'Malformed session')}
+  if(typeof jwtSession!=='string')return reply(403,'Session identifier missing');
+  const {data:activeSession,error:activeError}=await db.from('tichor_active_sessions').select('session_id').eq('user_id',auth.user.id).maybeSingle();
+  if(activeError||activeSession?.session_id!==jwtSession)return reply(403,'Session replaced by a newer login');
+
   const raw=await req.text();if(raw.length>45000)throw Error('Request too large');
   const input=JSON.parse(raw);
   if(!input||typeof input!=='object'||Array.isArray(input))throw Error('Malformed request');
