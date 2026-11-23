@@ -120,3 +120,14 @@ export async function loadApprovedLocalDevice(client,account){
  return Object.freeze({account,deviceId:record.id,signingKey:record.sign.privateKey,
   decryptionKey:record.enc.privateKey,signingPublicKey:publishedSigning,encryptionPublicKey:publishedEncryption});
 }
+
+/** Delete only this account's obsolete local device after confirmed server reset. */
+export async function clearLocalDeviceAfterServerReset(account){
+ if(!account)throw Error('Account required');
+ const db=await openDB();
+ try{await new Promise((resolve,reject)=>{
+  const tx=db.transaction('devices','readwrite');
+  tx.objectStore('devices').delete(account);
+  tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+ })}finally{db.close()}
+}
