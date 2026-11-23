@@ -1625,7 +1625,11 @@ async function loggedIn(u){user=u;tcDeviceRequestVersion++;$('tcRootTrustStatus'
   $('tcTaseStatus').textContent=existingElsewhere?
    'Encryption identity exists on another browser. Link this browser through trusted approval; no keys will be overwritten.':
    'Automatic enrollment requires attention: '+error.message+'. Encryption is not active.';
-  tcSetupIdentity(onboardingAccount).catch(console.warn);
+  // Do not run a second, independent root-identity setup after TASE fails.
+  // That fallback can overwrite the actionable enrollment error with a
+  // misleading "identity is on another browser" message even when local
+  // original keys exist. Preserve all keys and expose the real failure.
+  $('tcOwnFingerprint').textContent='Automatic enrollment did not finish. Check the enrollment status above; no encryption keys were reset.';
  });window.__tichorTaskSession={client:supa,userId:u.id};window.dispatchEvent(new Event('tichor-task-auth'));const chosen=localStorage.getItem(TICHOR_LANG_KEY);if(!localStorage.getItem('tichor-preferred-language:'+u.id)&&chosen)localStorage.setItem('tichor-preferred-language:'+u.id,chosen);tichorLanguageChoice();tichorPrivacyLoad();await tichorLoadKnownCallers();show('auth',false);show('chat',true);$('who').textContent='Signed in as '+(u.email||u.phone||'Tichor user');await loadProfile();await tichorRefreshRequests();await loadContacts();tcGroupMount();tcGroupRefresh().catch(console.warn);await refreshFolder();await acknowledgeDelivery();await startCalling();startMessageUpdates();}
 
 // Inbox and Sent are derived from existing messages; no new database tables needed.
