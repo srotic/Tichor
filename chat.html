@@ -1317,6 +1317,19 @@ $('tcResetLostIdentity').onclick=async()=>{
  const button=$('tcResetLostIdentity'),output=$('tcResetIdentityStatus');
  if(!user){output.textContent='Sign in again before resetting encryption.';return}
  const account=user.id;
+ button.disabled=true;
+ try{
+  const diagnosis=await diagnoseDeviceEnrollment(supa,account);
+  if(user?.id!==account)throw Error('Account changed. Sign in and diagnose again.');
+  if(diagnosis.originalIdentityPresentLocally||!diagnosis.originalIdentityRegistered){
+   button.hidden=true;
+   output.textContent=diagnosis.originalIdentityPresentLocally
+    ?'Original identity keys are available on this browser. Identity reset blocked; use trusted-device authorization instead.'
+    :'No published identity exists. Use Check device security to enroll normally.';
+   return;
+  }
+ }catch(e){output.textContent='Reset blocked: '+e.message;return}
+ finally{button.disabled=false}
  const phrase=prompt('DANGER: This permanently replaces your encryption identity. Old encrypted messages may become unreadable on every device. Type RESET MY ENCRYPTION IDENTITY to continue.');
  if(phrase!=='RESET MY ENCRYPTION IDENTITY'){output.textContent='Reset cancelled. No changes made.';return}
  if(!confirm('Final confirmation: revoke ALL encryption device authorizations and reset the identity for your signed-in account? Ordinary chat history is not deleted.'))return;
