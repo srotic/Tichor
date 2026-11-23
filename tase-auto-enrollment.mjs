@@ -65,6 +65,40 @@ export async function taseEnrollFirstDevice(client,account,{onStage}={}){
      if(refreshed.id!==local.id||refreshed.state!=='pending')
       throw Error('Pending device identity changed; no approval requested');
     }
+    // Resume an interrupted FIRST-device bootstrap only when the original
+    // non-extractable root key is present, matches the directory, and this
+    // account has exactly one pending device. Never auto-approve another device.
+    if(existing.length===1&&existing[0].device_id===local.id){
+     let root=null;
+     try{root=await ensureIdentity(client,account)}catch{
+      // Another browser may own the root; require explicit trusted approval.
+     }
+     if(root?.fingerprint){
+      await activeSession(client,account);
+      const latest=await listDeviceRequests(client,account);
+      if(latest.length!==1||latest[0].device_id!==local.id||latest[0].state!=='pending')
+       throw Error('First-device registry changed; automatic activation stopped');
+      const expected=await requestFingerprint(latest[0]);
+      const mine=await localDeviceFingerprint(client,account);
+      if(mine?.id!==local.id||mine.fingerprint!==expected)
+       throw Error('Local device does not match signed registration');
+      await getConfirmedRootPreview(client,account,root.fingerprint);
+      notify('resuming-first-device-authorization');
+      const evidence=await saveEnrollmentPreview(client,account,latest[0],expected);
+      if(evidence!=='directory-verified-preview')
+       throw Error('First-device enrollment evidence not verified');
+      await activeSession(client,account);
+      const activated=await activateConfirmedDevice(client,account,local.id);
+      if(activated.state!=='active-not-delivery-authorized')
+       throw Error('First-device authorization was rejected');
+      await loadApprovedLocalDevice(client,account);
+      notify('publishing-signed-roster');
+      const roster=await publishOwnTsaRoster(client,account);
+      notify('first-device-ready');
+      return Object.freeze({state:'first-device-active-staging',device:local.id,
+       authorizedUntil:activated.expiresAt,rosterExpiresAt:roster.expiresAt});
+     }
+    }
     notify('waiting-for-original-device-approval');
     return Object.freeze({state:'pending-device-approval-required',device:local.id});
    }
