@@ -73,3 +73,13 @@ test('TASE automates pending device registration but never grants a new browser 
  assert.match(chat,/Review secure recovery options/);
  assert.match(chat,/tcManageDevice\(false\)/);
 });
+
+test('trusted device access requires a fresh local cryptographic signing-key proof',()=>{
+ const registry=readFileSync(new URL('../e2ee-device-registry.js',import.meta.url),'utf8');
+ assert.match(registry,/export async function proveLocalDeviceKeyPossession/);
+ assert.match(registry,/crypto\.getRandomValues\(new Uint8Array\(32\)\)/);
+ assert.match(registry,/crypto\.subtle\.sign/);
+ assert.match(registry,/crypto\.subtle\.verify/);
+ assert.match(registry,/await proveLocalDeviceKeyPossession\(record\.sign\.privateKey,publishedSigning\)/);
+ assert.match(registry,/grant\.expires_at_ms/);
+});
