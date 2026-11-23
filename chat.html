@@ -1618,7 +1618,33 @@ function tichorMountPrivacy(){
 }
 const quickBlockButton=document.getElementById('tichorQuickBlock');if(quickBlockButton)quickBlockButton.addEventListener('click',tichorToggleBlockCurrent);
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',tichorMountPrivacy,{once:true});else tichorMountPrivacy();
-async function loggedIn(u){user=u;tcDeviceRequestVersion++;$('tcRootTrustStatus').textContent='';$('tcDeviceRequests').replaceChildren();$('tcDeviceStatus').textContent='';
+let tichorSessionMonitor=null;
+async function tichorRegisterCurrentLogin(){
+ const {data:{session}}=await supa.auth.getSession();
+ if(!session?.user)throw Error('Sign in required');
+ let token=localStorage.getItem('tichor-login-device-token-v1');
+ if(!token){token=crypto.randomUUID()+'-'+crypto.randomUUID();localStorage.setItem('tichor-login-device-token-v1',token)}
+ const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token)))).map(b=>b.toString(16).padStart(2,'0')).join('');
+ const {data,error}=await supa.rpc('tichor_register_login',{p_device_token_hash:digest});
+ if(error)throw error;
+ if(data?.new_device){
+  supa.functions.invoke('tichor-login-alert',{body:{}}).catch(()=>{});
+ }
+ clearInterval(tichorSessionMonitor);
+ tichorSessionMonitor=setInterval(async()=>{
+  try{
+   if(!user)return;
+   const {data,error}=await supa.rpc('tichor_session_is_current');
+   if(!error&&data===false){
+    clearInterval(tichorSessionMonitor);
+    await supa.auth.signOut({scope:'local'});
+    status('authStatus','You were signed out because your account was opened on another device.');
+   }
+  }catch{}
+ },10000);
+}
+async function loggedIn(u){user=u;
+ tichorRegisterCurrentLogin().catch(e=>status('authStatus','Secure session setup failed: '+e.message));tcDeviceRequestVersion++;$('tcRootTrustStatus').textContent='';$('tcDeviceRequests').replaceChildren();$('tcDeviceStatus').textContent='';
  // TASE is automatically attempted after a verified account session is restored.
  // It never auto-approves additional browsers or changes the live messaging mode.
  const onboardingAccount=u.id;
