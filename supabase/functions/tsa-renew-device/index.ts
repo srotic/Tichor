@@ -35,7 +35,7 @@ Deno.serve(async(req)=>{
     return respond(400,{error:'Invalid proof'});
    const {data:row,error:rowError}=await db.from('tichor_tase_renewal_challenges').select('expires_at,consumed_at').eq('user_id',account).eq('device_id',device).eq('challenge',body.challenge).maybeSingle();
    if(rowError||!row||row.consumed_at||new Date(row.expires_at).getTime()!==body.expiresAt||body.expiresAt<=Date.now())return respond(403,{error:'Challenge expired or consumed'});
-   const payload='TICHOR-TASE-RENEWAL-V1\\n'+account+'\\n'+device+'\\n'+body.challenge+'\\n'+body.expiresAt;
+   const payload='TICHOR-TASE-RENEWAL-V1\n'+account+'\n'+device+'\n'+body.challenge+'\n'+body.expiresAt;
    const pub=await crypto.subtle.importKey('jwk',key(registered.signing_public_jwk),{name:'ECDSA',namedCurve:'P-256'},false,['verify']);
    if(!await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},pub,new Uint8Array(body.signature),E.encode(payload)))return respond(403,{error:'Signature rejected'});
    const {data:consumed,error:consumeError}=await db.rpc('tsa_consume_renewal_challenge',{a_user:account,a_device:device,a_challenge:body.challenge,a_expires_at_ms:body.expiresAt});
