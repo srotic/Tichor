@@ -1297,11 +1297,15 @@ $('tcEnableE2EE').onclick=()=>{if(user)tcSetupIdentity(user.id).catch(console.wa
 $('tcDiagnoseEnrollment').onclick=async()=>{
  const button=$('tcDiagnoseEnrollment'),output=$('tcEnrollmentDiagnostic');
  if(!user){output.textContent='Sign in to check enrollment.';return}
+ const account=user.id;
  button.disabled=true;output.textContent='Checking local keys and authorization (read-only)…';
  try{
-  const result=await diagnoseDeviceEnrollment(supa,user.id);
+  const result=await diagnoseDeviceEnrollment(supa,account);
+  if(user?.id!==account)throw Error('Signed-in account changed; please run diagnosis again');
   $('tcResetLostIdentity').hidden=!(result.originalIdentityRegistered&&!result.originalIdentityPresentLocally);
+  $('tcResetIdentityStatus').textContent='';
   output.textContent=[
+   'Encryption status for the SIGNED-IN account (not the contact shown in the chat header)',
    'Original identity in this browser: '+(result.originalIdentityPresentLocally?'present':'missing'),
    'Published account identity: '+(result.originalIdentityRegistered?'present':'missing'),
    'Local device keys: '+(result.localDeviceKeysPresent?'present':'missing'),
@@ -1310,7 +1314,7 @@ $('tcDiagnoseEnrollment').onclick=async()=>{
    'Valid device grants: '+result.unexpiredGrants,
    'No keys or registrations were changed.'
   ].join(' | ');
- }catch(error){output.textContent='Enrollment diagnosis unavailable: '+error.message}
+ }catch(error){$('tcResetLostIdentity').hidden=true;output.textContent='Enrollment diagnosis unavailable: '+error.message}
  finally{button.disabled=false}
 };
 $('tcResetLostIdentity').onclick=async()=>{
