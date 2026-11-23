@@ -77,6 +77,17 @@ export async function proveLocalDeviceKeyPossession(privateKey,publicJwk){
  return true;
 }
 
+// Fail closed on revoked/pending devices and expired server grants.
+export function assertCurrentDeviceAuthorization(registered,grant,account,device,now=Date.now()){
+ if(registered?.user_id!==account||registered?.device_id!==device||registered?.state!=='active')
+  throw Error('Local TSA device is not active or has been revoked.');
+ if(grant?.user_id!==account||grant?.device_id!==device||
+    !Number.isSafeInteger(Number(grant?.expires_at_ms))||
+    Number(grant.expires_at_ms)<=now)
+  throw Error('Local TSA device authorization is missing or expired.');
+ return true;
+}
+
 // Load only the browser's existing non-extractable keys for a CURRENTLY active
 // and root-approved device. Pending-device keys never authorize mailbox access.
 // No key material is copied to Supabase or exported from IndexedDB.
@@ -103,9 +114,8 @@ export async function loadApprovedLocalDevice(client,account){
  const {data:grant,error:grantError}=await client.from('tichor_e2ee_active_device_grants')
   .select('user_id,device_id,expires_at_ms').eq('user_id',account)
   .eq('device_id',record.id).maybeSingle();
- if(grantError||grant?.user_id!==account||grant.device_id!==record.id||
-    !Number.isFinite(Number(grant.expires_at_ms))||Number(grant.expires_at_ms)<=Date.now())
-  throw Error('Local TSA device authorization is missing or expired.');
+ if(grantError)throw Error('Local TSA device authorization is unavailable.');
+ assertCurrentDeviceAuthorization(registered,grant,account,record.id);
  await checkAccount(client,account);
  return Object.freeze({account,deviceId:record.id,signingKey:record.sign.privateKey,
   decryptionKey:record.enc.privateKey,signingPublicKey:publishedSigning,encryptionPublicKey:publishedEncryption});
