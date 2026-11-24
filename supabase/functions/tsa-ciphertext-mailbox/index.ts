@@ -28,6 +28,21 @@ async function registry(db,account,device){
  if(error||!data||data.state!=='active')throw Error('Unknown or inactive device');
  return data;
 }
+// Verify persistent trust against current registry and root, never client claims.
+async function verifyPersistentDeviceTrust(db,account,device){
+ const {data:t,error}=await db.from('tsa_persistent_device_trust').select('*').eq('user_id',account).eq('device_id',device).maybeSingle();
+ if(error)throw Error('Persistent trust lookup failed');
+ if(!t)return false;
+ const {data:d,error:de}=await db.from('tichor_e2ee_devices').select('state,encryption_public_jwk,signing_public_jwk').eq('user_id',account).eq('device_id',device).maybeSingle();
+ const {data:r,error:re}=await db.from('tichor_e2ee_identity_keys').select('signing_public_jwk').eq('user_id',account).maybeSingle();
+ if(de||re||!d||!r||d.state!=='active')throw Error('Persistent trust identity unavailable');
+ const same=(a,b)=>JSON.stringify(publicKey(a))===JSON.stringify(publicKey(b));
+ if(!same(t.root_signing_key,r.signing_public_jwk)||!same(t.encryption_key,d.encryption_public_jwk)||!same(t.signing_key,d.signing_public_jwk))throw Error('Persistent trust key mismatch');
+ if(!Number.isSafeInteger(t.revision)||t.revision<1)throw Error('Invalid trust revision');
+ const body={domain:'Tichor TSA persistent device trust v1',account,device,revision:t.revision,encryptionKey:publicKey(d.encryption_public_jwk),signingKey:publicKey(d.signing_public_jwk)};
+ if(!await verify(body,t.root_signature,r.signing_public_jwk))throw Error('Persistent trust signature invalid');
+ return true;
+}
 function isCiphertextSlot(copy){
  return copy&&typeof copy==='object'&&!Array.isArray(copy) &&
  uuid.test(copy.account)&&uuid.test(copy.device)&&copy.epk&&copy.epk.kty==='EC'&&copy.epk.crv==='P-256' &&
@@ -70,6 +85,8 @@ Deno.serve(async req=>{
   const issuedAt=input.issuedAt,now=Date.now();
   if(!Number.isSafeInteger(issuedAt)||issuedAt>now+30000||issuedAt<now-60000)throw Error('Stale device request');
   const row=await registry(db,account,device);
+  // Reject invalid persistent trust even during legacy grant migration.
+  await verifyPersistentDeviceTrust(db,account,device);
   // Bind exact request payload bytes to signing key for a device; immutable packet
   // JSON is hashed before the signature is checked.
   let digest=null,packet=null,destinations=null;
