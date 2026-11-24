@@ -79,9 +79,13 @@ Deno.serve(async req=>{
   const input=JSON.parse(raw);
   if(!input||typeof input!=='object'||Array.isArray(input))throw Error('Malformed request');
   const action=input.action;
-  if(action!=='publish'&&action!=='receive'&&action!=='register-trust')throw Error('Unsupported mailbox request');
+  if(action!=='publish'&&action!=='receive'&&action!=='register-trust'&&action!=='check-trust')throw Error('Unsupported mailbox request');
   const account=id(input.account),device=id(input.device),nonce=id(input.nonce);
   if(account!==auth.user.id)throw Error('Account mismatch');
+  if(action==='check-trust'){
+   const trusted=await verifyPersistentDeviceTrust(db,account,device);
+   return reply(200,'Trust checked',{trusted});
+  }
   if(action==='register-trust'){
    const {data:d,error:de}=await db.from('tichor_e2ee_devices').select('*').eq('user_id',account).eq('device_id',device).maybeSingle();
    const {data:r,error:re}=await db.from('tichor_e2ee_identity_keys').select('signing_public_jwk').eq('user_id',account).maybeSingle();
