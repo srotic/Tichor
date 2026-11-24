@@ -5,7 +5,15 @@
 import {requestDevice,listDeviceRequests,localDeviceFingerprint,loadApprovedLocalDevice} from './e2ee-device-registry.js';
 import {ensureIdentity,getConfirmedRootPreview,saveEnrollmentPreview,activateConfirmedDevice,registerPersistentDeviceTrust} from './e2ee-v3.js';
 import {requestFingerprint} from './e2ee-device-approval.mjs';
-import {publishOwnTsaRoster,renewOwnTsaRosterIfNeeded} from './tsa-roster-directory.mjs';
+async function ensurePersistentCertificate(client,account,device){
+ const check=()=>client.functions.invoke('tsa-ciphertext-mailbox',{body:{action:'check-trust',account,device,nonce:crypto.randomUUID()}});
+ let result=await check();
+ if(result.error||result.data?.trusted!==true){
+  await registerPersistentDeviceTrust(client,account,device);
+  result=await check();
+ }
+ if(result.error||result.data?.trusted!==true)throw Error('Persistent device certificate verification failed');
+}
 import {requireFreshLinkEvidence} from './device-link-registry.mjs';
 
 const pending=new Map();
@@ -51,7 +59,7 @@ export async function taseEnrollFirstDevice(client,account,{onStage}={}){
       await registerPersistentDeviceTrust(client,account,local.id);
      await loadApprovedLocalDevice(client,account);
      await activeSession(client,account);
-     await renewOwnTsaRosterIfNeeded(client,account);
+     await ensurePersistentCertificate(client,account,local.id);
      await activeSession(client,account);
      return Object.freeze({state:'already-active',device:local.id});
     }catch(error){
@@ -77,7 +85,7 @@ export async function taseEnrollFirstDevice(client,account,{onStage}={}){
     // Resume an interrupted FIRST-device bootstrap only when the original
     // non-extractable root key is present, matches the directory, and this
     // account has exactly one pending device. Never auto-approve another device.
-    if(existing.length===1&&existing[0].device_id===local.id){
+    if(matched?.state==='pending'){
      let root=null;
      try{root=await ensureIdentity(client,account)}catch(error){
       // An original identity on another browser is an expected linking case.
@@ -90,15 +98,16 @@ export async function taseEnrollFirstDevice(client,account,{onStage}={}){
      if(root?.fingerprint){
       await activeSession(client,account);
       const latest=await listDeviceRequests(client,account);
-      if(latest.length!==1||latest[0].device_id!==local.id||latest[0].state!=='pending')
+      const pendingDevice=latest.find(d=>d.device_id===local.id&&d.state==='pending');
+      if(!pendingDevice)
        throw Error('First-device registry changed; automatic activation stopped');
-      const expected=await requestFingerprint(latest[0]);
+      const expected=await requestFingerprint(pendingDevice);
       const mine=await localDeviceFingerprint(client,account);
       if(mine?.id!==local.id||mine.fingerprint!==expected)
        throw Error('Local device does not match signed registration');
       await getConfirmedRootPreview(client,account,root.fingerprint);
       notify('resuming-first-device-authorization');
-      const evidence=await saveEnrollmentPreview(client,account,latest[0],expected);
+      const evidence=await saveEnrollmentPreview(client,account,pendingDevice,expected);
       if(evidence!=='directory-verified-preview')
        throw Error('First-device enrollment evidence not verified');
       await activeSession(client,account);
@@ -106,11 +115,11 @@ export async function taseEnrollFirstDevice(client,account,{onStage}={}){
       if(activated.state!=='active-not-delivery-authorized')
        throw Error('First-device authorization was rejected');
       await loadApprovedLocalDevice(client,account);
-      notify('publishing-signed-roster');
-      const roster=await publishOwnTsaRoster(client,account);
+      notify('verifying-persistent-certificate');
+      await ensurePersistentCertificate(client,account,local.id);
       notify('first-device-ready');
       return Object.freeze({state:'first-device-active-staging',device:local.id,
-       authorizedUntil:activated.expiresAt,rosterExpiresAt:roster.expiresAt});
+       authorizedUntil:activated.expiresAt});
      }
     }
     notify('waiting-for-original-device-approval');
@@ -154,7 +163,7 @@ export async function taseEnrollFirstDevice(client,account,{onStage}={}){
     await activeSession(client,account);
     await activateConfirmedDevice(client,account,request.id);
     await loadApprovedLocalDevice(client,account);
-    await publishOwnTsaRoster(client,account);
+    await ensurePersistentCertificate(client,account,request.id);
     return Object.freeze({state:'recovered-device-active-staging',device:request.id});
    }
    notify('waiting-for-original-device-approval');
@@ -189,11 +198,11 @@ export async function taseEnrollFirstDevice(client,account,{onStage}={}){
   if(activated.state!=='active-not-delivery-authorized')
    throw Error('First-device activation was not accepted by server');
   await loadApprovedLocalDevice(client,account);
-  notify('publishing-signed-roster');
-  const roster=await publishOwnTsaRoster(client,account);
+  notify('verifying-persistent-certificate');
+  await ensurePersistentCertificate(client,account,registered.id);
   notify('first-device-ready');
   return Object.freeze({state:'first-device-active-staging',device:registered.id,
-   authorizedUntil:activated.expiresAt,rosterExpiresAt:roster.expiresAt});
+   authorizedUntil:activated.expiresAt});
  });
  pending.set(account,task);
  try{return await task}finally{if(pending.get(account)===task)pending.delete(account)}
