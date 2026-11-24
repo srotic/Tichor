@@ -1211,7 +1211,7 @@ function tcRenderVerifiedMessages(account,target){
   const meta=document.createElement('small');meta.className='tc-secure-meta';
   const time=document.createElement('time');if(Number.isFinite(item.createdAt)&&item.createdAt>0){const date=new Date(item.createdAt);time.dateTime=date.toISOString();time.textContent=date.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});time.title=date.toLocaleString();}
   meta.append(time);
-  if(item.senderId===account){const tick=document.createElement('span');tick.textContent='✓';tick.title='Sent — encrypted mailbox accepted';tick.setAttribute('aria-label',tick.title);meta.append(tick);}
+  if(item.senderId===account){const tick=document.createElement('span');tick.className='tc-secure-tick';tick.textContent='✓';tick.title='Sent — encrypted mailbox accepted';tick.setAttribute('aria-label',tick.title);meta.append(tick);}
   article.append(content,meta);box.append(article);box.scrollTop=box.scrollHeight;
  }
 }
@@ -1235,6 +1235,21 @@ async function tcLoadTsaRoster(account){
  if(user?.id!==own)throw Error('Account changed during directory discovery');
  return data;
 }
+async function tcSyncSecureReceipts(account,target,rows){
+ if(user?.id!==account||peer!==target)return;
+ const ids=rows.filter(m=>m.senderId===target).map(m=>m.messageId);
+ const visible=document.visibilityState==='visible'&&document.hasFocus();
+ if(ids.length){const {error}=await supa.rpc('tsa_ack_messages',{p_peer:target,p_ids:ids,p_read:visible});if(error)console.warn('Receipt acknowledgement unavailable',error.message);}
+ if(user?.id!==account||peer!==target)return;
+ const outgoing=(tcVerifiedConversationCache.get(account+':'+target)||[]).filter(m=>m.senderId===account).map(m=>m.messageId);
+ if(!outgoing.length)return;
+ const {data,error}=await supa.from('tsa_message_receipts').select('message_id,read_at').eq('sender_id',account).eq('recipient_id',target).in('message_id',outgoing);
+ if(error||user?.id!==account||peer!==target)return;
+ for(const receipt of data||[]){
+ const tick=$('messages').querySelector('[data-tsa-message-id="'+receipt.message_id+'"] .tc-secure-tick');
+ if(tick){tick.textContent='✓✓';tick.title=receipt.read_at?'Read':'Delivered';tick.setAttribute('aria-label',tick.title);if(receipt.read_at)tick.style.color='#34b7f1';}
+ }
+}
 async function tcReadTsaInbox(){
  const account=user?.id,target=peer;
  if(!account||!target||!tcTsaSelected()||tcTsaReading)return;
@@ -1250,6 +1265,7 @@ async function tcReadTsaInbox(){
   for(const item of rows.filter(row=>row.senderId===target||row.senderId===account))byId.set(item.messageId,item);
   tcVerifiedConversationCache.set(key,[...byId.values()].slice(-200));
   tcRenderVerifiedMessages(account,target);
+  tcSyncSecureReceipts(account,target,rows).catch(console.warn);
   if(list)list.replaceChildren();
   statusNode.textContent='Authenticated encrypted inbox checked. Existing ciphertext remains on the server.';
   if($('chatStatus')?.textContent.startsWith('Encrypted inbox:'))status('chatStatus','');
@@ -3288,7 +3304,7 @@ function tcStartInboxSignal(){
   const read=()=>{if(user?.id!==account||!peer||tichorIsBlocked(peer))return;if(tcTsaReading){tcInboxSignalTimer=setTimeout(read,250);return;}tcTsaLastRead=0;tcReadTsaInbox().catch(console.warn);};
   tcInboxSignalTimer=setTimeout(read,100);
  };
- tcInboxSignalChannel=supa.channel('tsa-inbox-signal:'+account).on('postgres_changes',{event:'INSERT',schema:'public',table:'tsa_inbox_signal',filter:'recipient_id=eq.'+account},wake).on('postgres_changes',{event:'UPDATE',schema:'public',table:'tsa_inbox_signal',filter:'recipient_id=eq.'+account},wake).subscribe(state=>{if(state==='SUBSCRIBED')wake();});
+ tcInboxSignalChannel=supa.channel('tsa-inbox-signal:'+account).on('postgres_changes',{event:'INSERT',schema:'public',table:'tsa_inbox_signal',filter:'recipient_id=eq.'+account},wake).on('postgres_changes',{event:'UPDATE',schema:'public',table:'tsa_inbox_signal',filter:'recipient_id=eq.'+account},wake).on('postgres_changes',{event:'INSERT',schema:'public',table:'tsa_message_receipts',filter:'sender_id=eq.'+account},wake).on('postgres_changes',{event:'UPDATE',schema:'public',table:'tsa_message_receipts',filter:'sender_id=eq.'+account},wake).subscribe(state=>{if(state==='SUBSCRIBED')wake();});
 }
 function startMessageUpdates(){stopMessageUpdates();tcStartInboxSignal();messageAlertLast=null;checkMessageAlerts();refreshTimer=setInterval(()=>{if(user){acknowledgeDelivery();loadContacts();refreshFolder();checkMessageAlerts();if(peer)load()}},4000);document.addEventListener('visibilitychange',onVisibility)}
 function stopMessageUpdates(){clearTimeout(tcInboxSignalTimer);tcInboxSignalTimer=null;if(tcInboxSignalChannel){supa.removeChannel(tcInboxSignalChannel).catch(console.warn);tcInboxSignalChannel=null;}if(refreshTimer)clearInterval(refreshTimer);refreshTimer=null;document.removeEventListener('visibilitychange',onVisibility)}
