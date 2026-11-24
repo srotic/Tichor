@@ -129,6 +129,26 @@ export async function taseEnrollFirstDevice(client,account,{onStage}={}){
    // revoked or pending and none is currently trusted, key recovery must
    // involve a separate, explicit cryptographic recovery process.
    if(!existing.some(d=>d.state==='active')){
+    // A locally verified original root can authorize a fresh device even
+    // when all previous devices are pending or revoked.
+    let root;
+    try{root=await ensureIdentity(client,account)}catch(error){
+     if(!/another browser|secure device linking or recovery is required/i.test(String(error?.message||error)))throw error;
+    }
+    if(root?.fingerprint&&!local){
+     const request=await requestDevice(client,account);
+     const latest=await listDeviceRequests(client,account);
+     const row=latest.find(d=>d.device_id===request.id&&d.state==='pending');
+     const mine=await localDeviceFingerprint(client,account);
+     if(!row||mine?.id!==request.id||mine.fingerprint!==await requestFingerprint(row))throw Error('Recovered device identity mismatch');
+     await getConfirmedRootPreview(client,account,root.fingerprint);
+     if(await saveEnrollmentPreview(client,account,row,mine.fingerprint)!=='directory-verified-preview')throw Error('Recovered device evidence rejected');
+     await activeSession(client,account);
+     await activateConfirmedDevice(client,account,request.id);
+     await ensurePersistentCertificate(client,account,request.id);
+     await loadApprovedLocalDevice(client,account);
+     return Object.freeze({state:'recovered-device-active-staging',device:request.id});
+    }
     notify('secure-recovery-required');
     return Object.freeze({state:'secure-recovery-required',device:null});
    }
