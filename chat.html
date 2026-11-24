@@ -1222,8 +1222,6 @@ async function tcMaintainTsaRoster(account){
 async function tcLoadTsaRoster(account){
  const own=user?.id;
  if(!own)throw Error('Sign in required');
- const enrollment=await taseEnrollFirstDevice(supa,own);
- if(!['already-active','first-device-active-staging','recovered-device-active-staging'].includes(enrollment.state))throw Error('Encryption enrollment incomplete: '+enrollment.state);
  const local=await localDeviceFingerprint(supa,own);
  if(!local?.id)throw Error('Local encryption device unavailable');
  const {data,error}=await supa.functions.invoke('tsa-ciphertext-mailbox',{body:{action:'directory',account:own,device:local.id,nonce:crypto.randomUUID(),target:account}});
@@ -1250,7 +1248,7 @@ async function tcReadTsaInbox(){
   if(list)list.replaceChildren();
   statusNode.textContent='Authenticated encrypted inbox checked. Existing ciphertext remains on the server.';
  }catch(error){
-  if(user?.id===account&&peer===target)statusNode.textContent='Secure inbox unavailable; no plaintext fallback: '+error.message;
+  if(user?.id===account&&peer===target){statusNode.textContent='Secure inbox unavailable; no plaintext fallback: '+error.message;status('chatStatus','Encrypted inbox: '+error.message);}
  }finally{tcTsaReading=false;tcTsaLastRead=Date.now();}
 }
 // No user-managed encryption switch: V3 direct text is always sent through
@@ -2956,8 +2954,7 @@ async function load(){
   $('tcTsaMailboxStatus').textContent=
    'Encryption is required for new direct text. Trusted device, contact verification and valid signed rosters must be available. No plaintext fallback.';
  }
- if(tcTsaSelected()&&!tcTsaReading&&Date.now()-tcTsaLastRead>3000)
-  tcReadTsaInbox().catch(console.warn);
+ 
  if(tcTsaSelected()&&document.visibilityState==='visible'&&Date.now()-tcTsaLastRenewCheck>45000){
   tcTsaLastRenewCheck=Date.now();const current=user.id;
   tcMaintainTsaRoster(current).catch(error=>{
@@ -3358,7 +3355,7 @@ $('sendForm').onsubmit=async e=>{e.preventDefault();if(!peer)return status('chat
    tcRenderVerifiedMessages(sender,target);
   }
   tcTsaLastRead=0;
-  await tcReadTsaInbox();
+  tcReadTsaInbox().catch(console.warn);
   return;
  }
  throw Error('Encrypted mailbox delivery did not complete. Plaintext and legacy message storage are disabled for this conversation.');
