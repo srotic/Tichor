@@ -1203,11 +1203,11 @@ const tcVerifiedConversationCache=new Map();
 function tcRenderVerifiedMessages(account,target){
  const box=$('messages');if(!box||box.dataset.openedPeer!==target)return;
  const records=tcVerifiedConversationCache.get(account+':'+target)||[];
- for(const item of records){
+ for(const item of [...records].sort((a,b)=>(a.createdAt||0)-(b.createdAt||0))){
   if(box.querySelector('[data-tsa-message-id="'+item.messageId+'"]'))continue;
   const article=document.createElement('div');article.className='msg'+(item.senderId===account?' mine':'');article.dataset.tsaMessageId=item.messageId;
   const heading=document.createElement('small');heading.className='muted';heading.textContent=(item.senderId===account?'You':'Contact')+' · 🔒 Encrypted';
-  const content=document.createElement('div');content.textContent=item.text;article.append(heading,content);box.append(article);
+  const content=document.createElement('div');content.textContent=item.text;article.append(heading,content);box.append(article);box.scrollTop=box.scrollHeight;
  }
 }
 
@@ -2956,7 +2956,7 @@ async function load(){
   $('tcTsaMailboxStatus').textContent=
    'Encryption is required for new direct text. Trusted device, contact verification and valid signed rosters must be available. No plaintext fallback.';
  }
- if(tcTsaSelected()&&!tcTsaReading&&Date.now()-tcTsaLastRead>20000)
+ if(tcTsaSelected()&&!tcTsaReading&&Date.now()-tcTsaLastRead>3000)
   tcReadTsaInbox().catch(console.warn);
  if(tcTsaSelected()&&document.visibilityState==='visible'&&Date.now()-tcTsaLastRenewCheck>45000){
   tcTsaLastRenewCheck=Date.now();const current=user.id;
@@ -2969,6 +2969,15 @@ async function load(){
  tichorTranslationRoutingControl();
  tichorPrivacyRender();tichorTranslatorControls();tichorActionComposer();tichorPollComposer();tichorCompactComposer();tichorGlassComposer();
  if(!peer||!user||refreshBusy)return;
+ if(tcTsaSelected()&&!tichorIsBlocked(peer)){
+  const box=$('messages'),account=user.id,target=peer;
+  if(box.dataset.openedPeer!==target||box.dataset.secureAccount!==account){
+   box.replaceChildren();box.dataset.openedPeer=target;box.dataset.secureAccount=account;
+  }
+  tcRenderVerifiedMessages(account,target);
+  if(!tcTsaReading&&Date.now()-tcTsaLastRead>3000)await tcReadTsaInbox();
+  return;
+ }
  if(tichorIsBlocked(peer)){const box=$('messages');if(box)box.textContent='This contact is hidden on this device. Unblock in Settings to view the conversation.';return}refreshBusy=true;
  try{
  const {data,error}=await supa.from('chat_messages').select('id,sender_id,recipient_id,body,created_at,delivered_at,read_at').or(`and(sender_id.eq.${user.id},recipient_id.eq.${peer}),and(sender_id.eq.${peer},recipient_id.eq.${user.id})`).order('created_at',{ascending:true}).limit(200);
@@ -3339,9 +3348,16 @@ $('sendForm').onsubmit=async e=>{e.preventDefault();if(!peer)return status('chat
   assertContext();
   if(result.state!=='stored-staging-ciphertext')throw Error('Secure mailbox did not confirm storage.');
   tichorRecordSend();
-  status('chatStatus','Experimental secure ciphertext stored for '+result.deviceCopies+' devices.');
+  status('chatStatus','Message sent securely.');
   $('tcTsaMailboxStatus').textContent='Encrypted message stored. Recipients must use the secure mailbox reader on authorized devices.';
   if($('body').value.trim()===body)$('body').value='';
+  const key=sender+':'+target;
+  const records=tcVerifiedConversationCache.get(key)||[];
+  if(result.messageId&&!records.some(m=>m.messageId===result.messageId)){
+   tcVerifiedConversationCache.set(key,[...records,{messageId:result.messageId,senderId:sender,text:body,createdAt:Date.now()}].slice(-200));
+   tcRenderVerifiedMessages(sender,target);
+  }
+  tcTsaLastRead=0;
   await tcReadTsaInbox();
   return;
  }
