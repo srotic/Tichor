@@ -1608,7 +1608,7 @@ async function connect(){try{
  // Keep the UI in sync when Supabase refreshes or invalidates the session.
  supa.auth.onAuthStateChange((event,session)=>{
    if(event==='SIGNED_OUT'){
-     user=null;peer=null;window.__tichorTaskSession=null;window.dispatchEvent(new Event('tichor-task-auth'));stopMessageUpdates();show('chat',false);show('auth',true);
+     tcClearComposer();tcVerifiedConversationCache.clear();user=null;peer=null;window.__tichorTaskSession=null;window.dispatchEvent(new Event('tichor-task-auth'));stopMessageUpdates();show('chat',false);show('auth',true);
    }else if(event==='PASSWORD_RECOVERY'){tichorShowRecovery();
    }else if(event==='SIGNED_IN'&&session?.user&&!user){
      if(tichorRecoveryPending()){tichorShowRecovery();return;}
@@ -1895,10 +1895,12 @@ async function tichorResolveUsernames(ids){
  return tichorIdentityCache;
 }
 function tichorDraftKey(id){return 'tichor-v3-draft:'+user.id+':'+id}
-function tichorDraftEntries(){const prefix='tichor-v3-draft:'+user.id+':',entries=[];try{for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key?.startsWith(prefix)){const body=localStorage.getItem(key);if(body)entries.push({id:key.slice(prefix.length),body})}}}catch{}return entries}
-function tichorDraftBadge(){const badge=$('draftCount');if(badge&&user){const n=tichorDraftEntries().length;badge.textContent=n?'('+n+')':''}}
-function tichorRestoreDraft(id){const field=$('body');if(!field)return;try{field.value=localStorage.getItem(tichorDraftKey(id))||'';field.dispatchEvent(new Event('input',{bubbles:true}))}catch{}}
-$('body').addEventListener('input',()=>{if(!user||!peer)return;try{const key=tichorDraftKey(peer),value=$('body').value;if(value.trim())localStorage.setItem(key,value);else localStorage.removeItem(key);tichorDraftBadge()}catch{}});
+function tichorPurgeDrafts(){try{for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i);if(k?.startsWith('tichor-v3-draft:'))localStorage.removeItem(k);}}catch{}}
+function tichorDraftEntries(){return []}
+function tichorDraftBadge(){const badge=$('draftCount');if(badge)badge.textContent=''}
+function tichorRestoreDraft(id){/* Persistent drafts disabled. Never restore text after asynchronous navigation. */}
+function tcClearComposer(){const field=$('body');if(field)field.value='';const file=$('tichorFile');if(file)file.value='';}
+tichorPurgeDrafts();
 async function refreshFolder(){if(!user||folderBusy||activeFolder==='requests')return;folderBusy=true;try{
  const box=$('folderItems');if(!box)return;
  tichorDraftBadge();
@@ -1973,11 +1975,11 @@ async function refreshFolder(){if(!user||folderBusy||activeFolder==='requests')r
  let visibleCount=0;for(const [id,m] of latest){visibleCount++;let preview=m.body||'';if(preview.startsWith('e2ee1.'))preview='🔒 Older encrypted message';addFolderRow(box,id,labels.get(id)||'Username unavailable',preview,folderTime(m.created_at),isNew(m))}
  if(!visibleCount)box.innerHTML='<div class="folder-empty">No conversations to display.</div>';
  }catch(e){status('folderStatus','Could not load '+activeFolder+': '+e.message)}finally{folderBusy=false}}
-function addFolderRow(box,id,label,preview,when,unread){const b=document.createElement('button');b.type='button';b.className='folder-row';b.dataset.contactId=id;const avatar=document.createElement('span');avatar.className='folder-avatar';avatar.textContent=initials(label);const mid=document.createElement('span');mid.className='folder-main';const n=document.createElement('div');n.className='folder-name';n.textContent=label;const p=document.createElement('div');p.className='folder-preview';p.textContent=preview;mid.append(n,p);const meta=document.createElement('span');meta.className='folder-meta';meta.textContent=when;if(unread){const dot=document.createElement('span');dot.className='folder-unread';dot.textContent='New';meta.append(' ',dot)}b.append(avatar,mid,meta);b.onclick=async()=>{peer=id;tichorMarkConversationViewed(id);tichorPrivacyRender();$('recipient').value=label;window.tichorShowTab?.('chat');$('messages').dataset.openedPeer='';await load();tichorRestoreDraft(id);tichorScrollToLatest($('messages'),$('sendForm'));if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>{load();refreshFolder()}).subscribe();setTimeout(refreshFolder,500)};box.append(b)}
+function addFolderRow(box,id,label,preview,when,unread){const b=document.createElement('button');b.type='button';b.className='folder-row';b.dataset.contactId=id;const avatar=document.createElement('span');avatar.className='folder-avatar';avatar.textContent=initials(label);const mid=document.createElement('span');mid.className='folder-main';const n=document.createElement('div');n.className='folder-name';n.textContent=label;const p=document.createElement('div');p.className='folder-preview';p.textContent=preview;mid.append(n,p);const meta=document.createElement('span');meta.className='folder-meta';meta.textContent=when;if(unread){const dot=document.createElement('span');dot.className='folder-unread';dot.textContent='New';meta.append(' ',dot)}b.append(avatar,mid,meta);b.onclick=async()=>{tcClearComposer();peer=id;tichorMarkConversationViewed(id);tichorPrivacyRender();$('recipient').value=label;window.tichorShowTab?.('chat');$('messages').dataset.openedPeer='';await load();tichorRestoreDraft(id);tichorScrollToLatest($('messages'),$('sendForm'));if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>{load();refreshFolder()}).subscribe();setTimeout(refreshFolder,500)};box.append(b)}
 for(const [id,tab] of [['tabInbox','inbox'],['tabSent','sent'],['tabDrafts','drafts'],['tabContacts','contacts'],['tabRequests','requests']]){const btn=$(id);if(btn)btn.onclick=()=>chooseFolder(tab)}
 
 $('enablePush').onclick=()=>enableNotifications(supa,user,msg=>status('pushStatus',msg));$('disablePush').onclick=()=>disableNotifications(supa,user,msg=>status('pushStatus',msg));
-$('signout').onclick=async()=>{await stopCalling();stopMessageUpdates();if(subscription)await supa.removeChannel(subscription);await supa.auth.signOut();$('secret').value='';user=null;peer=null;show('chat',false);show('auth',true)};
+$('signout').onclick=async()=>{await stopCalling();stopMessageUpdates();if(subscription)await supa.removeChannel(subscription);await supa.auth.signOut();$('secret').value='';tcClearComposer();tcVerifiedConversationCache.clear();user=null;peer=null;show('chat',false);show('auth',true)};
 $('tichorRefreshRequestsButton')?.addEventListener('click',()=>tichorRefreshRequests());
 /* Privacy-first discovery: a username submits a request, never opens a conversation. */
 $('openConversation').onclick=async()=>{
@@ -2268,7 +2270,7 @@ window.tichorRenderTranslateWorkspace=async()=>{
    tichorTranslatePreviewQueue.push({message:m,target,preferred,language,generation,box,item});
   }
   const open=document.createElement('button');open.type='button';open.className='tc-translate-open';open.textContent='Open conversation';
-  open.onclick=async()=>{peer=id;$('recipient').value=names.get(id)||window.tichorAutoContactLabels?.get(id)||'Contact';window.tichorShowTab?.('translate-chat');await load()};
+  open.onclick=async()=>{tcClearComposer();peer=id;$('recipient').value=names.get(id)||window.tichorAutoContactLabels?.get(id)||'Contact';window.tichorShowTab?.('translate-chat');await load()};
   group.append(open);box.append(group);
  }
  // Start only after every preview card is connected to the document.
@@ -2518,7 +2520,7 @@ async function tichorLoadActions(){
     const open=document.createElement('button');open.type='button';open.textContent='Open conversation';open.onclick=async()=>{
       const other=m.sender_id===user.id?m.recipient_id:m.sender_id;
       if(tichorIsBlocked(other))return alert('Unblock this contact in Settings first.');
-      peer=other;window.tichorShowTab?.('chat');await load();
+      tcClearComposer();peer=other;window.tichorShowTab?.('chat');await load();
     };card.append(open);list.append(card);
    }
    summary.textContent=overdueCount+' overdue · '+dueSoonCount+' due within 24 hours · '+creates.size+' total actions';
@@ -3356,7 +3358,7 @@ function startMessageUpdates(){stopMessageUpdates();tcStartInboxSignal();message
 function stopMessageUpdates(){clearTimeout(tcInboxSignalTimer);tcInboxSignalTimer=null;if(tcInboxSignalChannel){supa.removeChannel(tcInboxSignalChannel).catch(console.warn);tcInboxSignalChannel=null;}if(refreshTimer)clearInterval(refreshTimer);refreshTimer=null;document.removeEventListener('visibilitychange',onVisibility)}
 function onVisibility(){if(document.visibilityState==='visible'){acknowledgeDelivery();loadContacts();refreshFolder();checkMessageAlerts();load()}}
 async function saveContact(id,name){if(!user||!id)return;const {error}=await supa.from('tichor_contacts').upsert({owner_id:user.id,contact_id:id,label:(name||'Tichor contact').slice(0,120)},{onConflict:'owner_id,contact_id'});if(error)status('contactsStatus',error.message);else await loadContacts()}
-async function loadContacts(){if(!user)return;const {data,error}=await supa.from('tichor_contacts').select('contact_id,label,created_at').eq('owner_id',user.id).order('created_at',{ascending:false}).limit(100);if(error){status('contactsStatus',error.message);return}const box=$('contactsList');if(!box)return;box.replaceChildren();if(!data?.length){box.textContent='No saved contacts yet. Find someone above and open a conversation.';return}for(const c of data){const b=document.createElement('button');b.type='button';b.className='contact-entry';b.textContent=c.label;b.dataset.contactId=c.contact_id;b.onclick=async()=>{peer=c.contact_id;$('recipient').value=c.label;window.tichorShowTab?.('chat');status('chatStatus','Conversation opened with '+c.label);await load();if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>load()).subscribe()};box.append(b)}refreshCallContactPicker()}
+async function loadContacts(){if(!user)return;const {data,error}=await supa.from('tichor_contacts').select('contact_id,label,created_at').eq('owner_id',user.id).order('created_at',{ascending:false}).limit(100);if(error){status('contactsStatus',error.message);return}const box=$('contactsList');if(!box)return;box.replaceChildren();if(!data?.length){box.textContent='No saved contacts yet. Find someone above and open a conversation.';return}for(const c of data){const b=document.createElement('button');b.type='button';b.className='contact-entry';b.textContent=c.label;b.dataset.contactId=c.contact_id;b.onclick=async()=>{tcClearComposer();peer=c.contact_id;$('recipient').value=c.label;window.tichorShowTab?.('chat');status('chatStatus','Conversation opened with '+c.label);await load();if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>load()).subscribe()};box.append(b)}refreshCallContactPicker()}
 function refreshCallContactPicker(){
  const picker=$('callContactPicker');if(!picker)return;
  const selected=peer||picker.value;
@@ -3413,6 +3415,8 @@ $('sendForm').onsubmit=async e=>{e.preventDefault();if(!peer)return status('chat
   if(file||!body)throw Error('Encrypted attachments are not implemented in V3 staging. Remove the attachment; plaintext fallback is prohibited.');
   // An encrypted recipient list can only be built from complete, signed
   // active-device rosters. Missing or expired authorization aborts sending.
+  const pending=document.createElement('div');pending.className='msg mine tc-secure-bubble';const pendingText=document.createElement('div');pendingText.textContent=body;const pendingMeta=document.createElement('small');pendingMeta.className='tc-secure-meta';pendingMeta.textContent='◷ Sending';pending.append(pendingText,pendingMeta);$('messages').append(pending);$('messages').scrollTop=$('messages').scrollHeight;
+  try{
   const [senderRoster,recipientRoster]=await Promise.all([
    tcLoadTsaRoster(sender),tcLoadTsaRoster(target)
   ]);
@@ -3435,6 +3439,7 @@ $('sendForm').onsubmit=async e=>{e.preventDefault();if(!peer)return status('chat
   tcTsaLastRead=0;
   tcReadTsaInbox().catch(console.warn);
   return;
+  }finally{pending.remove();}
  }
  throw Error('Encrypted mailbox delivery did not complete. Plaintext and legacy message storage are disabled for this conversation.');
  }catch(err){status('chatStatus','Send failed: '+err.message)}finally{button.disabled=false}};$('refresh').onclick=load;$('secret').addEventListener('change',()=>{if(peer)load()});
@@ -3570,7 +3575,7 @@ const tcCallIcon=(kind)=>{const ns='http://www.w3.org/2000/svg';const svg=docume
  const label=document.createElement('strong');label.textContent=names.get(r.other)||('Unknown contact · '+String(r.other||'').slice(0,8));
  const detail=document.createElement('small');detail.textContent=({received:'Received',outgoing:'Outgoing',missed:'Missed',declined:'Declined',cancelled:'Cancelled',unanswered:'Unanswered',ringing:'Ringing'})[r.state]+' · '+(r.offer.payload?.video?'Video':'Voice')+' · '+tichorLocalDateTime(r.offer.created_at);
  summary.append(label,detail);
- const again=document.createElement('button');again.type='button';again.append(tcCallIcon(r.offer.payload?.video?'video':'phone'));again.className='tichor-call-again-icon';again.title=r.offer.payload?.video?'Video call again':'Voice call again';again.setAttribute('aria-label','Call again '+r.other);again.onclick=()=>{peer=r.other;startCall(!!r.offer.payload?.video)};
+ const again=document.createElement('button');again.type='button';again.append(tcCallIcon(r.offer.payload?.video?'video':'phone'));again.className='tichor-call-again-icon';again.title=r.offer.payload?.video?'Video call again':'Voice call again';again.setAttribute('aria-label','Call again '+r.other);again.onclick=()=>{tcClearComposer();peer=r.other;startCall(!!r.offer.payload?.video)};
  item.append(symbol,summary,again);
  item.classList.add('tichor-call-tap-delete');item.setAttribute('role','button');item.setAttribute('tabindex','0');
  item.setAttribute('aria-label','Options for call with '+(names.get(r.other)||'unknown contact'));
