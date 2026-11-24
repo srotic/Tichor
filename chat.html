@@ -1219,14 +1219,15 @@ async function tcMaintainTsaRoster(account){
  return result;
 }
 async function tcLoadTsaRoster(account){
- const {data,error}=await supa.from('tichor_e2ee_identity_keys')
-  .select('signing_public_jwk').eq('user_id',account).maybeSingle();
- if(error||!data?.signing_public_jwk)throw Error('Original account security key unavailable');
- if(account===user?.id){
-  await tcMaintainTsaRoster(account);
- }
- try{return await loadSignedTsaRosterPacket(supa,account,data.signing_public_jwk)}
- catch(error){throw Error((account===user?.id?'Your':'Recipient’s')+' signed TSA roster unavailable: '+error.message);}
+ const own=user?.id;
+ if(!own)throw Error('Sign in required');
+ const local=await localDeviceFingerprint(supa,own);
+ if(!local?.id)throw Error('Local encryption device unavailable');
+ const {data,error}=await supa.functions.invoke('tsa-ciphertext-mailbox',{body:{action:'directory',account:own,device:local.id,nonce:crypto.randomUUID(),target:account}});
+ if(error||data?.kind!=='persistent-directory'||!Array.isArray(data.records))
+  throw Error((account===own?'Your':'Recipient’s')+' persistent encryption certificates unavailable');
+ if(user?.id!==own)throw Error('Account changed during directory discovery');
+ return data;
 }
 async function tcReadTsaInbox(){
  const account=user?.id,target=peer;
