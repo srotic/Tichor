@@ -1914,10 +1914,10 @@ async function refreshFolder(){if(!user||folderBusy||activeFolder==='requests')r
   for(const c of data)if(!tichorIsBlocked(c.contact_id))addFolderRow(box,c.contact_id,c.label,'Tap to open conversation','');return;
  }
  const account=user.id,folder=activeFolder;
- const {data:contacts,error:contactError}=await supa.from('tichor_contacts').select('contact_id,label').eq('owner_id',account).limit(100);
+ const {data:secureContacts,error:contactError}=await supa.from('tichor_contacts').select('contact_id,label').eq('owner_id',account).limit(100);
  if(user?.id!==account||activeFolder!==folder)return;
  if(contactError)throw contactError;
- const saved=(contacts||[]).filter(c=>!tichorIsBlocked(c.contact_id));
+ const saved=(secureContacts||[]).filter(c=>!tichorIsBlocked(c.contact_id));
  if(!box.querySelector('.folder-row')&&folder==='inbox'){
   box.replaceChildren();
   for(const contact of saved)addFolderRow(box,contact.contact_id,contact.label||'Saved contact','Open secure conversation','',false);
