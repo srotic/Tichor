@@ -67,14 +67,12 @@ export async function prepareLoginIdentity(supa,userId,password){
   const {data:root,error}=await supa.from('tichor_e2ee_identity_keys').select('user_id').eq('user_id',userId).maybeSingle();
   if(error)throw error;
   if(root)return restoreLoginIdentity(supa,userId,password);
-  const {readEncryptedIdentityBackup,storeEncryptedIdentityBackupOnce}=await import('./tase-backup-storage.mjs');
+  const {readEncryptedIdentityBackup}=await import('./tase-backup-storage.mjs');
   if(await readEncryptedIdentityBackup(supa,userId))throw Error('Interrupted identity bootstrap; recovery required before creating another root.');
   const {createRecoverableIdentity}=await import('./tase-recoverable-identity.mjs');
   const created=await createRecoverableIdentity({userId,password});
   await assertCurrent();
-  await storeEncryptedIdentityBackupOnce(supa,userId,created.backup);
-  await assertCurrent();
-  const published=await supa.from('tichor_e2ee_identity_keys').insert({user_id:userId,encryption_public_jwk:created.encryption_public_jwk,signing_public_jwk:created.signing_public_jwk});
+  const published=await supa.rpc('tase_create_recoverable_root',{p_enc:created.encryption_public_jwk,p_sign:created.signing_public_jwk,p_backup:created.backup});
   if(published.error)throw published.error;
   await assertCurrent();
   await dbPut(userId,created.keys);
