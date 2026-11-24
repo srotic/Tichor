@@ -1222,7 +1222,11 @@ async function tcLoadTsaRoster(account){
  const {data,error}=await supa.from('tichor_e2ee_identity_keys')
   .select('signing_public_jwk').eq('user_id',account).maybeSingle();
  if(error||!data?.signing_public_jwk)throw Error('Original account security key unavailable');
- return loadSignedTsaRosterPacket(supa,account,data.signing_public_jwk);
+ if(account===user?.id){
+  await tcMaintainTsaRoster(account);
+ }
+ try{return await loadSignedTsaRosterPacket(supa,account,data.signing_public_jwk)}
+ catch(error){throw Error((account===user?.id?'Your':'Recipient’s')+' signed TSA roster unavailable: '+error.message);}
 }
 async function tcReadTsaInbox(){
  const account=user?.id,target=peer;
