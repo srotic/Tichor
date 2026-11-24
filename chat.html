@@ -1214,7 +1214,8 @@ function tcRenderVerifiedMessages(account,target){
 let tcTsaLastRenewCheck=0;
 async function tcMaintainTsaRoster(account){
  if(!supa||user?.id!==account)throw Error('Device authorization requires your signed-in account');
- const result=await renewOwnTsaRosterIfNeeded(supa,account);
+ const result=await taseEnrollFirstDevice(supa,account);
+ if(!['already-active','first-device-active-staging','recovered-device-active-staging'].includes(result.state))throw Error('Encryption enrollment incomplete: '+result.state);
  if(user?.id!==account)throw Error('Account changed during device-roster maintenance');
  return result;
 }
@@ -2961,7 +2962,7 @@ async function load(){
   tcTsaLastRenewCheck=Date.now();const current=user.id;
   tcMaintainTsaRoster(current).catch(error=>{
    if(user?.id===current&&tcTsaSelected())
-    $('tcTsaMailboxStatus').textContent='Secure roster needs original-device approval: '+error.message+'. No plaintext fallback.';
+    $('tcTsaMailboxStatus').textContent='Secure device enrollment: '+error.message+'. No plaintext fallback.';
   });
  }
  const tcSelection=$('tcEncryptedTextMode');if(tcSelection&&user&&peer&&tcSelection.dataset.peer!==user.id+':'+peer){tcSelection.checked=localStorage.getItem(tcE2EEStorageKey(peer))==='1';tcSelection.dataset.peer=user.id+':'+peer;const panel=$('tcEncryptionPanel');if(panel)panel.hidden=true;$('tcChatEncryptionLock')?.setAttribute('aria-expanded','false');tcRefreshE2EE().catch(console.warn)}
@@ -3328,7 +3329,6 @@ $('sendForm').onsubmit=async e=>{e.preventDefault();if(!peer)return status('chat
   if(file||!body)throw Error('Encrypted attachments are not implemented in V3 staging. Remove the attachment; plaintext fallback is prohibited.');
   // An encrypted recipient list can only be built from complete, signed
   // active-device rosters. Missing or expired authorization aborts sending.
-  await tcMaintainTsaRoster(sender);
   const [senderRoster,recipientRoster]=await Promise.all([
    tcLoadTsaRoster(sender),tcLoadTsaRoster(target)
   ]);
