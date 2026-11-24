@@ -135,6 +135,26 @@ export async function taseEnrollFirstDevice(client,account,{onStage}={}){
    const mine=await localDeviceFingerprint(client,account);
    if(mine?.id!==request.id||!registry.some(d=>d.device_id===request.id&&d.state==='pending'))
     throw Error('Device request identity mismatch; approval blocked');
+   // A recovered original root can authorize this browser without replacing identity.
+   // The existing server activation path verifies root and device signatures.
+   let recoveredRoot;
+   try{recoveredRoot=await ensureIdentity(client,account)}catch(error){
+    if(!/another browser|secure device linking or recovery is required/i.test(String(error?.message||error)))throw error;
+   }
+   if(recoveredRoot?.fingerprint){
+    await activeSession(client,account);
+    const pendingDevice=registry.find(d=>d.device_id===request.id&&d.state==='pending');
+    const expected=await requestFingerprint(pendingDevice);
+    if(mine.fingerprint!==expected)throw Error('Recovered device key mismatch');
+    await getConfirmedRootPreview(client,account,recoveredRoot.fingerprint);
+    const evidence=await saveEnrollmentPreview(client,account,pendingDevice,expected);
+    if(evidence!=='directory-verified-preview')throw Error('Recovered device evidence rejected');
+    await activeSession(client,account);
+    await activateConfirmedDevice(client,account,request.id);
+    await loadApprovedLocalDevice(client,account);
+    await publishOwnTsaRoster(client,account);
+    return Object.freeze({state:'recovered-device-active-staging',device:request.id});
+   }
    notify('waiting-for-original-device-approval');
    return Object.freeze({state:'pending-device-approval-required',device:request.id});
   }
