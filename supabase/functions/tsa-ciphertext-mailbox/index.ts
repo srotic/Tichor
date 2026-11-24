@@ -79,9 +79,19 @@ Deno.serve(async req=>{
   const input=JSON.parse(raw);
   if(!input||typeof input!=='object'||Array.isArray(input))throw Error('Malformed request');
   const action=input.action;
-  if(action!=='publish'&&action!=='receive')throw Error('Unsupported mailbox request');
+  if(action!=='publish'&&action!=='receive'&&action!=='register-trust')throw Error('Unsupported mailbox request');
   const account=id(input.account),device=id(input.device),nonce=id(input.nonce);
   if(account!==auth.user.id)throw Error('Account mismatch');
+  if(action==='register-trust'){
+   const {data:d,error:de}=await db.from('tichor_e2ee_devices').select('*').eq('user_id',account).eq('device_id',device).maybeSingle();
+   const {data:r,error:re}=await db.from('tichor_e2ee_identity_keys').select('signing_public_jwk').eq('user_id',account).maybeSingle();
+   if(de||re||!d||!r||d.state!=='active')throw Error('Active device and root required');
+   const body={domain:'Tichor TSA persistent device trust v1',account,device,revision:1,encryptionKey:publicKey(d.encryption_public_jwk),signingKey:publicKey(d.signing_public_jwk)};
+   if(!await verify(body,input.root_signature,r.signing_public_jwk))throw Error('Root signature invalid');
+   const {error}=await db.rpc('tsa_register_persistent_trust_verified',{a_account:account,a_device:device,a_session:jwtSession,a_root:r.signing_public_jwk,a_encryption:d.encryption_public_jwk,a_signing:d.signing_public_jwk,a_signature:input.root_signature});
+   if(error)throw Error('Trust registration rejected');
+   return reply(200,'Persistent trust registered',{state:'persistent-trust-registered'});
+  }
   const issuedAt=input.issuedAt,now=Date.now();
   if(!Number.isSafeInteger(issuedAt)||issuedAt>now+30000||issuedAt<now-60000)throw Error('Stale device request');
   const row=await registry(db,account,device);
