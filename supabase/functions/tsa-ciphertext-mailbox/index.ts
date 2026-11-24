@@ -79,9 +79,27 @@ Deno.serve(async req=>{
   const input=JSON.parse(raw);
   if(!input||typeof input!=='object'||Array.isArray(input))throw Error('Malformed request');
   const action=input.action;
-  if(action!=='publish'&&action!=='receive'&&action!=='register-trust'&&action!=='check-trust')throw Error('Unsupported mailbox request');
+  if(action!=='publish'&&action!=='receive'&&action!=='register-trust'&&action!=='check-trust'&&action!=='directory')throw Error('Unsupported mailbox request');
   const account=id(input.account),device=id(input.device),nonce=id(input.nonce);
   if(account!==auth.user.id)throw Error('Account mismatch');
+  if(action==='directory'){
+   const target=id(input.target);
+   const caller=createClient(url,Deno.env.get('SUPABASE_ANON_KEY')!,{global:{headers:{Authorization:token}},auth:{persistSession:false,autoRefreshToken:false}});
+   if(target!==account){
+    const allowed=await caller.rpc('tichor_contact_allowed',{other_id:target});
+    if(allowed.error||allowed.data!==true)return reply(403,'Contact authorization required');
+   }
+   const {data:devices,error}=await db.from('tichor_e2ee_devices').select('device_id').eq('user_id',target).eq('state','active').order('device_id').limit(17);
+   if(error||!devices?.length||devices.length>16)throw Error('Active directory unavailable');
+   const records=[];
+   for(const d of devices){
+    if(!await verifyPersistentDeviceTrust(db,target,d.device_id))throw Error('Persistent certificate missing');
+    const {data:t,error:te}=await db.from('tsa_persistent_device_trust').select('*').eq('user_id',target).eq('device_id',d.device_id).single();
+    if(te||!t)throw Error('Certificate unavailable');
+    records.push({trust:{account:target,device:d.device_id,revision:t.revision,encryptionKey:publicKey(t.encryption_key),signingKey:publicKey(t.signing_key)},signature:Array.from(decode(t.root_signature))});
+   }
+   return reply(200,'Persistent directory',{kind:'persistent-directory',records});
+  }
   if(action==='check-trust'){
    const trusted=await verifyPersistentDeviceTrust(db,account,device);
    return reply(200,'Trust checked',{trusted});
