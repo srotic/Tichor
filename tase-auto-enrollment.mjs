@@ -46,7 +46,9 @@ export async function taseEnrollFirstDevice(client,account,{onStage}={}){
     // A returning approved browser must prove current authorization, never
     // simply trust a remembered device ID or an expired server grant.
     try{
-     await registerPersistentDeviceTrust(client,account,local.id);
+     const trust=await client.functions.invoke('tsa-ciphertext-mailbox',{body:{action:'check-trust',account,device:local.id,nonce:crypto.randomUUID()}});
+     if(trust.error||trust.data?.trusted!==true)
+      await registerPersistentDeviceTrust(client,account,local.id);
      await loadApprovedLocalDevice(client,account);
      await activeSession(client,account);
      await renewOwnTsaRosterIfNeeded(client,account);
