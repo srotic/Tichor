@@ -3,7 +3,7 @@
 // account sign-in. It does NOT grant trust to second browsers, and does not
 // activate or claim production-grade E2EE.
 import {requestDevice,listDeviceRequests,localDeviceFingerprint,loadApprovedLocalDevice} from './e2ee-device-registry.js';
-import {ensureIdentity,getConfirmedRootPreview,saveEnrollmentPreview,activateConfirmedDevice} from './e2ee-v3.js';
+import {ensureIdentity,getConfirmedRootPreview,saveEnrollmentPreview,activateConfirmedDevice,registerPersistentDeviceTrust} from './e2ee-v3.js';
 import {requestFingerprint} from './e2ee-device-approval.mjs';
 import {publishOwnTsaRoster,renewOwnTsaRosterIfNeeded} from './tsa-roster-directory.mjs';
 import {requireFreshLinkEvidence} from './device-link-registry.mjs';
@@ -46,6 +46,7 @@ export async function taseEnrollFirstDevice(client,account,{onStage}={}){
     // A returning approved browser must prove current authorization, never
     // simply trust a remembered device ID or an expired server grant.
     try{
+     await registerPersistentDeviceTrust(client,account,local.id);
      await loadApprovedLocalDevice(client,account);
      await activeSession(client,account);
      await renewOwnTsaRosterIfNeeded(client,account);
