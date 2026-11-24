@@ -97,7 +97,7 @@ export async function receiveTsaCiphertextStaging(client,account,resolvePinnedSe
 export async function encryptAndPublishTsaTextStaging(client,{account,recipient,text,senderRoster,recipientRoster,verifiedRootStore=localStorage}){
  id(account);id(recipient);
  if(account===recipient)throw Error('Cannot send TSA message to self');
- const {requireContactRootPin}=await import('./tsa-contact-root-pin.mjs');
+ const {readContactRootPin,requireContactRootPin,confirmContactRootPin}=await import('./tsa-contact-root-pin.mjs');
  const {verifyTsaRoster,previewTsaRosterCoverage}=await import('./tsa-signed-roster.mjs');
  const {encryptDeviceCopies}=await import('./tsa-multidevice-envelope.mjs');
  const source=await loadApprovedLocalDevice(client,account);
@@ -112,7 +112,7 @@ export async function encryptAndPublishTsaTextStaging(client,{account,recipient,
   return {signing:data.signing_public_jwk,fingerprint};
  }
  const [mine,peer]=await Promise.all([getAccountRoot(account),getAccountRoot(recipient)]);
- requireContactRootPin(verifiedRootStore,account,recipient,peer.fingerprint);
+ if(readContactRootPin(verifiedRootStore,account,recipient))requireContactRootPin(verifiedRootStore,account,recipient,peer.fingerprint);
  const now=Date.now();
  const [from,to]=await Promise.all([
   verifyDirectoryPacket(senderRoster,mine.signing,account,now),
@@ -124,6 +124,9 @@ export async function encryptAndPublishTsaTextStaging(client,{account,recipient,
  if(!own||!same(own.signingKey,source.signingPublicKey)||
   !same(own.encryptionKey,source.encryptionPublicKey))
   throw Error('Local signing device is missing or substituted in the approved sender roster');
+ // First-use trust is recorded only after root-signed directory and local device validation.
+ if(!readContactRootPin(verifiedRootStore,account,recipient))confirmContactRootPin(verifiedRootStore,account,recipient,peer.fingerprint,peer.fingerprint);
+ requireContactRootPin(verifiedRootStore,account,recipient,peer.fingerprint);
  const targets=[
   ...from.devices.map(d=>({account,device:d.device,authorized:true,encryptionKey:d.encryptionKey})),
   ...to.devices.map(d=>({account:recipient,device:d.device,authorized:true,encryptionKey:d.encryptionKey}))
@@ -148,7 +151,7 @@ export async function encryptAndPublishTsaTextStaging(client,{account,recipient,
 export async function receiveTsaVerifiedTextStaging(client,account,rosterResolver,store=localStorage,conversationPeer){
  id(account);
  if(typeof rosterResolver!=='function')throw Error('Signed roster resolver required');
- const {requireContactRootPin}=await import('./tsa-contact-root-pin.mjs');
+ const {readContactRootPin,requireContactRootPin,confirmContactRootPin}=await import('./tsa-contact-root-pin.mjs');
  const {verifyTsaRoster}=await import('./tsa-signed-roster.mjs');
  const cache=new Map();
  async function senderKey(sender,device){
@@ -161,12 +164,16 @@ export async function receiveTsaVerifiedTextStaging(client,account,rosterResolve
   const digest=await crypto.subtle.digest('SHA-256',E.encode(
    canonical(data.encryption_public_jwk)+'|'+canonical(data.signing_public_jwk)));
   const fingerprint=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,'0')).join('');
-  if(sender!==account)requireContactRootPin(store,account,sender,fingerprint);
+  if(sender!==account&&readContactRootPin(store,account,sender))requireContactRootPin(store,account,sender,fingerprint);
   const signed=await rosterResolver(sender);
   const roster=await verifyDirectoryPacket(signed,data.signing_public_jwk,sender,Date.now());
   if(roster.account!==sender)throw Error('Sender signed roster identity mismatch');
   const record=roster.devices.find(x=>x.device===device);
   if(!record)throw Error('Sending device is missing or revoked in its signed roster');
+  if(sender!==account){
+   if(!readContactRootPin(store,account,sender))confirmContactRootPin(store,account,sender,fingerprint,fingerprint);
+   requireContactRootPin(store,account,sender,fingerprint);
+  }
   cache.set(token,record.signingKey);
   return record.signingKey;
  }
