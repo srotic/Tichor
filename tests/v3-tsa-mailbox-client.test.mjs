@@ -60,7 +60,7 @@ test('staging secure mailbox is mandatory for direct text and has no plaintext f
  assert.match(chat,/No plaintext fallback/);
  assert.match(chat,/await encryptAndPublishTsaTextStaging\(client/);
  assert.match(chat,/if\(result.state!=='stored-staging-ciphertext'\)/);
- assert.match(chat,/return;\s*\}\s*throw Error\('Encrypted mailbox delivery did not complete/);
+ assert.match(chat,/return;\s*\}\s*finally\s*\{pending\.remove\(\);\}\s*\}\s*throw Error\('Encrypted mailbox delivery did not complete/);
  assert.doesNotMatch(chat.slice(chat.indexOf("$('sendForm').onsubmit="),chat.indexOf("$('refresh').onclick=load")),/from\('chat_messages'\)\.insert\(/);
 });
 
