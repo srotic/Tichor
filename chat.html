@@ -1397,8 +1397,15 @@ $('tcResetLostIdentity').onclick=async()=>{
  const phrase=prompt('DANGER: This permanently replaces your encryption identity. Old encrypted messages may become unreadable on every device. Type RESET MY ENCRYPTION IDENTITY to continue.');
  if(phrase!=='RESET MY ENCRYPTION IDENTITY'){output.textContent='Reset cancelled. No changes made.';return}
  if(!confirm('Final confirmation: revoke ALL encryption device authorizations and reset the identity for your signed-in account? Ordinary chat history is not deleted.'))return;
- button.disabled=true;output.textContent='Requesting authenticated reset…';
+ const password=prompt('Enter your current account password (at least 12 characters) to create a recoverable encryption identity. It will not be stored.');
+ if(!password||password.length<12){output.textContent='Reset cancelled. A password of at least 12 characters is required.';return;}
+ button.disabled=true;output.textContent='Verifying password before reset…';
  try{
+  const {data:current,error:currentError}=await supa.auth.getUser();
+  if(currentError||current?.user?.id!==account||!current.user.email)throw Error('Account verification failed');
+  const verified=await supa.auth.signInWithPassword({email:current.user.email,password});
+  if(verified.error||verified.data?.user?.id!==account)throw Error('Password verification failed');
+  await tichorRegisterCurrentLogin();
   const {data,error}=await supa.functions.invoke('tsa-reset-identity',{body:{action:'reset',confirmation:phrase,acknowledgeLoss:true}});
   if(error||!data||data.account!==account||data.reset!==true)throw Error(error?.message||'Reset was not confirmed; local keys were preserved');
   // A completed reset cannot be undone. Cleanup is scoped to this account.
@@ -1407,6 +1414,8 @@ $('tcResetLostIdentity').onclick=async()=>{
   // After an explicitly confirmed reset, automatically bootstrap fresh keys in
   // this authenticated browser. Never silently reset an existing identity.
   output.textContent='Old encryption identity revoked. Establishing new encryption keys automatically…';
+  const {prepareLoginIdentity}=await import('./e2ee-v3.js');
+  await prepareLoginIdentity(supa,account,password);
   button.hidden=true;
   const result=await taseEnrollFirstDevice(supa,account,{
    onStage:stage=>{if(user?.id===account)output.textContent='Setting up encryption: '+stage.replaceAll('-',' ');}
