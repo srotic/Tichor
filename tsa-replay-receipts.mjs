@@ -37,11 +37,13 @@ export function createIndexedDbTsaReplayStore(storage=globalThis.indexedDB){
      const transaction=db.transaction(STORE,'readwrite');
      let duplicate=false;
      const entry=transaction.objectStore(STORE).add(Date.now(),key);
-     entry.onerror=()=>{
+     entry.onerror=event=>{
       if(entry.error?.name==='ConstraintError'){
        duplicate=true;
        // Prevent constraint error from aborting the read-write transaction.
        // Do NOT suppress unrelated storage errors.
+       event.preventDefault();
+       event.stopPropagation();
        return;
       }
      };
