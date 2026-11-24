@@ -106,6 +106,7 @@ export async function restoreLoginIdentity(supa,userId,password){
   await dbPut(userId,keys);
   // Refresh only the authenticated account's pin after password recovery proves both private keys.
   localStorage.setItem('tichor-e2ee-pin:'+userId,await fingerprint(latest));
+  localStorage.setItem('tichor-v3-confirmed-root-preview:'+userId,(await fingerprint(latest)).replace(/\s/g,''));
   return ensureIdentity(supa,userId);
 }
 export async function ensureIdentity(supa,userId){
@@ -299,7 +300,13 @@ export async function getConfirmedRootPreview(supa,account,typed){
  const fp=(await fingerprint(root)).replace(/\s/g,'');
  const storageKey='tichor-v3-confirmed-root-preview:'+account;
  const previous=localStorage.getItem(storageKey);
- if(previous&&previous!==fp)throw Error('Confirmed original identity changed.');
+ if(previous&&previous!==fp){
+  const local=await dbGet(account);
+  if(typed===undefined||typeof typed!=='string'||typed.toLowerCase().replace(/\s/g,'')!==fp||!local?.sign?.privateKey||!local?.enc?.privateKey||
+   canonicalJwk(await cryptoAPI.exportKey('jwk',local.sign.publicKey))!==canonicalJwk(root.signing_public_jwk)||
+   canonicalJwk(await cryptoAPI.exportKey('jwk',local.enc.publicKey))!==canonicalJwk(root.encryption_public_jwk))
+   throw Error('Confirmed original identity changed.');
+ }
  if(typed!==undefined){
   if(typeof typed!=='string'||typed.toLowerCase().replace(/\s/g,'')!==fp)throw Error('Original device fingerprint mismatch.');
   localStorage.setItem(storageKey,fp);
