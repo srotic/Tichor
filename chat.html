@@ -1268,7 +1268,8 @@ async function tcReadTsaInbox(){
   tcSyncSecureReceipts(account,target,rows).catch(console.warn);
   if(list)list.replaceChildren();
   statusNode.textContent='Authenticated encrypted inbox checked. Existing ciphertext remains on the server.';
-  if($('chatStatus')?.textContent.startsWith('Encrypted inbox:'))status('chatStatus','');
+  if(rows.withheld?.length){const changed=rows.withheld.some(x=>x.includes('Pinned contact root changed'));status('chatStatus',changed?'Contact encryption identity changed. Verify the replacement fingerprint using the contact security controls. Some messages are withheld.':'Some encrypted messages could not be verified or decrypted. History is incomplete.');}
+  else if($('chatStatus')?.textContent.startsWith('Encrypted inbox:')||$('chatStatus')?.textContent.startsWith('Some encrypted messages')||$('chatStatus')?.textContent.startsWith('Contact encryption identity changed'))status('chatStatus','');
  }catch(error){
   if(user?.id===account&&peer===target){statusNode.textContent='Secure inbox unavailable; no plaintext fallback: '+error.message;status('chatStatus','Encrypted inbox: '+error.message);}
  }finally{tcTsaReading=false;tcTsaLastRead=Date.now();}
