@@ -84,10 +84,14 @@ test('mandatory secure mode survives peer reload without permitting plaintext',a
  assert.doesNotMatch(send,/await tcMaintainTsaRoster\(sender\)/);
  assert.match(send,/tcLoadTsaRoster\(sender\)/);
  assert.match(send,/tcLoadTsaRoster\(target\)/);
- const directory=html.slice(html.indexOf('async function tcLoadTsaRoster('),html.indexOf('async function tcLoadTsaRoster(')+2500);
- assert.match(directory,/taseEnrollFirstDevice\(supa,own\)/);
+ const directory=html.slice(html.indexOf('async function tcLoadTsaRoster('),html.indexOf('async function tcReadTsaInbox('));
+ assert.doesNotMatch(directory,/taseEnrollFirstDevice\(/);
+ assert.match(directory,/localDeviceFingerprint\(supa,own\)/);
  assert.match(directory,/action:\s*['"]directory['"]/);
- assert.match(directory,/already-active/);
+ assert.match(directory,/persistent-directory/);
+ assert.match(directory,/if\(error\|\|data\?\.kind/);
+ assert.match(directory,/if\(user\?\.id!==own\)/);
+ assert.match(html,/await taseEnrollFirstDevice\(/);
  assert.match(html,/if\(!secureMailbox\)/);
 });
 test('short-lived device rosters are reused while valid and cannot renew without authorization',async()=>{
