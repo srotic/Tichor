@@ -115,7 +115,8 @@ export async function loadApprovedLocalDevice(client,account){
   .select('user_id,device_id,expires_at_ms').eq('user_id',account)
   .eq('device_id',record.id).maybeSingle();
  if(grantError)throw Error('Local TSA device authorization is unavailable.');
- assertCurrentDeviceAuthorization(registered,grant,account,record.id);
+ const trust=await client.functions.invoke('tsa-ciphertext-mailbox',{body:{action:'check-trust',account,device:record.id,nonce:crypto.randomUUID()}});
+ if(trust.error||trust.data?.trusted!==true)assertCurrentDeviceAuthorization(registered,grant,account,record.id);
  await checkAccount(client,account);
  return Object.freeze({account,deviceId:record.id,signingKey:record.sign.privateKey,
   decryptionKey:record.enc.privateKey,signingPublicKey:publishedSigning,encryptionPublicKey:publishedEncryption});
