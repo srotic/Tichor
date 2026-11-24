@@ -41,3 +41,13 @@ export function requireContactRootPin(store,account,contact,observed){
   throw Error('Pinned contact root changed. Discovery blocked.');
  return pinned;
 }
+
+// Explicit out-of-band rotation; compare-and-swap prevents stale confirmations.
+export function rotateContactRootPin(store,account,contact,previous,typed,observed){
+ const location=key(account,contact);
+ const next=normalizeRootFingerprint(observed);
+ if(normalizeRootFingerprint(typed)!==next)throw Error('Replacement fingerprint verification failed.');
+ if(store.getItem(location)!==normalizeRootFingerprint(previous))throw Error('Contact pin changed during verification. Retry.');
+ store.setItem(location,next);
+ return next;
+}
