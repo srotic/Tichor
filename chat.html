@@ -3280,8 +3280,18 @@ async function checkMessageAlerts(){
  }catch(e){console.warn('Message sound check:',e.message)}
  finally{messageAlertBusy=false}
 }
-function startMessageUpdates(){stopMessageUpdates();messageAlertLast=null;checkMessageAlerts();refreshTimer=setInterval(()=>{if(user){acknowledgeDelivery();loadContacts();refreshFolder();checkMessageAlerts();if(peer)load()}},4000);document.addEventListener('visibilitychange',onVisibility)}
-function stopMessageUpdates(){if(refreshTimer)clearInterval(refreshTimer);refreshTimer=null;document.removeEventListener('visibilitychange',onVisibility)}
+let tcInboxSignalChannel=null,tcInboxSignalTimer=null;
+function tcStartInboxSignal(){
+ const account=user?.id;if(!account)return;
+ const wake=()=>{if(user?.id!==account||!peer||!tcTsaSelected()||tichorIsBlocked(peer))return;
+  clearTimeout(tcInboxSignalTimer);
+  const read=()=>{if(user?.id!==account||!peer||tichorIsBlocked(peer))return;if(tcTsaReading){tcInboxSignalTimer=setTimeout(read,250);return;}tcTsaLastRead=0;tcReadTsaInbox().catch(console.warn);};
+  tcInboxSignalTimer=setTimeout(read,100);
+ };
+ tcInboxSignalChannel=supa.channel('tsa-inbox-signal:'+account).on('postgres_changes',{event:'INSERT',schema:'public',table:'tsa_inbox_signal',filter:'recipient_id=eq.'+account},wake).on('postgres_changes',{event:'UPDATE',schema:'public',table:'tsa_inbox_signal',filter:'recipient_id=eq.'+account},wake).subscribe(state=>{if(state==='SUBSCRIBED')wake();});
+}
+function startMessageUpdates(){stopMessageUpdates();tcStartInboxSignal();messageAlertLast=null;checkMessageAlerts();refreshTimer=setInterval(()=>{if(user){acknowledgeDelivery();loadContacts();refreshFolder();checkMessageAlerts();if(peer)load()}},4000);document.addEventListener('visibilitychange',onVisibility)}
+function stopMessageUpdates(){clearTimeout(tcInboxSignalTimer);tcInboxSignalTimer=null;if(tcInboxSignalChannel){supa.removeChannel(tcInboxSignalChannel).catch(console.warn);tcInboxSignalChannel=null;}if(refreshTimer)clearInterval(refreshTimer);refreshTimer=null;document.removeEventListener('visibilitychange',onVisibility)}
 function onVisibility(){if(document.visibilityState==='visible'){acknowledgeDelivery();loadContacts();refreshFolder();checkMessageAlerts();load()}}
 async function saveContact(id,name){if(!user||!id)return;const {error}=await supa.from('tichor_contacts').upsert({owner_id:user.id,contact_id:id,label:(name||'Tichor contact').slice(0,120)},{onConflict:'owner_id,contact_id'});if(error)status('contactsStatus',error.message);else await loadContacts()}
 async function loadContacts(){if(!user)return;const {data,error}=await supa.from('tichor_contacts').select('contact_id,label,created_at').eq('owner_id',user.id).order('created_at',{ascending:false}).limit(100);if(error){status('contactsStatus',error.message);return}const box=$('contactsList');if(!box)return;box.replaceChildren();if(!data?.length){box.textContent='No saved contacts yet. Find someone above and open a conversation.';return}for(const c of data){const b=document.createElement('button');b.type='button';b.className='contact-entry';b.textContent=c.label;b.dataset.contactId=c.contact_id;b.onclick=async()=>{peer=c.contact_id;$('recipient').value=c.label;window.tichorShowTab?.('chat');status('chatStatus','Conversation opened with '+c.label);await load();if(subscription)await supa.removeChannel(subscription);subscription=supa.channel('tichor-chat-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'chat_messages'},()=>load()).subscribe()};box.append(b)}refreshCallContactPicker()}
