@@ -80,8 +80,14 @@ test('mandatory secure mode survives peer reload without permitting plaintext',a
  assert.match(html,/tichor-v3-tsa-secure-opt-in:/);
  assert.match(html,/tcTsaSecureMode'\)\.checked=true/);
  assert.match(html,/tcTsaSecureMode'\)\.disabled=true/);
- assert.match(html,/await tcMaintainTsaRoster\(sender\)/);
- assert.match(html,/renewOwnTsaRosterIfNeeded/);
+ const send=html.slice(html.indexOf("$('sendForm').onsubmit="),html.indexOf("$('refresh').onclick=load"));
+ assert.doesNotMatch(send,/await tcMaintainTsaRoster\(sender\)/);
+ assert.match(send,/tcLoadTsaRoster\(sender\)/);
+ assert.match(send,/tcLoadTsaRoster\(target\)/);
+ const directory=html.slice(html.indexOf('async function tcLoadTsaRoster('),html.indexOf('async function tcLoadTsaRoster(')+2500);
+ assert.match(directory,/taseEnrollFirstDevice\(supa,own\)/);
+ assert.match(directory,/action:\s*['"]directory['"]/);
+ assert.match(directory,/already-active/);
  assert.match(html,/if\(!secureMailbox\)/);
 });
 test('short-lived device rosters are reused while valid and cannot renew without authorization',async()=>{
