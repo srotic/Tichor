@@ -90,7 +90,7 @@ export async function receiveTsaCiphertextStaging(client,account,resolvePinnedSe
   }
   results.push(Object.freeze({messageId:message.message_id,senderId:message.sender_id,senderDeviceId:message.signing_device_id,createdAt:packet.createdAt,text}));
  }
- return Object.freeze(results);
+ return Object.freeze(results.sort((a,b)=>a.createdAt-b.createdAt));
 }
 
 // End-to-end staging assembly: verified contact root -> signed complete device
@@ -145,7 +145,8 @@ export async function encryptAndPublishTsaTextStaging(client,{account,recipient,
  const expected=new Set(targets.map(t=>t.account+':'+t.device));
  if(packet.copies.length!==expected.size||packet.copies.some(t=>!expected.delete(t.account+':'+t.device))||expected.size)throw Error('Persistent directory fanout mismatch');
  }
- return publishTsaCiphertextStaging(client,account,packet);
+ const result=await publishTsaCiphertextStaging(client,account,packet);
+ return Object.freeze({...result,messageId:packet.messageId});
 }
 
 // Convenience inbox for staging: verify each sender's ROOT-SIGNED roster and
