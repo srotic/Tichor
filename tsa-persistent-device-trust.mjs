@@ -20,3 +20,21 @@ export async function verifyPersistentTrust(packet,rootPublicKey,expected){
  if(!await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},root,Uint8Array.from(packet.signature),bytes(trust)))throw Error('Invalid root signature');
  return trust;
 }
+
+/** Verify every persistent certificate against the pinned account root.
+ * Membership must come from a fresh authorized server directory lookup.
+ * This verifier does not itself establish current revocation status.
+ */
+export async function verifyPersistentDirectory(account,records,pinnedRoot){
+ id(account);
+ if(!Array.isArray(records)||records.length<1||records.length>16)throw Error('Persistent device directory unavailable');
+ const seen=new Set(),devices=[];
+ for(const packet of records){
+  const t=packet?.trust;
+  if(t?.account!==account||seen.has(t.device))throw Error('Invalid directory membership');
+  const verified=await verifyPersistentTrust(packet,pinnedRoot,{account,device:t.device,revision:t.revision,encryptionKey:t.encryptionKey,signingKey:t.signingKey});
+  seen.add(verified.device);
+  devices.push({device:verified.device,state:'active',encryptionKey:verified.encryptionKey,signingKey:verified.signingKey});
+ }
+ return Object.freeze({account,devices:Object.freeze(devices)});
+}
