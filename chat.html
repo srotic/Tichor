@@ -1906,6 +1906,23 @@ async function refreshFolder(){if(!user||folderBusy||activeFolder==='requests')r
   if(error)throw error;box.replaceChildren();if(!data?.length){box.innerHTML='<div class="folder-empty">No saved contacts yet. Find a user to begin.</div>';return}
   for(const c of data)if(!tichorIsBlocked(c.contact_id))addFolderRow(box,c.contact_id,c.label,'Tap to open conversation','');return;
  }
+ const account=user.id,folder=activeFolder;
+ const rows=await receiveTsaVerifiedTextStaging(supa,account,sender=>tcLoadTsaRoster(sender),localStorage);
+ if(user?.id!==account||activeFolder!==folder)return;
+ const latestSecure=new Map();
+ for(const m of rows){
+  const id=m.senderId===account?m.recipientId:m.senderId;
+  if(!id||id===account||tichorIsBlocked(id)||(folder==='sent'&&m.senderId!==account))continue;
+  if(!latestSecure.has(id)||latestSecure.get(id).createdAt<m.createdAt)latestSecure.set(id,m);
+ }
+ const names=await tichorResolveUsernames([...latestSecure.keys()]);
+ if(user?.id!==account||activeFolder!==folder)return;
+ box.replaceChildren();
+ $('inboxCount').textContent='';
+ for(const [id,m] of [...latestSecure].sort((a,b)=>b[1].createdAt-a[1].createdAt))
+  addFolderRow(box,id,names.get(id)||'Saved conversation',m.text,folderTime(new Date(m.createdAt).toISOString()),false);
+ if(!latestSecure.size)box.textContent='No encrypted conversations yet.';
+ return;
  const field=activeFolder==='inbox'?'recipient_id':'sender_id';
  const {data,error}=await supa.from('chat_messages').select('id,sender_id,recipient_id,body,created_at,read_at').eq(field,user.id).order('created_at',{ascending:false}).limit(200);
  if(error)throw error;
@@ -3310,7 +3327,7 @@ async function checkMessageAlerts(){
 let tcInboxSignalChannel=null,tcInboxSignalTimer=null;
 function tcStartInboxSignal(){
  const account=user?.id;if(!account)return;
- const wake=()=>{if(user?.id!==account||!peer||!tcTsaSelected()||tichorIsBlocked(peer))return;
+ const wake=()=>{if(user?.id!==account)return;refreshFolder().catch(console.warn);if(!peer||!tcTsaSelected()||tichorIsBlocked(peer))return;
   clearTimeout(tcInboxSignalTimer);
   const read=()=>{if(user?.id!==account||!peer||tichorIsBlocked(peer))return;if(tcTsaReading){tcInboxSignalTimer=setTimeout(read,250);return;}tcTsaLastRead=0;tcReadTsaInbox().catch(console.warn);};
   tcInboxSignalTimer=setTimeout(read,100);
