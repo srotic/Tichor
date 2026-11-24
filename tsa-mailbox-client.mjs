@@ -4,6 +4,12 @@
 import {loadApprovedLocalDevice} from './e2ee-device-registry.js';
 import {decryptDeviceCopyOnce} from './tsa-replay-receipts.mjs';
 
+import {verifyPersistentDirectory} from './tsa-persistent-device-trust.mjs';
+async function verifyDirectoryPacket(packet,root,account,now){
+ if(packet?.kind==='persistent-directory')return verifyPersistentDirectory(account,packet.records,root);
+ const {verifyTsaRoster}=await import('./tsa-signed-roster.mjs');
+ return verifyTsaRoster(packet,root,now);
+}
 const E=new TextEncoder();
 const ID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 function id(x){if(typeof x!=='string'||!ID.test(x))throw Error('Invalid TSA device mailbox identifier');return x;}
@@ -109,8 +115,8 @@ export async function encryptAndPublishTsaTextStaging(client,{account,recipient,
  requireContactRootPin(verifiedRootStore,account,recipient,peer.fingerprint);
  const now=Date.now();
  const [from,to]=await Promise.all([
-  verifyTsaRoster(senderRoster,mine.signing,now),
-  verifyTsaRoster(recipientRoster,peer.signing,now)
+  verifyDirectoryPacket(senderRoster,mine.signing,account,now),
+  verifyDirectoryPacket(recipientRoster,peer.signing,recipient,now)
  ]);
  if(from.account!==account||to.account!==recipient)throw Error('TSA signed roster account mismatch');
  const own=from.devices.find(d=>d.device===source.deviceId);
@@ -124,10 +130,15 @@ export async function encryptAndPublishTsaTextStaging(client,{account,recipient,
  ];
  const packet=await encryptDeviceCopies({sender:account,recipient,
   messageId:crypto.randomUUID(),text,targets,signingKey:source.signingKey,createdAt:now});
+ if(senderRoster?.kind!=='persistent-directory'&&recipientRoster?.kind!=='persistent-directory'){
  const check=await previewTsaRosterCoverage({packet,senderRoster,recipientRoster,
   senderRoot:mine.signing,recipientRoot:peer.signing,now});
  if(check.deviceCount!==packet.copies.length||check.deliveryAuthorized!==false)
   throw Error('TSA recipient roster verification failed');
+ }else{
+ const expected=new Set(targets.map(t=>t.account+':'+t.device));
+ if(packet.copies.length!==expected.size||packet.copies.some(t=>!expected.delete(t.account+':'+t.device))||expected.size)throw Error('Persistent directory fanout mismatch');
+ }
  return publishTsaCiphertextStaging(client,account,packet);
 }
 
@@ -152,7 +163,7 @@ export async function receiveTsaVerifiedTextStaging(client,account,rosterResolve
   const fingerprint=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,'0')).join('');
   if(sender!==account)requireContactRootPin(store,account,sender,fingerprint);
   const signed=await rosterResolver(sender);
-  const roster=await verifyTsaRoster(signed,data.signing_public_jwk);
+  const roster=await verifyDirectoryPacket(signed,data.signing_public_jwk,sender,Date.now());
   if(roster.account!==sender)throw Error('Sender signed roster identity mismatch');
   const record=roster.devices.find(x=>x.device===device);
   if(!record)throw Error('Sending device is missing or revoked in its signed roster');
