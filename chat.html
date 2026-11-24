@@ -1171,7 +1171,7 @@ window.addEventListener('load',()=>showTab(new URLSearchParams(location.search).
 import {enableNotifications,disableNotifications} from "./notifications.js";
 import {ensureIdentity,encryptDirectText,decryptDirectText,isEncrypted,encryptionStatus,readEnrollmentPreview,saveEnrollmentPreview,getConfirmedRootPreview,verifyConfirmedEnrollmentPreview,activateConfirmedDevice,clearLocalIdentityAfterServerReset} from "./e2ee-v3.js";
 import {requestFingerprint} from "./e2ee-device-approval.mjs";
-import {readContactRootPin,confirmContactRootPin,requireContactRootPin} from "./tsa-contact-root-pin.mjs";
+import {readContactRootPin,confirmContactRootPin,requireContactRootPin,rotateContactRootPin} from "./tsa-contact-root-pin.mjs";
 import {requestDevice,listDeviceRequests,revokeDeviceRequest,localDeviceFingerprint,clearLocalDeviceAfterServerReset} from "./e2ee-device-registry.js";
 import {loadSignedTsaRosterPacket,publishOwnTsaRoster,renewOwnTsaRosterIfNeeded} from "./tsa-roster-directory.mjs";
 import {encryptAndPublishTsaTextStaging,receiveTsaVerifiedTextStaging} from "./tsa-mailbox-client.mjs";
@@ -1467,7 +1467,14 @@ $('tcVerifyContactRoot').onclick=async()=>{
   const typed=prompt('Compare the COMPLETE fingerprint with this person in person or through another trusted channel. Enter the fingerprint they confirmed:');
   if(typed===null)return;
   if(user?.id!==account||peer!==target)throw Error('Conversation changed; verification canceled.');
-  confirmContactRootPin(localStorage,account,target,typed,info.fingerprint);
+  const previous=readContactRootPin(localStorage,account,target);
+  if(previous&&previous!==info.fingerprint){
+   if(!confirm('This contact changed encryption identity. Only continue if you independently verified the complete replacement fingerprint. Older messages may remain unreadable.'))return;
+   rotateContactRootPin(localStorage,account,target,previous,typed,info.fingerprint);
+   tcVerifiedConversationCache.delete(account+':'+target);
+   $('messages').replaceChildren();
+   tcTsaLastRead=0;
+  }else confirmContactRootPin(localStorage,account,target,typed,info.fingerprint);
   await tcRefreshE2EE();
   status('chatStatus','Contact identity confirmed. Experimental direct-text encryption is now automatic for this contact on this browser.');
  }catch(e){status('chatStatus','Contact verification failed: '+e.message)}finally{button.disabled=false}
