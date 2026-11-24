@@ -90,7 +90,7 @@ export async function receiveTsaCiphertextStaging(client,account,resolvePinnedSe
     text=await decryptDeviceCopy({packet,recipientAccount:account,deviceId:device.deviceId,privateKey:device.decryptionKey,senderPublicKey});
    }else throw error;
   }
-  results.push(Object.freeze({messageId:message.message_id,senderId:message.sender_id,senderDeviceId:message.signing_device_id,createdAt:packet.createdAt,text}));
+  results.push(Object.freeze({messageId:message.message_id,senderId:message.sender_id,recipientId:message.peer_id,senderDeviceId:message.signing_device_id,createdAt:packet.createdAt,text}));
  }
  return Object.freeze(results.sort((a,b)=>a.createdAt-b.createdAt));
 }
