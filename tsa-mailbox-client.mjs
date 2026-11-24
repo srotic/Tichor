@@ -3,6 +3,7 @@
 // browser privilege or client option can bypass the server's grant verification.
 import {loadApprovedLocalDevice} from './e2ee-device-registry.js';
 import {decryptDeviceCopyOnce} from './tsa-replay-receipts.mjs';
+import {decryptDeviceCopy} from './tsa-multidevice-envelope.mjs';
 
 import {verifyPersistentDirectory} from './tsa-persistent-device-trust.mjs';
 async function verifyDirectoryPacket(packet,root,account,now){
@@ -82,10 +83,12 @@ export async function receiveTsaCiphertextStaging(client,account,resolvePinnedSe
   }catch(error){
    // Inbox reads are non-destructive. Previously authenticated messages
    // remain stored, so skip only atomic replay receipts, never signature errors.
-   if(error?.message==='Duplicate TSA message or replay receipt unavailable')continue;
-   throw error;
+   if(error?.message==='Duplicate TSA message or replay receipt unavailable'){
+    // History retrieval is read-only: reauthenticate the stored packet, never repeat delivery side effects.
+    text=await decryptDeviceCopy({packet,recipientAccount:account,deviceId:device.deviceId,privateKey:device.decryptionKey,senderPublicKey});
+   }else throw error;
   }
-  results.push(Object.freeze({messageId:message.message_id,senderId:message.sender_id,senderDeviceId:message.signing_device_id,text}));
+  results.push(Object.freeze({messageId:message.message_id,senderId:message.sender_id,senderDeviceId:message.signing_device_id,createdAt:packet.createdAt,text}));
  }
  return Object.freeze(results);
 }
