@@ -63,7 +63,12 @@ export async function prepareLoginIdentity(supa,userId,password){
     if(current.error||current.data!==true)throw Error('Current login required.');
   };
   await assertCurrent();
-  if(await dbGet(userId))return ensureIdentity(supa,userId);
+  if(await dbGet(userId)){
+    try{return await ensureIdentity(supa,userId)}catch(error){
+      if(!/Contact security key changed|Local encryption identity does not match/.test(String(error?.message)))throw error;
+      return restoreLoginIdentity(supa,userId,password);
+    }
+  }
   const {data:root,error}=await supa.from('tichor_e2ee_identity_keys').select('user_id').eq('user_id',userId).maybeSingle();
   if(error)throw error;
   if(root)return restoreLoginIdentity(supa,userId,password);
@@ -87,7 +92,7 @@ export async function restoreLoginIdentity(supa,userId,password){
     if(current.error||current.data!==true)throw Error('Recovery requires the current login session.');
   };
   await assertCurrent();
-  if(await dbGet(userId))return ensureIdentity(supa,userId);
+  // Always verify the password-protected backup before replacing stale local root keys.
   const root=await fetchPublic(supa,userId,false);
   const {readEncryptedIdentityBackup}=await import('./tase-backup-storage.mjs');
   const backup=await readEncryptedIdentityBackup(supa,userId);
