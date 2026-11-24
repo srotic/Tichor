@@ -68,6 +68,7 @@ export async function receiveTsaCiphertextStaging(client,account,resolvePinnedSe
   throw Error('Malformed TSA mailbox response');
  const results=[];
  for(const message of data.messages){
+  try{
   id(message.message_id);id(message.sender_id);id(message.peer_id);id(message.signing_device_id);
   if(conversationPeer&&(message.sender_id!==conversationPeer&&message.peer_id!==conversationPeer))continue;
   if(typeof message.packet_text!=='string'||message.packet_text.length>32768)
@@ -91,6 +92,7 @@ export async function receiveTsaCiphertextStaging(client,account,resolvePinnedSe
    }else throw error;
   }
   results.push(Object.freeze({messageId:message.message_id,senderId:message.sender_id,recipientId:message.peer_id,senderDeviceId:message.signing_device_id,createdAt:packet.createdAt,text}));
+  }catch(error){console.warn('Encrypted mailbox row withheld:',error?.message);}
  }
  return Object.freeze(results.sort((a,b)=>a.createdAt-b.createdAt));
 }
