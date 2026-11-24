@@ -401,6 +401,19 @@ export async function discoverRecipientCertificatePreviews(supa,sender,recipient
 // TSA V3: the ORIGINAL account identity browser alone signs activation.
 // This state transition does not provide transport keys or enable delivery.
 // The privileged Edge verifier independently checks every signature and nonce.
+export async function registerPersistentDeviceTrust(supa,account,device){
+ const local=await dbGet(account);
+ const root=await fetchPublic(supa,account);
+ if(!local?.sign?.privateKey||canonicalJwk(await cryptoAPI.exportKey('jwk',local.sign.publicKey))!==canonicalJwk(root.signing_public_jwk))throw Error('Root key required');
+ const {data:d,error}=await supa.from('tichor_e2ee_devices').select('state,encryption_public_jwk,signing_public_jwk').eq('user_id',account).eq('device_id',device).maybeSingle();
+ if(error||d?.state!=='active')throw Error('Active device required');
+ const {signPersistentTrust}=await import('./tsa-persistent-device-trust.mjs');
+ const packet=await signPersistentTrust({account,device,revision:1,encryptionKey:d.encryption_public_jwk,signingKey:d.signing_public_jwk},local.sign.privateKey);
+ const root_signature=b64(packet.signature).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+ const result=await supa.functions.invoke('tsa-ciphertext-mailbox',{body:{action:'register-trust',account,device,nonce:crypto.randomUUID(),root_signature}});
+ if(result.error||result.data?.state!=='persistent-trust-registered')throw Error('Persistent trust registration failed');
+ return true;
+}
 export async function activateConfirmedDevice(supa,account,device){
  const {data:session,error:authError}=await supa.auth.getUser();
  if(authError||session?.user?.id!==account)throw Error('Account session changed; device activation blocked.');
@@ -454,6 +467,7 @@ export async function activateConfirmedDevice(supa,account,device){
   const {data:latest,error:latestError}=await supa.from('tichor_e2ee_devices')
    .select('state').eq('user_id',account).eq('device_id',device).maybeSingle();
   if(latestError||latest?.state!=='active')throw Error('Device activation did not persist.');
+  await registerPersistentDeviceTrust(supa,account,device);
   return {state:'active-not-delivery-authorized',device,expiresAt};
  }
  throw Error('No valid signed trust evidence; renew device enrollment before activation.');
