@@ -37,11 +37,12 @@ export async function buildSignedTsaMailboxRequest({account,device,action,signin
  const signature=b64(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},signingKey,E.encode(JSON.stringify(body))));
  return {...body,signature,...(action==='publish'?{packet_text}:{})};
 }
-async function perform(client,account,action,packet){
+async function perform(client,account,action,packet,approvedDevice){
  if(!client?.auth?.getUser||!client?.functions?.invoke)throw Error('Signed-in Supabase client required');
  const {data:auth,error:authError}=await client.auth.getUser();
  if(authError||auth?.user?.id!==account)throw Error('Mailbox account session mismatch');
- const device=await loadApprovedLocalDevice(client,account);
+ const device=approvedDevice||await loadApprovedLocalDevice(client,account);
+ if(device.account!==account)throw Error('Mailbox device account mismatch');
  const body=await buildSignedTsaMailboxRequest({account,device:device.deviceId,
   action,signingKey:device.signingKey,packet});
  const {data,error}=await client.functions.invoke('tsa-ciphertext-mailbox',{body});
@@ -50,12 +51,13 @@ async function perform(client,account,action,packet){
  if(data.state!==expected)throw Error('Server refused authorized ciphertext operation');
  return {data,device};
 }
-export async function publishTsaCiphertextStaging(client,account,packet){
- const {data}=await perform(client,account,'publish',packet);
+async function publishWithApprovedDevice(client,account,packet,approvedDevice){
+ const {data}=await perform(client,account,'publish',packet,approvedDevice);
  if(!Number.isInteger(data.copied)||data.copied!==packet.copies.length)
   throw Error('Incomplete server-authorized ciphertext fanout');
  return Object.freeze({state:data.state,deviceCopies:data.copied,deliveryAuthorized:false});
 }
+export async function publishTsaCiphertextStaging(client,account,packet){return publishWithApprovedDevice(client,account,packet);}
 // Receive only signed packets. Caller must resolve the EXACT sending-device
 // public key from a trusted, root-signed active-device roster, never from
 // untrusted mailbox contents. A sender ACCOUNT key alone is insufficient.
@@ -145,7 +147,7 @@ export async function encryptAndPublishTsaTextStaging(client,{account,recipient,
  const expected=new Set(targets.map(t=>t.account+':'+t.device));
  if(packet.copies.length!==expected.size||packet.copies.some(t=>!expected.delete(t.account+':'+t.device))||expected.size)throw Error('Persistent directory fanout mismatch');
  }
- const result=await publishTsaCiphertextStaging(client,account,packet);
+ const result=await publishWithApprovedDevice(client,account,packet,source);
  return Object.freeze({...result,messageId:packet.messageId});
 }
 
