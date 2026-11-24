@@ -1742,9 +1742,11 @@ async function loggedIn(u,loginPassword){
  if(typeof loginPassword==='string'){
   try{
    const backup=await readEncryptedIdentityBackup(supa,onboardingAccount);
-   if(backup){
-    const {restoreLoginIdentity}=await import('./e2ee-v3.js');
-    await restoreLoginIdentity(supa,onboardingAccount,loginPassword);
+   const {data:existingRoot,error:rootError}=await supa.from('tichor_e2ee_identity_keys').select('user_id').eq('user_id',onboardingAccount).maybeSingle();
+   if(rootError)throw rootError;
+   if(backup||!existingRoot){
+    const {prepareLoginIdentity}=await import('./e2ee-v3.js');
+    await prepareLoginIdentity(supa,onboardingAccount,loginPassword);
    }
   }catch(error){
    loginPassword=undefined;
