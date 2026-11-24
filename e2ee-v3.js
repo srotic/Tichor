@@ -43,13 +43,13 @@ function pinIdentity(id,fp){
   if(previous && previous!==fp)throw Error('Contact security key changed. Encrypted messaging stopped; verify their identity out of band.');
   if(!previous)localStorage.setItem(key,fp);
 }
-async function fetchPublic(supa,id){
+async function fetchPublic(supa,id,checkPin=true){
   const {data,error}=await supa.from('tichor_e2ee_identity_keys').select('user_id,encryption_public_jwk,signing_public_jwk').eq('user_id',id).maybeSingle();
   if(error)throw Error('E2EE directory unavailable: '+error.message);
   if(!data)throw Error('This contact has not enabled encrypted messages yet.');
   if(data.user_id!==id)throw Error('Public identity does not match the requested account.');
   assertPublicKey(data.encryption_public_jwk);assertPublicKey(data.signing_public_jwk);
-  pinIdentity(id,await fingerprint(data));
+  if(checkPin)pinIdentity(id,await fingerprint(data));
   return data;
 }
 // Restore the existing root only; this does not authorize a messaging device.
@@ -88,17 +88,19 @@ export async function restoreLoginIdentity(supa,userId,password){
   };
   await assertCurrent();
   if(await dbGet(userId))return ensureIdentity(supa,userId);
-  const root=await fetchPublic(supa,userId);
+  const root=await fetchPublic(supa,userId,false);
   const {readEncryptedIdentityBackup}=await import('./tase-backup-storage.mjs');
   const backup=await readEncryptedIdentityBackup(supa,userId);
   if(!backup)throw Error('No recoverable encryption identity backup exists.');
   const {restoreRecoverableIdentity}=await import('./tase-recoverable-identity.mjs');
   const keys=await restoreRecoverableIdentity({userId,password,backup,expectedPublicKeys:root});
   await assertCurrent();
-  const latest=await fetchPublic(supa,userId);
+  const latest=await fetchPublic(supa,userId,false);
   if(await fingerprint(root)!==await fingerprint(latest))throw Error('Identity changed during recovery.');
   await assertCurrent();
   await dbPut(userId,keys);
+  // Refresh only the authenticated account's pin after password recovery proves both private keys.
+  localStorage.setItem('tichor-e2ee-pin:'+userId,await fingerprint(latest));
   return ensureIdentity(supa,userId);
 }
 export async function ensureIdentity(supa,userId){
