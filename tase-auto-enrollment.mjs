@@ -2,7 +2,7 @@
 // Automatically bootstraps exactly the first encryption device after verified
 // account sign-in. It does NOT grant trust to second browsers, and does not
 // activate or claim production-grade E2EE.
-import {requestDevice,listDeviceRequests,localDeviceFingerprint,loadApprovedLocalDevice} from './e2ee-device-registry.js';
+import {requestDevice,listDeviceRequests,localDeviceFingerprint,loadApprovedLocalDevice,clearLocalDeviceAfterServerReset} from './e2ee-device-registry.js';
 import {ensureIdentity,getConfirmedRootPreview,saveEnrollmentPreview,activateConfirmedDevice,registerPersistentDeviceTrust} from './e2ee-v3.js';
 import {requestFingerprint} from './e2ee-device-approval.mjs';
 async function ensurePersistentCertificate(client,account,device){
@@ -47,6 +47,14 @@ export async function taseEnrollFirstDevice(client,account,{onStage}={}){
   // Check the existing registry BEFORE attempting original-root key creation:
   // a returning user on a secondary browser must not generate another root.
   const existing=await listDeviceRequests(client,account);
+  const prior=await localDeviceFingerprint(client,account);
+  if(prior&&!existing.some(d=>d.device_id===prior.id&&d.state!=='revoked')){
+   // Only replace an obsolete local device after proving the original root is available.
+   // Never reactivate a revoked device ID.
+   await ensureIdentity(client,account);
+   await activeSession(client,account);
+   await clearLocalDeviceAfterServerReset(account);
+  }
   if(existing.length){
    const local=await localDeviceFingerprint(client,account);
    const matched=local&&existing.find(d=>d.device_id===local.id);
