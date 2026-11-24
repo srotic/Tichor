@@ -105,7 +105,7 @@ export async function encryptAndPublishTsaTextStaging(client,{account,recipient,
  const {readContactRootPin,requireContactRootPin,confirmContactRootPin}=await import('./tsa-contact-root-pin.mjs');
  const {verifyTsaRoster,previewTsaRosterCoverage}=await import('./tsa-signed-roster.mjs');
  const {encryptDeviceCopies}=await import('./tsa-multidevice-envelope.mjs');
- const source=await loadApprovedLocalDevice(client,account);
+
  async function getAccountRoot(who){
   const {data,error}=await client.from('tichor_e2ee_identity_keys')
    .select('user_id,encryption_public_jwk,signing_public_jwk').eq('user_id',who).maybeSingle();
@@ -116,7 +116,7 @@ export async function encryptAndPublishTsaTextStaging(client,{account,recipient,
   const fingerprint=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,'0')).join('');
   return {signing:data.signing_public_jwk,fingerprint};
  }
- const [mine,peer]=await Promise.all([getAccountRoot(account),getAccountRoot(recipient)]);
+ const [source,mine,peer]=await Promise.all([loadApprovedLocalDevice(client,account),getAccountRoot(account),getAccountRoot(recipient)]);
  if(readContactRootPin(verifiedRootStore,account,recipient))requireContactRootPin(verifiedRootStore,account,recipient,peer.fingerprint);
  const now=Date.now();
  const [from,to]=await Promise.all([
