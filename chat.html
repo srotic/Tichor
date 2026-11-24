@@ -1177,6 +1177,7 @@ import {loadSignedTsaRosterPacket,publishOwnTsaRoster,renewOwnTsaRosterIfNeeded}
 import {encryptAndPublishTsaTextStaging,receiveTsaVerifiedTextStaging} from "./tsa-mailbox-client.mjs";
 import {taseEnrollFirstDevice} from "./tase-auto-enrollment.mjs";
 import {diagnoseDeviceEnrollment} from "./tase-enrollment-diagnostics.mjs";
+import {readEncryptedIdentityBackup} from "./tase-backup-storage.mjs";
 import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
 import {SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY} from './v3-staging-config.js';
 const enc = new TextEncoder(), dec = new TextDecoder();
@@ -1619,7 +1620,7 @@ for(const mode of ['signin','signup'])$(mode).onclick=async()=>{
    ?await supa.auth.signInWithPassword({email,password})
    :await supa.auth.signUp({email,password,options:{emailRedirectTo:tichorEmailRedirect()}});
   if(error)throw error;
-  if(data.user&&data.session)await loggedIn(data.user);
+  if(data.user&&data.session)await loggedIn(data.user,password);
   else if(mode==='signup'){
    $('resendConfirmation').hidden=false;
    status('authStatus','Confirmation email requested. Open the link in your email. It should return to '+tichorEmailRedirect()+'. If the link takes you to localhost, the Supabase project Site URL or redirect allowlist still needs updating.');
@@ -1698,7 +1699,7 @@ async function tichorRegisterCurrentLogin(){
   }catch{}
  },10000);
 }
-async function loggedIn(u){
+async function loggedIn(u,loginPassword){
  try{await tichorRegisterCurrentLogin()}catch(e){
   await supa.auth.signOut({scope:'local'}).catch(()=>{});
   user=null;show('chat',false);show('auth',true);
@@ -1708,7 +1709,39 @@ async function loggedIn(u){
  // TASE is automatically attempted after a verified account session is restored.
  // It never auto-approves additional browsers or changes the live messaging mode.
  const onboardingAccount=u.id;
- taseEnrollFirstDevice(supa,onboardingAccount,{
+ // Staging opt-in only: never retain the login password or use it on session refresh.
+ // Root preparation must finish before automatic enrollment starts.
+ if(typeof loginPassword==='string' && location.hostname==='localhost' &&
+    localStorage.getItem('tichor-staging-password-recovery')==='enabled'){
+  try{
+   const {prepareLoginIdentity}=await import('./e2ee-v3.js');
+   await prepareLoginIdentity(supa,onboardingAccount,loginPassword);
+  }catch(error){
+   loginPassword=undefined;
+   clearInterval(tichorSessionMonitor);
+   await supa.auth.signOut({scope:'local'});
+   user=null;show('chat',false);show('auth',true);
+   status('authStatus','Encryption preparation failed: '+String(error?.message||error));
+   return;
+  }
+ }
+ loginPassword=undefined;
+
+ // Read-only backup discovery runs on each authenticated login (including
+ // signup confirmation and restored sessions). Never derive from a cached
+ // password, create a backup of legacy non-extractable keys, or trust a new
+ // device merely because a backup exists.
+ readEncryptedIdentityBackup(supa,onboardingAccount).then(backup=>{
+  if(user?.id!==onboardingAccount)return;
+  $('tcEnrollmentDiagnostic').textContent=backup?
+   'Encrypted identity backup found. Recovery requires verified device authorization; no keys were automatically replaced.':
+   'No recoverable identity backup found. Existing keys remain protected; new-device recovery is not yet available.';
+ }).catch(error=>{
+  if(user?.id===onboardingAccount)
+   $('tcEnrollmentDiagnostic').textContent='Encrypted backup status unavailable: '+String(error?.message||error);
+ });
+ status('authStatus','Initializing secure communication…');
+ await taseEnrollFirstDevice(supa,onboardingAccount,{
   onStage:stage=>{if(user?.id===onboardingAccount)$('tcTaseStatus').textContent='Automatic secure enrollment: '+stage.replaceAll('-',' ');}
  }).then(result=>{
   if(user?.id!==onboardingAccount)return;
@@ -1759,7 +1792,13 @@ async function loggedIn(u){
   // misleading "identity is on another browser" message even when local
   // original keys exist. Preserve all keys and expose the real failure.
   $('tcOwnFingerprint').textContent='Automatic enrollment did not finish. Check the enrollment status above; no encryption keys were reset.';
- });window.__tichorTaskSession={client:supa,userId:u.id};window.dispatchEvent(new Event('tichor-task-auth'));const chosen=localStorage.getItem(TICHOR_LANG_KEY);if(!localStorage.getItem('tichor-preferred-language:'+u.id)&&chosen)localStorage.setItem('tichor-preferred-language:'+u.id,chosen);tichorLanguageChoice();tichorPrivacyLoad();await tichorLoadKnownCallers();show('auth',false);show('chat',true);$('who').textContent='Signed in as '+(u.email||u.phone||'Tichor user');await loadProfile();await tichorRefreshRequests();await loadContacts();tcGroupMount();tcGroupRefresh().catch(console.warn);await refreshFolder();await acknowledgeDelivery();await startCalling();startMessageUpdates();}
+ });
+ const currentLogin=await supa.rpc('tichor_session_is_current');
+ if(user?.id!==onboardingAccount||currentLogin.error||currentLogin.data!==true){
+  if(user?.id===onboardingAccount){clearInterval(tichorSessionMonitor);await supa.auth.signOut({scope:'local'});user=null;show('chat',false);show('auth',true);status('authStatus','Secure session is no longer active. Sign in again.');}
+  return;
+ }
+ window.__tichorTaskSession={client:supa,userId:u.id};window.dispatchEvent(new Event('tichor-task-auth'));const chosen=localStorage.getItem(TICHOR_LANG_KEY);if(!localStorage.getItem('tichor-preferred-language:'+u.id)&&chosen)localStorage.setItem('tichor-preferred-language:'+u.id,chosen);tichorLanguageChoice();tichorPrivacyLoad();await tichorLoadKnownCallers();show('auth',false);show('chat',true);$('who').textContent='Signed in as '+(u.email||u.phone||'Tichor user');await loadProfile();await tichorRefreshRequests();await loadContacts();tcGroupMount();tcGroupRefresh().catch(console.warn);await refreshFolder();await acknowledgeDelivery();await startCalling();startMessageUpdates();}
 
 // Inbox and Sent are derived from existing messages; no new database tables needed.
 let activeFolder='inbox',folderBusy=false;

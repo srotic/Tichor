@@ -3,9 +3,9 @@
 // account sign-in. It does NOT grant trust to second browsers, and does not
 // activate or claim production-grade E2EE.
 import {requestDevice,listDeviceRequests,localDeviceFingerprint,loadApprovedLocalDevice} from './e2ee-device-registry.js';
-import {ensureIdentity,getConfirmedRootPreview,saveEnrollmentPreview,activateConfirmedDevice} from './e2ee-v3.js';
+import {ensureIdentity,getConfirmedRootPreview,saveEnrollmentPreview,activateConfirmedDevice,registerPersistentDeviceTrust} from './e2ee-v3.js';
 import {requestFingerprint} from './e2ee-device-approval.mjs';
-import {publishOwnTsaRoster} from './tsa-roster-directory.mjs';
+import {publishOwnTsaRoster,renewOwnTsaRosterIfNeeded} from './tsa-roster-directory.mjs';
 import {requireFreshLinkEvidence} from './device-link-registry.mjs';
 
 const pending=new Map();
@@ -22,6 +22,9 @@ async function activeSession(client,account){
  const {data,error}=await client.auth.getUser();
  if(error||data?.user?.id!==account)throw Error('TASE account session changed');
  if(!isVerified(data.user))throw Error('Verify your email or phone before activating encryption');
+ const current=await client.rpc('tichor_session_is_current');
+ if(current.error||current.data!==true)throw Error('TASE requires the current active login session');
+
  return data.user;
 }
 export async function taseEnrollFirstDevice(client,account,{onStage}={}){
@@ -43,7 +46,11 @@ export async function taseEnrollFirstDevice(client,account,{onStage}={}){
     // A returning approved browser must prove current authorization, never
     // simply trust a remembered device ID or an expired server grant.
     try{
+     await registerPersistentDeviceTrust(client,account,local.id);
      await loadApprovedLocalDevice(client,account);
+     await activeSession(client,account);
+     await renewOwnTsaRosterIfNeeded(client,account);
+     await activeSession(client,account);
      return Object.freeze({state:'already-active',device:local.id});
     }catch(error){
      notify('device-authorization-renewal-required');
@@ -128,6 +135,26 @@ export async function taseEnrollFirstDevice(client,account,{onStage}={}){
    const mine=await localDeviceFingerprint(client,account);
    if(mine?.id!==request.id||!registry.some(d=>d.device_id===request.id&&d.state==='pending'))
     throw Error('Device request identity mismatch; approval blocked');
+   // A recovered original root can authorize this browser without replacing identity.
+   // The existing server activation path verifies root and device signatures.
+   let recoveredRoot;
+   try{recoveredRoot=await ensureIdentity(client,account)}catch(error){
+    if(!/another browser|secure device linking or recovery is required/i.test(String(error?.message||error)))throw error;
+   }
+   if(recoveredRoot?.fingerprint){
+    await activeSession(client,account);
+    const pendingDevice=registry.find(d=>d.device_id===request.id&&d.state==='pending');
+    const expected=await requestFingerprint(pendingDevice);
+    if(mine.fingerprint!==expected)throw Error('Recovered device key mismatch');
+    await getConfirmedRootPreview(client,account,recoveredRoot.fingerprint);
+    const evidence=await saveEnrollmentPreview(client,account,pendingDevice,expected);
+    if(evidence!=='directory-verified-preview')throw Error('Recovered device evidence rejected');
+    await activeSession(client,account);
+    await activateConfirmedDevice(client,account,request.id);
+    await loadApprovedLocalDevice(client,account);
+    await publishOwnTsaRoster(client,account);
+    return Object.freeze({state:'recovered-device-active-staging',device:request.id});
+   }
    notify('waiting-for-original-device-approval');
    return Object.freeze({state:'pending-device-approval-required',device:request.id});
   }

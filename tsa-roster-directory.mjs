@@ -42,6 +42,10 @@ export async function publishOwnTsaRoster(client,account){
  const eligible=new Map(grants.filter(g=>g.user_id===account&&Number(g.expires_at_ms)>now).map(g=>[g.device_id,g]));
  if(devices.some(d=>d.state==='pending'))throw Error('Pending device registration needs resolution before publishing a complete roster');
  const active=devices.filter(d=>d.user_id===account&&d.state==='active');
+ for(const d of active){
+  const trust=await client.functions.invoke('tsa-ciphertext-mailbox',{body:{action:'check-trust',account,device:d.device_id,nonce:crypto.randomUUID()}});
+  if(!trust.error&&trust.data?.trusted===true)eligible.set(d.device_id,d);
+ }
  if(active.length===0||active.length>16||active.some(d=>!eligible.has(d.device_id)))
   throw Error('An active device is missing current root-signed authorization');
  if(!active.some(d=>d.device_id===local.deviceId))

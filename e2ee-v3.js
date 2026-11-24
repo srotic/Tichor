@@ -52,6 +52,57 @@ async function fetchPublic(supa,id){
   pinIdentity(id,await fingerprint(data));
   return data;
 }
+// Restore the existing root only; this does not authorize a messaging device.
+// Staging bootstrap: publish the encrypted backup before the public root.
+export async function prepareLoginIdentity(supa,userId,password){
+  mustCrypto();
+  const assertCurrent=async()=>{
+    const {data,error}=await supa.auth.getUser();
+    if(error||data?.user?.id!==userId||!data.user.email_confirmed_at)throw Error('Verified account required.');
+    const current=await supa.rpc('tichor_session_is_current');
+    if(current.error||current.data!==true)throw Error('Current login required.');
+  };
+  await assertCurrent();
+  if(await dbGet(userId))return ensureIdentity(supa,userId);
+  const {data:root,error}=await supa.from('tichor_e2ee_identity_keys').select('user_id').eq('user_id',userId).maybeSingle();
+  if(error)throw error;
+  if(root)return restoreLoginIdentity(supa,userId,password);
+  const {readEncryptedIdentityBackup,storeEncryptedIdentityBackupOnce}=await import('./tase-backup-storage.mjs');
+  if(await readEncryptedIdentityBackup(supa,userId))throw Error('Interrupted identity bootstrap; recovery required before creating another root.');
+  const {createRecoverableIdentity}=await import('./tase-recoverable-identity.mjs');
+  const created=await createRecoverableIdentity({userId,password});
+  await assertCurrent();
+  await storeEncryptedIdentityBackupOnce(supa,userId,created.backup);
+  await assertCurrent();
+  const published=await supa.from('tichor_e2ee_identity_keys').insert({user_id:userId,encryption_public_jwk:created.encryption_public_jwk,signing_public_jwk:created.signing_public_jwk});
+  if(published.error)throw published.error;
+  await assertCurrent();
+  await dbPut(userId,created.keys);
+  return ensureIdentity(supa,userId);
+}
+export async function restoreLoginIdentity(supa,userId,password){
+  mustCrypto();
+  const assertCurrent=async()=>{
+    const {data,error}=await supa.auth.getUser();
+    if(error||data?.user?.id!==userId)throw Error('Recovery account mismatch.');
+    const current=await supa.rpc('tichor_session_is_current');
+    if(current.error||current.data!==true)throw Error('Recovery requires the current login session.');
+  };
+  await assertCurrent();
+  if(await dbGet(userId))return ensureIdentity(supa,userId);
+  const root=await fetchPublic(supa,userId);
+  const {readEncryptedIdentityBackup}=await import('./tase-backup-storage.mjs');
+  const backup=await readEncryptedIdentityBackup(supa,userId);
+  if(!backup)throw Error('No recoverable encryption identity backup exists.');
+  const {restoreRecoverableIdentity}=await import('./tase-recoverable-identity.mjs');
+  const keys=await restoreRecoverableIdentity({userId,password,backup,expectedPublicKeys:root});
+  await assertCurrent();
+  const latest=await fetchPublic(supa,userId);
+  if(await fingerprint(root)!==await fingerprint(latest))throw Error('Identity changed during recovery.');
+  await assertCurrent();
+  await dbPut(userId,keys);
+  return ensureIdentity(supa,userId);
+}
 export async function ensureIdentity(supa,userId){
   mustCrypto();
   if(!userId)throw Error('Sign in before enabling encryption.');
@@ -350,6 +401,19 @@ export async function discoverRecipientCertificatePreviews(supa,sender,recipient
 // TSA V3: the ORIGINAL account identity browser alone signs activation.
 // This state transition does not provide transport keys or enable delivery.
 // The privileged Edge verifier independently checks every signature and nonce.
+export async function registerPersistentDeviceTrust(supa,account,device){
+ const local=await dbGet(account);
+ const root=await fetchPublic(supa,account);
+ if(!local?.sign?.privateKey||canonicalJwk(await cryptoAPI.exportKey('jwk',local.sign.publicKey))!==canonicalJwk(root.signing_public_jwk))throw Error('Root key required');
+ const {data:d,error}=await supa.from('tichor_e2ee_devices').select('state,encryption_public_jwk,signing_public_jwk').eq('user_id',account).eq('device_id',device).maybeSingle();
+ if(error||d?.state!=='active')throw Error('Active device required');
+ const {signPersistentTrust}=await import('./tsa-persistent-device-trust.mjs');
+ const packet=await signPersistentTrust({account,device,revision:1,encryptionKey:d.encryption_public_jwk,signingKey:d.signing_public_jwk},local.sign.privateKey);
+ const root_signature=b64(packet.signature).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+ const result=await supa.functions.invoke('tsa-ciphertext-mailbox',{body:{action:'register-trust',account,device,nonce:crypto.randomUUID(),root_signature}});
+ if(result.error||result.data?.state!=='persistent-trust-registered')throw Error('Persistent trust registration failed');
+ return true;
+}
 export async function activateConfirmedDevice(supa,account,device){
  const {data:session,error:authError}=await supa.auth.getUser();
  if(authError||session?.user?.id!==account)throw Error('Account session changed; device activation blocked.');
@@ -387,7 +451,9 @@ export async function activateConfirmedDevice(supa,account,device){
    account,device,root.signing_public_jwk,registry);
   }catch{continue}
   const now=Date.now();
-  const expiresAt=Math.min(now+3600000,Number(evidence.expires_at_ms),Number(directory.expires_at_ms));
+  // Do not impose an additional one-hour cutoff on verified trust evidence.
+  // Existing server protocol still caps signed grants at 24 hours.
+  const expiresAt=Math.min(now+86400000,Number(evidence.expires_at_ms),Number(directory.expires_at_ms));
   if(expiresAt<=now+1000)continue;
   const approval=await grantModule.signActiveDeviceGrant({
    account,device,nonce:evidence.nonce,issuedAt:now,expiresAt,
@@ -401,6 +467,7 @@ export async function activateConfirmedDevice(supa,account,device){
   const {data:latest,error:latestError}=await supa.from('tichor_e2ee_devices')
    .select('state').eq('user_id',account).eq('device_id',device).maybeSingle();
   if(latestError||latest?.state!=='active')throw Error('Device activation did not persist.');
+  await registerPersistentDeviceTrust(supa,account,device);
   return {state:'active-not-delivery-authorized',device,expiresAt};
  }
  throw Error('No valid signed trust evidence; renew device enrollment before activation.');

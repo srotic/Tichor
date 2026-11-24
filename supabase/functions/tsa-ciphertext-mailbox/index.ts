@@ -28,6 +28,21 @@ async function registry(db,account,device){
  if(error||!data||data.state!=='active')throw Error('Unknown or inactive device');
  return data;
 }
+// Verify persistent trust against current registry and root, never client claims.
+async function verifyPersistentDeviceTrust(db,account,device){
+ const {data:t,error}=await db.from('tsa_persistent_device_trust').select('*').eq('user_id',account).eq('device_id',device).maybeSingle();
+ if(error)throw Error('Persistent trust lookup failed');
+ if(!t)return false;
+ const {data:d,error:de}=await db.from('tichor_e2ee_devices').select('state,encryption_public_jwk,signing_public_jwk').eq('user_id',account).eq('device_id',device).maybeSingle();
+ const {data:r,error:re}=await db.from('tichor_e2ee_identity_keys').select('signing_public_jwk').eq('user_id',account).maybeSingle();
+ if(de||re||!d||!r||d.state!=='active')throw Error('Persistent trust identity unavailable');
+ const same=(a,b)=>JSON.stringify(publicKey(a))===JSON.stringify(publicKey(b));
+ if(!same(t.root_signing_key,r.signing_public_jwk)||!same(t.encryption_key,d.encryption_public_jwk)||!same(t.signing_key,d.signing_public_jwk))throw Error('Persistent trust key mismatch');
+ if(!Number.isSafeInteger(t.revision)||t.revision<1)throw Error('Invalid trust revision');
+ const body={domain:'Tichor TSA persistent device trust v1',account,device,revision:t.revision,encryptionKey:publicKey(d.encryption_public_jwk),signingKey:publicKey(d.signing_public_jwk)};
+ if(!await verify(body,t.root_signature,r.signing_public_jwk))throw Error('Persistent trust signature invalid');
+ return true;
+}
 function isCiphertextSlot(copy){
  return copy&&typeof copy==='object'&&!Array.isArray(copy) &&
  uuid.test(copy.account)&&uuid.test(copy.device)&&copy.epk&&copy.epk.kty==='EC'&&copy.epk.crv==='P-256' &&
@@ -56,7 +71,7 @@ Deno.serve(async req=>{
   if(!jwtPart)return reply(401,'Session identifier required');
   let jwtSession;
   try {jwtSession=JSON.parse(atob(jwtPart.replace(/-/g,'+').replace(/_/g,'/'))).session_id} catch {return reply(401,'Malformed session')}
-  if(typeof jwtSession!=='string')return reply(403,'Session identifier missing');
+  if(typeof jwtSession!=='string'||!uuid.test(jwtSession))return reply(403,'Session identifier missing');
   const {data:activeSession,error:activeError}=await db.from('tichor_active_sessions').select('session_id').eq('user_id',auth.user.id).maybeSingle();
   if(activeError||activeSession?.session_id!==jwtSession)return reply(403,'Session replaced by a newer login');
 
@@ -64,12 +79,28 @@ Deno.serve(async req=>{
   const input=JSON.parse(raw);
   if(!input||typeof input!=='object'||Array.isArray(input))throw Error('Malformed request');
   const action=input.action;
-  if(action!=='publish'&&action!=='receive')throw Error('Unsupported mailbox request');
+  if(action!=='publish'&&action!=='receive'&&action!=='register-trust'&&action!=='check-trust')throw Error('Unsupported mailbox request');
   const account=id(input.account),device=id(input.device),nonce=id(input.nonce);
   if(account!==auth.user.id)throw Error('Account mismatch');
+  if(action==='check-trust'){
+   const trusted=await verifyPersistentDeviceTrust(db,account,device);
+   return reply(200,'Trust checked',{trusted});
+  }
+  if(action==='register-trust'){
+   const {data:d,error:de}=await db.from('tichor_e2ee_devices').select('*').eq('user_id',account).eq('device_id',device).maybeSingle();
+   const {data:r,error:re}=await db.from('tichor_e2ee_identity_keys').select('signing_public_jwk').eq('user_id',account).maybeSingle();
+   if(de||re||!d||!r||d.state!=='active')throw Error('Active device and root required');
+   const body={domain:'Tichor TSA persistent device trust v1',account,device,revision:1,encryptionKey:publicKey(d.encryption_public_jwk),signingKey:publicKey(d.signing_public_jwk)};
+   if(!await verify(body,input.root_signature,r.signing_public_jwk))throw Error('Root signature invalid');
+   const {error}=await db.rpc('tsa_register_persistent_trust_verified',{a_account:account,a_device:device,a_session:jwtSession,a_root:r.signing_public_jwk,a_encryption:d.encryption_public_jwk,a_signing:d.signing_public_jwk,a_signature:input.root_signature});
+   if(error)throw Error('Trust registration rejected');
+   return reply(200,'Persistent trust registered',{state:'persistent-trust-registered'});
+  }
   const issuedAt=input.issuedAt,now=Date.now();
   if(!Number.isSafeInteger(issuedAt)||issuedAt>now+30000||issuedAt<now-60000)throw Error('Stale device request');
   const row=await registry(db,account,device);
+  // Reject invalid persistent trust even during legacy grant migration.
+  await verifyPersistentDeviceTrust(db,account,device);
   // Bind exact request payload bytes to signing key for a device; immutable packet
   // JSON is hashed before the signature is checked.
   let digest=null,packet=null,destinations=null;
@@ -98,15 +129,15 @@ Deno.serve(async req=>{
   const body={domain:'Tichor TSA mailbox request v1',action,account,device,nonce,issuedAt,digest};
   if(!await verify(body,input.signature,row.signing_public_jwk))throw Error('Device possession signature invalid');
   if(action==='publish'){
-   const {data,error}=await db.rpc('tsa_publish_ciphertext_verified',{
+   const {data,error}=await db.rpc('tsa_publish_ciphertext_session_verified',{
     a_sender:account,a_peer:packet.to,a_signing_device:device,a_message:packet.messageId,
-    a_nonce:nonce,a_packet_text:input.packet_text,a_destinations:destinations
+    a_nonce:nonce,a_packet_text:input.packet_text,a_destinations:destinations,a_session:jwtSession
    });
    if(error||typeof data!=='number')throw Error('Database rejected ciphertext batch');
    return reply(200,'Ciphertext stored for all active devices',{state:'stored-staging-ciphertext',copied:data});
   }
-  const {data,error}=await db.rpc('tsa_read_ciphertext_verified',{
-   a_account:account,a_device:device,a_nonce:nonce,a_limit:30
+  const {data,error}=await db.rpc('tsa_read_ciphertext_session_verified',{
+   a_account:account,a_device:device,a_nonce:nonce,a_session:jwtSession,a_limit:30
   });
   if(error||!Array.isArray(data))throw Error('Database rejected device mailbox request');
   return reply(200,'Encrypted mailbox retrieved',{state:'staging-ciphertext-only',messages:data});
