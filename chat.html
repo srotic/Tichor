@@ -1221,6 +1221,8 @@ async function tcMaintainTsaRoster(account){
 async function tcLoadTsaRoster(account){
  const own=user?.id;
  if(!own)throw Error('Sign in required');
+ const enrollment=await taseEnrollFirstDevice(supa,own);
+ if(!['already-active','first-device-active-staging','recovered-device-active-staging'].includes(enrollment.state))throw Error('Encryption enrollment incomplete: '+enrollment.state);
  const local=await localDeviceFingerprint(supa,own);
  if(!local?.id)throw Error('Local encryption device unavailable');
  const {data,error}=await supa.functions.invoke('tsa-ciphertext-mailbox',{body:{action:'directory',account:own,device:local.id,nonce:crypto.randomUUID(),target:account}});
@@ -1716,11 +1718,13 @@ async function loggedIn(u,loginPassword){
  const onboardingAccount=u.id;
  // Staging opt-in only: never retain the login password or use it on session refresh.
  // Root preparation must finish before automatic enrollment starts.
- if(typeof loginPassword==='string' && location.hostname==='localhost' &&
-    localStorage.getItem('tichor-staging-password-recovery')==='enabled'){
+ if(typeof loginPassword==='string'){
   try{
-   const {prepareLoginIdentity}=await import('./e2ee-v3.js');
-   await prepareLoginIdentity(supa,onboardingAccount,loginPassword);
+   const backup=await readEncryptedIdentityBackup(supa,onboardingAccount);
+   if(backup){
+    const {restoreLoginIdentity}=await import('./e2ee-v3.js');
+    await restoreLoginIdentity(supa,onboardingAccount,loginPassword);
+   }
   }catch(error){
    loginPassword=undefined;
    clearInterval(tichorSessionMonitor);
@@ -1757,7 +1761,7 @@ async function loggedIn(u,loginPassword){
   linkButton.textContent=needsRecovery?'Review secure recovery options':'Review pending device approval';
   $('tcTaseStatus').textContent=result.state==='first-device-active-staging'?
    'First encryption device enrolled automatically (V3 staging). Encrypted messaging still requires verified contacts.':
-   result.state==='already-active'?'Trusted encryption device recognized. No repeated registration required.':
+   (result.state==='already-active'||result.state==='recovered-device-active-staging')?'Trusted encryption device recognized. No repeated registration required.':
    result.state==='authorization-renewal-required'?
    'Trusted device recognized, but authorization expired. Verified authorization renewal is needed; sending remains blocked.':
    needsRecovery?'Account encryption recovery is required. No keys or trusted-device permissions will be silently replaced.':
